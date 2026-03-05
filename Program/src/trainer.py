@@ -1,0 +1,42 @@
+from Config import config
+
+
+def trainer(model, train_loader, criterion, optimizer, device):
+    """
+    训练函数：封装训练过程
+    """
+    model.train()
+
+    ## 记录变量初始化
+    loss_list, true_labels, pred_labels = [], [], []
+
+    use_handcrafted_features = config.uses_handcrafted_features()
+
+    for batch in train_loader: # 遍历数据集，从train_loader中获取数据
+        if use_handcrafted_features:
+            samples, labels, handcrafted_features = batch
+            handcrafted_features = handcrafted_features.to(device)
+        else:
+            samples, labels = batch
+            handcrafted_features = None
+
+        samples, labels = samples.to(device), labels.to(device) # 将数据移动到 GPU
+        
+        ## 前向传播
+        optimizer.zero_grad() # 清空梯度
+        if use_handcrafted_features:
+            logits, prob, pred = model(samples, handcrafted_features) # 获取模型输出,概率和预测类别，其中概率暂无用处
+        else:
+            logits, prob, pred = model(samples) # 获取模型输出, 概率和预测类别
+        loss = criterion(logits, labels) # CrossEntropy损失函数会自动将 logits 转换为概率
+        ### 记录
+        loss_list.append(loss.item()) # 记录损失
+        true_labels.extend(labels.tolist()) # 真实标签
+        pred_labels.extend(pred.tolist()) # 预测标签
+
+        ## 反向传播
+        loss.backward()
+        optimizer.step()
+
+    train_loss = round(sum(loss_list) / len(loss_list), 5) # 计算平均损失
+    return train_loss, true_labels, pred_labels
