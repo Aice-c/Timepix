@@ -1,0 +1,24 @@
+# Timepix project dependencies (Python 3.12)
+# Install:
+#   pip install -r requirements.txt
+#
+# Note for GPU users:
+# PyTorch CUDA wheels may require a custom index URL from https://pytorch.org/get-started/locally/
+
+# Core numerics and plotting
+numpy>=1.26
+scipy>=1.11.4
+matplotlib>=3.8
+pandas>=2.1
+
+# Machine learning
+scikit-learn>=1.4
+torch>=2.4
+torchvision>=0.19
+
+# Notebook and image utilities used in ProcessProgram notebooks
+Pillow>=10.0
+tqdm>=4.66
+seaborn>=0.13
+ipython>=8.18
+jupyterlab>=4.0
