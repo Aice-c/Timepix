@@ -214,19 +214,32 @@ def _normalize_key(file_name: str, modality: str) -> str:
     return f"{normalized}{ext}"
 
 
-def collect_samples(data_dir: str, modalities: Sequence[str]) -> List[SampleRecord]:
+def collect_samples(data_dir: str, modalities: Sequence[str]) -> Tuple[List[SampleRecord], Dict[int, str]]:
+    """返回 (样本列表, 标签映射表)。
+    标签映射表: {连续标签int: 原始文件夹名str}，如 {0: '15', 1: '30', 2: '45', 3: '60'}。
+    """
     if not os.path.isdir(data_dir):
         raise FileNotFoundError(f'数据目录不存在: {data_dir}')
 
-    samples: List[SampleRecord] = []
-    for label_name in sorted(os.listdir(data_dir)):
-        label_dir = os.path.join(data_dir, label_name)
-        if not os.path.isdir(label_dir):
+    # 收集所有数字命名的子目录，按数值排序
+    label_dirs: List[Tuple[str, str]] = []  # (folder_name, full_path)
+    for name in os.listdir(data_dir):
+        full = os.path.join(data_dir, name)
+        if not os.path.isdir(full):
             continue
         try:
-            label = int(label_name)
+            int(name)
         except ValueError as exc:
-            raise ValueError(f'标签目录名称必须为数字: {label_name}') from exc
+            raise ValueError(f'标签目录名称必须为数字: {name}') from exc
+        label_dirs.append((name, full))
+    label_dirs.sort(key=lambda x: int(x[0]))
+
+    # 按排序顺序分配连续标签 0, 1, 2, ...
+    label_map: Dict[int, str] = {}  # 连续标签 → 原始文件夹名
+    samples: List[SampleRecord] = []
+
+    for seq_label, (folder_name, label_dir) in enumerate(label_dirs):
+        label_map[seq_label] = folder_name
 
         modality_file_sets: List[set] = []
         modality_path_maps: Dict[str, Dict[str, str]] = {}
@@ -236,7 +249,7 @@ def collect_samples(data_dir: str, modalities: Sequence[str]) -> List[SampleReco
                 raise FileNotFoundError(f'模态目录不存在: {modality_dir}')
             files = _list_files(modality_dir)
             if not files:
-                raise RuntimeError(f'模态 {modality} 在标签 {label_name} 中没有数据文件')
+                raise RuntimeError(f'模态 {modality} 在标签 {folder_name} 中没有数据文件')
             normalized_map: Dict[str, str] = {}
             for file_name in files:
                 key = _normalize_key(file_name, modality)
@@ -246,12 +259,12 @@ def collect_samples(data_dir: str, modalities: Sequence[str]) -> List[SampleReco
 
         common_files = set.intersection(*modality_file_sets) if modality_file_sets else set()
         if not common_files:
-            raise RuntimeError(f'标签 {label_name} 的不同模态文件名不一致，无法配对')
+            raise RuntimeError(f'标签 {folder_name} 的不同模态文件名不一致，无法配对')
 
         for file_name in sorted(common_files):
             samples.append(
                 SampleRecord(
-                    label=label,
+                    label=seq_label,
                     modalities={
                         modality: modality_path_maps[modality][file_name]
                         for modality in modalities
@@ -262,7 +275,7 @@ def collect_samples(data_dir: str, modalities: Sequence[str]) -> List[SampleReco
     if not samples:
         raise RuntimeError(f'在目录 {data_dir} 中未找到任何样本')
 
-    return samples
+    return samples, label_map
 
 
 def split_samples(
@@ -494,8 +507,8 @@ def build_datasets(
     per_modality_standardization: Optional[Mapping[str, Mapping[str, bool]]] = None,
     handcrafted_standardize: bool = True,
     handcrafted_stats_path: Optional[str] = None,
-) -> Tuple[ParticleDataset, ParticleDataset]:
-    samples = collect_samples(data_dir, modalities)
+) -> Tuple[ParticleDataset, ParticleDataset, Dict[int, str]]:
+    samples, label_map = collect_samples(data_dir, modalities)
     class_labels = sorted({record.label for record in samples})
     train_samples, valid_samples = split_samples(samples, train_ratio, seed)
 
@@ -574,4 +587,4 @@ def build_datasets(
         feature_scaler=feature_scaler,
     )
 
-    return train_dataset, valid_dataset
+    return train_dataset, valid_dataset, label_map

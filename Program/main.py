@@ -43,7 +43,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     ## 数据集导入和处理
-    train_dataset, valid_dataset = build_datasets(
+    train_dataset, valid_dataset, label_map = build_datasets(
         data_dir=config.data_dir,
         modalities=config.enabled_modalities(),
         train_ratio=config.train_split,
@@ -56,6 +56,7 @@ def main():
         handcrafted_standardize=config.handcrafted_standardization_enabled(),
         handcrafted_stats_path=config.handcrafted_stats_path(),
     )
+    print(f'标签映射: {label_map}')
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle, num_workers=config.num_workers, pin_memory=True)
     valid_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
