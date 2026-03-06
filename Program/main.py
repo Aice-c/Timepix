@@ -50,7 +50,7 @@ def main():
         seed=config.random_seed,
         rotation_enabled=config.rotation,
         feature_flags=config.handcrafted_features,
-        crop_size=config.feature_size,
+        crop_size=config.crop_size or 0,
         standardization_mode=config.standardization_mode(),
         per_modality_standardization=config.standardization_settings(),
         handcrafted_standardize=config.handcrafted_standardization_enabled(),

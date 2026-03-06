@@ -253,7 +253,7 @@ def parse_args():
     p.add_argument('--class-id', type=int, required=True, help='要聚类的类别编号，例如 0')
     p.add_argument('--k', type=int, default=2, help='聚类簇数，默认为 2')
     p.add_argument('--batch-size', type=int, default=64)
-    p.add_argument('--crop-size', type=int, default=config.feature_size, help='中心裁剪尺寸，与训练保持一致')
+    p.add_argument('--crop-size', type=int, default=config.crop_size or 0, help='中心裁剪尺寸，与训练保持一致。0 表示不裁剪')
     p.add_argument('--weights', type=str, default=None, help='可选：ResNet18 CNN 权重路径（若有已训练权重）')
     p.add_argument('--dest-dir0', type=str, default=None, help='可选：簇 0 输出目录（将按模态创建子目录）')
     p.add_argument('--dest-dir1', type=str, default=None, help='可选：簇 1 输出目录（将按模态创建子目录）')

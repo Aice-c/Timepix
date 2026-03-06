@@ -36,7 +36,7 @@ class config():
 
     ## 特征超参
     inchannel = len(modalities)  # 输入通道数基于模态数量
-    feature_size = 32  # 特征图大小
+    crop_size = None  # 中心裁剪尺寸（正方形边长）。None 或 0 表示不裁剪，保留原始尺寸
     cnn_feature_size = 256  # 卷积特征大小
     out_feature_size = 512  # 输出特征大小
 
