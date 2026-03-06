@@ -166,7 +166,7 @@ class ParticleDataset(Dataset):
             if self.normalizer is not None:
                 t = self.normalizer.apply(t, modality)
             channel_tensors.append(t)
-        sample_tensor = torch.cat(channel_tensors, dim=0)
+        sample_tensor = torch.cat(channel_tensors, dim=0).float()
 
         if handcrafted_features is not None:
             return sample_tensor, record.label, handcrafted_features
@@ -177,12 +177,12 @@ class ParticleDataset(Dataset):
         return len(self._class_labels)
 
     def _load_array(self, file_path: str) -> np.ndarray:
-        return np.loadtxt(file_path).astype(np.float32)
+        return np.loadtxt(file_path).astype(np.float64)
 
     def _prepare_tensor(self, sample_array: np.ndarray, rotation_index: int) -> torch.Tensor:
         tensor = self.transform(sample_array)
         if not isinstance(tensor, torch.Tensor):
-            tensor = torch.as_tensor(tensor, dtype=torch.float32)
+            tensor = torch.as_tensor(tensor, dtype=torch.float64)
         tensor = self._center_crop(tensor)
         tensor = self.rotation_augmentor.apply(tensor, rotation_index)
         return tensor
