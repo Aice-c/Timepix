@@ -2,8 +2,9 @@ import os
 
 class config():
     ## 根目录
-    root_path = os.getcwd()
-    data_dir = os.path.join(root_path, 'data/Alpha0') # alpha粒子数据集路径
+    root_path = os.path.dirname(os.path.abspath(__file__))  # Program/
+    project_root = os.path.dirname(root_path)  # Timepix/
+    data_dir = os.path.join(project_root, '..', 'Alpha0')  # Timepix外部的数据集路径
     output_path = os.path.join(root_path, 'output')
 
     ## 数据模态配置
