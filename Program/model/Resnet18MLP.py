@@ -75,7 +75,7 @@ class Model(nn.Module):
             if handcrafted_features is None:
                 raise ValueError("手工特征未提供，但配置要求使用它们")
             if handcrafted_features.dim() == 1:
-                handcrafted_features = handcrafted_features.unsqueeze(1)
+                handcrafted_features = handcrafted_features.unsqueeze(0)
             feature = torch.cat((cnn_feature, handcrafted_features), dim=1)  # 将CNN特征和手工特征拼接
         else:
             feature = cnn_feature
