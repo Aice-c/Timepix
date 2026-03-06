@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score #准确率
 from src.dataset import build_datasets 
 from src.trainer import trainer
 from src.evaluater import evaluater
+from src.logger import ExperimentLogger, config_to_dict
 from Config import config
 
 ## 清空显存
@@ -35,11 +36,40 @@ def load_model(model_name):
         raise ImportError(f"无法加载模型 {model_name}: {e}")
 
 
-## 主函数，封装训练和验证过程并输出结果
-def main():
+def run_experiment(overrides: dict = None, save_plots: bool = True):
     """
-    主函数：封装训练和验证过程并输出结果
+    核心训练/验证流程。
+
+    Parameters
+    ----------
+    overrides : dict, optional
+        用来临时覆盖 Config 中属性的字典，例如
+        {'learning_rate': 1e-4, 'dropout_rate': 0.3}
+    save_plots : bool
+        是否保存 loss/accuracy 曲线图（sweep 时可关闭以加速）
+
+    Returns
+    -------
+    best_vacc : float
+        本次实验的最佳验证集准确率（可直接用作 Optuna objective）
     """
+    # ---- 临时覆盖超参 ----
+    original_values = {}
+    if overrides:
+        for key, value in overrides.items():
+            if hasattr(config, key):
+                original_values[key] = getattr(config, key)
+                setattr(config, key, value)
+
+    try:
+        return _run_experiment_inner(save_plots)
+    finally:
+        # ---- 恢复原始值，避免污染后续实验 ----
+        for key, value in original_values.items():
+            setattr(config, key, value)
+
+
+def _run_experiment_inner(save_plots: bool):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     ## 数据集导入和处理
@@ -72,14 +102,14 @@ def main():
     
     weights = torch.tensor(config.weight, dtype=torch.float32).to(device)
     criterion = torch.nn.CrossEntropyLoss(weight=weights) # 设定损失函数权重
-    #criterion = torch.nn.CrossEntropyLoss() # 设定损失函数
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)  # 设定优化器
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)  # 设定优化器
 
     ## 训练和验证
     # 记录变量初始化
     best_epoch = 0
     best_vacc = 0
     best_tacc = 0
+    best_vloss = float('inf')
     best_vreport = None
     best_treport = None
     train_loss_history = [] #训练集损失 
@@ -114,31 +144,49 @@ def main():
             best_epoch = epoch + 1
             best_vacc = vacc
             best_tacc = tacc
+            best_vloss = vloss
             best_treport = classification_report(tlabel, tpred)
             best_vreport = classification_report(vlabel, vpred)
             #torch.save(model.state_dict(), config.output_path + f'/model_epoch_{best_epoch}.pth')
             print(f'Updated best model at epoch {best_epoch} with accuracy {best_vacc}')
 
     os.makedirs(config.output_path, exist_ok=True)  # 确保输出目录存在
-    ## 绘制损失曲线
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, config.epoch + 1), train_loss_history, label='Train Loss')
-    plt.plot(range(1, config.epoch + 1), valid_loss_history, label='Valid Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Train and Valid Loss')
-    plt.legend()
-    plt.savefig(config.output_path + '/loss_curve.png')
 
-    ## 绘制准确率曲线
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, config.epoch + 1), train_acc_history, label='Train Accuracy')
-    plt.plot(range(1, config.epoch + 1), valid_acc_history, label='Valid Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.title('Train and Valid Accuracy')
-    plt.legend()
-    plt.savefig(config.output_path + '/accuracy_curve.png')
+    ## ---- 记录实验日志 ----
+    logger = ExperimentLogger(os.path.join(config.output_path, 'experiments.csv'))
+    logger.log(
+        config_dict=config_to_dict(config),
+        result_dict={
+            'best_epoch': best_epoch,
+            'best_train_acc': round(best_tacc, 5),
+            'best_valid_acc': round(best_vacc, 5),
+            'best_valid_loss': best_vloss,
+            'final_train_loss': train_loss_history[-1] if train_loss_history else None,
+        },
+    )
+
+    if save_plots:
+        ## 绘制损失曲线
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(1, config.epoch + 1), train_loss_history, label='Train Loss')
+        plt.plot(range(1, config.epoch + 1), valid_loss_history, label='Valid Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Train and Valid Loss')
+        plt.legend()
+        plt.savefig(config.output_path + '/loss_curve.png')
+        plt.close()
+
+        ## 绘制准确率曲线
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(1, config.epoch + 1), train_acc_history, label='Train Accuracy')
+        plt.plot(range(1, config.epoch + 1), valid_acc_history, label='Valid Accuracy')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.title('Train and Valid Accuracy')
+        plt.legend()
+        plt.savefig(config.output_path + '/accuracy_curve.png')
+        plt.close()
 
     ## 打印最佳结果
     print('Train Finished! The best result is: ')
@@ -147,6 +195,17 @@ def main():
     print(f'Valid Acc: {best_vacc}')
     print(f'Best Train Classification Report: \n{best_treport}')
     print(f'Best Valid Classification Report: \n{best_vreport}')
+
+    return best_vacc
+
+
+## 主函数，封装训练和验证过程并输出结果
+def main():
+    """
+    主函数：封装训练和验证过程并输出结果
+    """
+    run_experiment()
+
 if __name__ == '__main__':
     main()
 

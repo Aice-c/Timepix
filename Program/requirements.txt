@@ -22,3 +22,6 @@ tqdm>=4.66
 seaborn>=0.13
 ipython>=8.18
 jupyterlab>=4.0
+
+# Hyperparameter optimization
+optuna>=3.5
