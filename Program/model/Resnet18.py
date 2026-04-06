@@ -48,8 +48,10 @@ class CNN(nn.Module):
         return middle_feature
 
 class Model(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, task=None):
         super(Model, self).__init__()
+        self.task = task or getattr(config, 'task', 'classification')
+
         ## 初始化CNN模型 
         self.CNN = CNN()
 
@@ -58,13 +60,21 @@ class Model(nn.Module):
         feature_dim = config.cnn_feature_size + self.handcrafted_dim
         self.attention = FC_Attention(feature_dim)  # 注意力机制输入大小根据是否使用手工特征动态调整
 
-        ## 初始化分类器  
-        self.classifier = nn.Sequential(
-            nn.Linear(feature_dim, config.out_feature_size),  # 输入大小与注意力输出一致
-            nn.ReLU(),
-            nn.Dropout(config.dropout_rate),  
-            nn.Linear(config.out_feature_size, num_classes)  # 输出层，num_classes为分类数量
-        )
+        ## 初始化输出头
+        if self.task == 'regression':
+            self.classifier = nn.Sequential(
+                nn.Linear(feature_dim, config.out_feature_size),
+                nn.ReLU(),
+                nn.Dropout(config.dropout_rate),
+                nn.Linear(config.out_feature_size, 1),
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(feature_dim, config.out_feature_size),
+                nn.ReLU(),
+                nn.Dropout(config.dropout_rate),
+                nn.Linear(config.out_feature_size, num_classes),
+            )
 
         self.supports_handcrafted_features = True
 
@@ -83,10 +93,14 @@ class Model(nn.Module):
         ## 注意力机制
         feature = self.attention(feature)
 
-        ## 分类
-        x = self.classifier(feature)  
-        
-        logits = x # 获取模型输出的logits
-        prob = F.softmax(logits, dim=1) # 获取模型分类概率
-        pred = torch.argmax(prob, dim=1) # 获取预测类别
-        return logits, prob, pred # 返回 logits, 概率和预测类别
+        ## 输出
+        output = self.classifier(feature)
+
+        if self.task == 'regression':
+            output = torch.sigmoid(output)  # 归一化到 [0, 1]
+            return output.squeeze(-1), None, None
+        else:
+            logits = output
+            prob = F.softmax(logits, dim=1)
+            pred = torch.argmax(prob, dim=1)
+            return logits, prob, pred

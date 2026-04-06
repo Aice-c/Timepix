@@ -83,7 +83,7 @@ def build_model(config, num_classes: int, device=None) -> nn.Module:
     except (ModuleNotFoundError, AttributeError) as e:
         raise ImportError(f"无法加载模型 {model_name}: {e}")
 
-    model = model_class(num_classes=num_classes)
+    model = model_class(num_classes=num_classes, task=getattr(config, 'task', 'classification'))
 
     if device is not None:
         model = model.to(device)

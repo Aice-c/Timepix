@@ -18,6 +18,9 @@ torchvision>=0.19
 
 # Notebook and image utilities used in ProcessProgram notebooks
 Pillow>=10.0
+
+# Config serialization
+pyyaml>=6.0
 tqdm>=4.66
 seaborn>=0.13
 ipython>=8.18

@@ -12,9 +12,14 @@ class config():
     #modalities = ['ToA'] # 单模态 ToA
     modalities = ['ToT'] # 单模态 ToT
 
+    ## 任务类型配置
+    task = 'classification'       # 可选值: 'classification', 'regression'
+
     ## 数据集划分
     train_split = 0.8  # 训练集比例
-    random_seed = 42  # 随机种子用于可复现的划分
+    val_split = 0.1    # 验证集比例（3-way split 时使用）
+    test_split = 0.1   # 测试集比例（3-way split 时使用）
+    random_seed = 42   # 随机种子用于可复现的划分
 
     ## 一般超参
     epoch = 20  # 训练轮数
@@ -26,20 +31,32 @@ class config():
     shuffle = True  # 是否打乱数据
     num_workers = 8  # DataLoader 的并行线程数
 
+    ## 学习率调度器
+    scheduler = 'none'            # 可选值: 'none', 'cosine'
+    early_stopping_patience = 0   # 0 表示不启用 early stopping
+
     ## 损失函数配置
-    loss_type = 'cross_entropy'   # 可选值: 'cross_entropy', 'emd'
+    loss_type = 'cross_entropy'   # 可选值: 'cross_entropy', 'emd', 'mse', 'smooth_l1'
     emd_p = 2                     # EMD 损失的阶数, 1 或 2。p=2 训练收敛更快, p=1 直接对应角度误差
 
     ## 标签编码配置
     label_encoding = 'onehot'     # 可选值: 'onehot', 'gaussian'
     gaussian_sigma = 2.0          # 高斯软标签的宽度参数(度), 仅在 label_encoding='gaussian' 时生效
 
+    ## 回归任务配置
+    max_angle = 90.0              # 用于归一化的最大角度值
+
     ## 数据增强超参
     rotation = True  # 是否使用旋转增强
 
     ## 模型超参
+    # model_name: 可选值
+    #   'Resnet18'       — 修改版 ResNet-18（基线，5 次下采样）
+    #   'ShallowCNN'     — 浅层 CNN，仅 1 次下采样，适合稀疏数据快速实验
+    #   'ShallowResNet'  — 带残差连接的浅层 CNN，仅 1 次下采样，训练更稳定
+    #   'Resnet34', 'Resnet50', 'Densenet201', 'Shufflenet' 等
     model_name = 'Resnet18'  # 模型名称
-    kernel_size = 2  # 卷积核大小
+    kernel_size = 2  # 卷积核大小（仅 Resnet18/Densenet201 等使用）
     dropout_rate = 0.1  # dropout比率
 
     ## 特征超参

@@ -61,6 +61,7 @@ class EarthMoverDistanceLoss(nn.Module):
         self.p = p
         self.label_encoding = label_encoding
         self.gaussian_sigma = gaussian_sigma
+        self.angle_values: torch.Tensor  # type hint for register_buffer
 
         # 注册角度值为 buffer（不参与梯度计算，但会随模型移动到 GPU）
         if angle_values is not None:
@@ -218,14 +219,29 @@ def build_loss_function(cfg, num_classes: int, label_map: dict) -> nn.Module:
 
     loss_type = getattr(cfg, 'loss_type', 'cross_entropy')
     label_encoding = getattr(cfg, 'label_encoding', 'onehot')
+    task = getattr(cfg, 'task', 'classification')
 
+    print(f"[Loss] 任务类型: {task}")
     print(f"[Loss] 损失函数类型: {loss_type}")
     print(f"[Loss] 标签编码方式: {label_encoding}")
     print(f"[Loss] 角度类别列表: {angle_values}")
 
+    # 回归损失
+    if task == 'regression' or loss_type in ('mse', 'smooth_l1'):
+        if loss_type == 'mse':
+            print("[Loss] 使用 MSELoss (回归)")
+            return nn.MSELoss()
+        else:
+            print("[Loss] 使用 SmoothL1Loss / Huber Loss (回归)")
+            return nn.SmoothL1Loss()
+
     if loss_type == 'cross_entropy':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        weights = torch.tensor(cfg.weight, dtype=torch.float32).to(device)
+        weight_list = getattr(cfg, 'weight', None)
+        if weight_list and len(weight_list) == num_classes:
+            weights = torch.tensor(weight_list, dtype=torch.float32).to(device)
+        else:
+            weights = None
         criterion = CrossEntropyLossWrapper(weight=weights)
         if label_encoding == 'gaussian':
             print("[Loss] 注意: cross_entropy + gaussian 组合下，软标签将被 argmax 退化为整数标签")
@@ -292,5 +308,40 @@ def compute_angle_mae(
     return {
         'ae_argmax': ae_argmax,
         'ae_weighted': ae_weighted,
+        'count': targets.shape[0],
+    }
+
+
+def compute_regression_mae(
+    predictions: torch.Tensor,
+    targets: torch.Tensor,
+    max_angle: float = 90.0,
+) -> dict:
+    """
+    计算回归任务的平均绝对角度误差。
+
+    Parameters
+    ----------
+    predictions : Tensor
+        归一化预测值 (batch_size,)，范围 [0, 1]
+    targets : Tensor
+        归一化真实值 (batch_size,)，范围 [0, 1]
+    max_angle : float
+        角度最大值，用于反归一化
+
+    Returns
+    -------
+    dict
+        {'ae': float, 'se': float, 'count': int}
+        ae: 绝对误差总和（度），se: 平方误差总和（度^2）
+    """
+    pred_angles = predictions.detach() * max_angle
+    true_angles = targets.detach() * max_angle
+    errors = pred_angles - true_angles
+    ae = errors.abs().sum().item()
+    se = (errors ** 2).sum().item()
+    return {
+        'ae': ae,
+        'se': se,
         'count': targets.shape[0],
     }

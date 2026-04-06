@@ -145,15 +145,19 @@ class ShallowResNet(nn.Module):
 
 class Model(nn.Module):
     """
-    ShallowResNet 完整模型（骨干 + 注意力 + 分类头），接口与 Resnet18.Model 保持一致。
+    ShallowResNet 完整模型（骨干 + 注意力 + 分类/回归头），接口与 Resnet18.Model 保持一致。
 
     Parameters
     ----------
     num_classes : int
-        输出类别数
+        输出类别数（分类任务时使用）
+    task : str
+        'classification' 或 'regression'
     """
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, task=None):
         super(Model, self).__init__()
+        self.task = task or getattr(config, 'task', 'classification')
+
         # 骨干网络
         self.backbone = ShallowResNet(in_channels=config.inchannel)
 
@@ -162,13 +166,21 @@ class Model(nn.Module):
         feature_dim = 256 + self.handcrafted_dim
         self.attention = FC_Attention(feature_dim)
 
-        # 分类头: Linear(feature_dim→128) + ReLU + Dropout + Linear(128→num_classes)
-        self.classifier = nn.Sequential(
-            nn.Linear(feature_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(config.dropout_rate),
-            nn.Linear(128, num_classes),
-        )
+        # 输出头
+        if self.task == 'regression':
+            self.classifier = nn.Sequential(
+                nn.Linear(feature_dim, 128),
+                nn.ReLU(),
+                nn.Dropout(config.dropout_rate),
+                nn.Linear(128, 1),
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(feature_dim, 128),
+                nn.ReLU(),
+                nn.Dropout(config.dropout_rate),
+                nn.Linear(128, num_classes),
+            )
 
         self.supports_handcrafted_features = True
 
@@ -193,8 +205,14 @@ class Model(nn.Module):
         # 注意力加权
         feature = self.attention(feature)
 
-        # 分类
-        logits = self.classifier(feature)       # (batch, num_classes)
-        prob = F.softmax(logits, dim=1)          # (batch, num_classes)
-        pred = torch.argmax(prob, dim=1)         # (batch,)
-        return logits, prob, pred
+        # 输出
+        output = self.classifier(feature)
+
+        if self.task == 'regression':
+            output = torch.sigmoid(output)  # 归一化到 [0, 1]
+            return output.squeeze(-1), None, None
+        else:
+            logits = output
+            prob = F.softmax(logits, dim=1)
+            pred = torch.argmax(prob, dim=1)
+            return logits, prob, pred

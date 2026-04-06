@@ -124,6 +124,9 @@ class ParticleDataset(Dataset):
         crop_size: int,
         normalizer: Optional[Normalizer] = None,
         feature_scaler: Optional["HandcraftedFeatureScaler"] = None,
+        task: str = 'classification',
+        label_map: Optional[Dict[int, str]] = None,
+        max_angle: float = 90.0,
     ) -> None:
         self._base_samples = list(samples)
         self._class_labels = list(class_labels)
@@ -134,6 +137,9 @@ class ParticleDataset(Dataset):
         self.crop_size = crop_size
         self.normalizer = normalizer
         self.feature_scaler = feature_scaler
+        self.task = task
+        self.label_map = label_map or {}
+        self.max_angle = max_angle
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -168,9 +174,16 @@ class ParticleDataset(Dataset):
             channel_tensors.append(t)
         sample_tensor = torch.cat(channel_tensors, dim=0).float()
 
+        # 根据任务类型决定标签格式
+        if self.task == 'regression':
+            angle_value = float(self.label_map.get(record.label, record.label))
+            label = torch.tensor(angle_value / self.max_angle, dtype=torch.float32)
+        else:
+            label = record.label
+
         if handcrafted_features is not None:
-            return sample_tensor, record.label, handcrafted_features
-        return sample_tensor, record.label
+            return sample_tensor, label, handcrafted_features
+        return sample_tensor, label
 
     @property
     def num_classes(self) -> int:
@@ -327,6 +340,97 @@ def split_samples(
     valid_samples = [samples[i] for i in valid_indices]
 
     return train_samples, valid_samples
+
+
+def split_samples_three_way(
+    samples: Sequence[SampleRecord],
+    train_ratio: float,
+    val_ratio: float,
+    test_ratio: float,
+    seed: int,
+) -> Tuple[List[SampleRecord], List[SampleRecord], List[SampleRecord]]:
+    """
+    按类别分层 3-way 划分: train / val / test。
+    """
+    total = train_ratio + val_ratio + test_ratio
+    if abs(total - 1.0) > 1e-6:
+        raise ValueError(f'三个比例之和须为 1.0, 当前为 {total}')
+
+    by_label: Dict[int, List[int]] = {}
+    for idx, rec in enumerate(samples):
+        by_label.setdefault(rec.label, []).append(idx)
+
+    rng = random.Random(seed)
+    train_indices: List[int] = []
+    val_indices: List[int] = []
+    test_indices: List[int] = []
+
+    for label in sorted(by_label.keys()):
+        idxs = by_label[label]
+        rng.shuffle(idxs)
+        n = len(idxs)
+        k_train = max(1, int(n * train_ratio))
+        k_val = max(1, int(n * val_ratio))
+        # 确保 test 非空（如果样本数足够）
+        if n >= 3:
+            k_train = min(k_train, n - 2)
+            k_val = min(k_val, n - k_train - 1)
+        elif n == 2:
+            k_train = 1
+            k_val = 1
+        else:
+            k_train = 1
+            k_val = 0
+
+        train_indices.extend(idxs[:k_train])
+        val_indices.extend(idxs[k_train:k_train + k_val])
+        test_indices.extend(idxs[k_train + k_val:])
+
+    return (
+        [samples[i] for i in train_indices],
+        [samples[i] for i in val_indices],
+        [samples[i] for i in test_indices],
+    )
+
+
+def save_split_indices(
+    all_samples: Sequence[SampleRecord],
+    train_samples: Sequence[SampleRecord],
+    val_samples: Sequence[SampleRecord],
+    test_samples: Sequence[SampleRecord],
+    save_path: str,
+) -> None:
+    """保存数据划分索引到 pickle 文件，确保所有实验使用相同划分。"""
+    import pickle
+    # 建立路径到索引的映射
+    path_to_idx = {}
+    for i, s in enumerate(all_samples):
+        key = tuple(sorted(s.modalities.items()))
+        path_to_idx[key] = i
+
+    def get_indices(subset):
+        return [path_to_idx[tuple(sorted(s.modalities.items()))] for s in subset]
+
+    data = {
+        'train_indices': get_indices(train_samples),
+        'val_indices': get_indices(val_samples),
+        'test_indices': get_indices(test_samples),
+    }
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    with open(save_path, 'wb') as f:
+        pickle.dump(data, f)
+    print(f"[Data] 数据划分索引已保存到 {save_path}")
+
+
+def load_split_indices(all_samples: Sequence[SampleRecord], load_path: str):
+    """从已保存的索引文件加载划分。"""
+    import pickle
+    with open(load_path, 'rb') as f:
+        data = pickle.load(f)
+    train = [all_samples[i] for i in data['train_indices']]
+    val = [all_samples[i] for i in data['val_indices']]
+    test = [all_samples[i] for i in data['test_indices']]
+    return train, val, test
 
 
 def _compute_standardization_stats(
@@ -507,10 +611,42 @@ def build_datasets(
     per_modality_standardization: Optional[Mapping[str, Mapping[str, bool]]] = None,
     handcrafted_standardize: bool = True,
     handcrafted_stats_path: Optional[str] = None,
-) -> Tuple[ParticleDataset, ParticleDataset, Dict[int, str]]:
+    val_ratio: float = 0.0,
+    test_ratio: float = 0.0,
+    split_indices_path: Optional[str] = None,
+    task: str = 'classification',
+    label_map_override: Optional[Dict[int, str]] = None,
+    max_angle: float = 90.0,
+):
+    """
+    构建数据集。
+
+    新增参数:
+    - val_ratio, test_ratio: >0 时使用 3-way split (train/val/test)，返回 3 个数据集
+    - split_indices_path: 若提供且文件存在，从中加载已有划分；否则执行划分并保存
+    - task: 'classification' 或 'regression'
+    - max_angle: 回归时的最大角度归一化值
+    """
     samples, label_map = collect_samples(data_dir, modalities)
     class_labels = sorted({record.label for record in samples})
-    train_samples, valid_samples = split_samples(samples, train_ratio, seed)
+
+    use_three_way = (val_ratio > 0 and test_ratio > 0)
+
+    if use_three_way:
+        # 3-way split: train / val / test
+        if split_indices_path and os.path.isfile(split_indices_path):
+            print(f"[Data] 从已有文件加载数据划分: {split_indices_path}")
+            train_samples, val_samples, test_samples = load_split_indices(samples, split_indices_path)
+        else:
+            train_samples, val_samples, test_samples = split_samples_three_way(
+                samples, train_ratio, val_ratio, test_ratio, seed
+            )
+            if split_indices_path:
+                save_split_indices(samples, train_samples, val_samples, test_samples, split_indices_path)
+    else:
+        # 传统 2-way split
+        train_samples, val_samples = split_samples(samples, train_ratio, seed)
+        test_samples = None
 
     # 基于训练集统计量构建 Normalizer（按模态配置）
     normalizer: Optional[Normalizer] = None
@@ -563,28 +699,27 @@ def build_datasets(
                     print(f"[WARN] 无法保存手工特征统计量到 {handcrafted_stats_path}: {e}")
     rotation_augmentor = RotationAugmentor(rotation_enabled)
 
-    train_dataset = ParticleDataset(
-        samples=train_samples,
-        class_labels=class_labels,
-        modalities=modalities,
-        feature_extractor=feature_extractor,
-        rotation_augmentor=rotation_augmentor,
-        is_training=True,
-        crop_size=crop_size,
-        normalizer=normalizer,
-        feature_scaler=feature_scaler,
-    )
+    def _make_dataset(subset_samples, is_training):
+        return ParticleDataset(
+            samples=subset_samples,
+            class_labels=class_labels,
+            modalities=modalities,
+            feature_extractor=feature_extractor,
+            rotation_augmentor=rotation_augmentor,
+            is_training=is_training,
+            crop_size=crop_size,
+            normalizer=normalizer,
+            feature_scaler=feature_scaler,
+            task=task,
+            label_map=label_map,
+            max_angle=max_angle,
+        )
 
-    valid_dataset = ParticleDataset(
-        samples=valid_samples,
-        class_labels=class_labels,
-        modalities=modalities,
-        feature_extractor=feature_extractor,
-        rotation_augmentor=rotation_augmentor,
-        is_training=False,
-        crop_size=crop_size,
-        normalizer=normalizer,
-        feature_scaler=feature_scaler,
-    )
+    train_dataset = _make_dataset(train_samples, True)
+    val_dataset = _make_dataset(val_samples, False)
 
-    return train_dataset, valid_dataset, label_map
+    if use_three_way:
+        test_dataset = _make_dataset(test_samples, False)
+        return train_dataset, val_dataset, test_dataset, label_map
+
+    return train_dataset, val_dataset, label_map
