@@ -16,6 +16,7 @@ from src.dataset import build_datasets
 from src.trainer import trainer
 from src.evaluater import evaluater
 from src.logger import ExperimentLogger, config_to_dict
+from src.losses import build_loss_function
 from Config import config
 
 ## 清空显存
@@ -100,9 +101,15 @@ def _run_experiment_inner(save_plots: bool):
             f"当前模型 {config.model_name} 不支持手工特征，请在 Config.handcrafted_features 中关闭或切换模型。"
         )
     
-    weights = torch.tensor(config.weight, dtype=torch.float32).to(device)
-    criterion = torch.nn.CrossEntropyLoss(weight=weights) # 设定损失函数权重
+    criterion = build_loss_function(config, num_classes=train_dataset.num_classes, label_map=label_map)
+    criterion = criterion.to(device)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)  # 设定优化器
+
+    # 构建角度值张量，用于 MAE 计算
+    angle_values = torch.tensor(
+        [float(label_map[i]) for i in range(train_dataset.num_classes)],
+        dtype=torch.float32,
+    ).to(device)
 
     ## 训练和验证
     # 记录变量初始化
@@ -110,6 +117,8 @@ def _run_experiment_inner(save_plots: bool):
     best_vacc = 0
     best_tacc = 0
     best_vloss = float('inf')
+    best_vmae_argmax = float('inf')
+    best_vmae_weighted = float('inf')
     best_vreport = None
     best_treport = None
     train_loss_history = [] #训练集损失 
@@ -117,26 +126,37 @@ def _run_experiment_inner(save_plots: bool):
     train_acc_history = [] #训练集准确率
     valid_acc_history = [] #验证集准确率
 
+    train_mae_argmax_history = []   # 训练集 MAE (argmax)
+    train_mae_weighted_history = []  # 训练集 MAE (weighted)
+    valid_mae_argmax_history = []    # 验证集 MAE (argmax)
+    valid_mae_weighted_history = []  # 验证集 MAE (weighted)
+
     for epoch in range(config.epoch):
         print(f'---------Epoch {epoch+1}/{config.epoch}------------')
         ## 训练
-        tloss, tlabel, tpred = trainer(model, train_loader, criterion, optimizer, device)
+        tloss, tlabel, tpred, tmae = trainer(model, train_loader, criterion, optimizer, device, angle_values=angle_values)
         tacc = accuracy_score(tlabel, tpred) # 计算训练集准确率
         train_loss_history.append(tloss)
         train_acc_history.append(tacc)
+        train_mae_argmax_history.append(tmae['mae_argmax'])
+        train_mae_weighted_history.append(tmae['mae_weighted'])
 
         print(f'Train Loss: {tloss}')
         print(f'Train Accuracy: {tacc}')
+        print(f'Train MAE (argmax): {tmae["mae_argmax"]:.2f}°  (weighted): {tmae["mae_weighted"]:.2f}°')
         print(f'Classification Report:\n{classification_report(tlabel, tpred)}')
         
         ## 验证
-        vloss, vlabel, vpred = evaluater(model, valid_loader, criterion, device)
+        vloss, vlabel, vpred, vmae = evaluater(model, valid_loader, criterion, device, angle_values=angle_values)
         vacc = accuracy_score(vlabel, vpred)
         valid_loss_history.append(vloss)
         valid_acc_history.append(vacc)
+        valid_mae_argmax_history.append(vmae['mae_argmax'])
+        valid_mae_weighted_history.append(vmae['mae_weighted'])
 
         print(f'Valid Loss: {vloss}')
         print(f'Valid Accuracy: {vacc}')
+        print(f'Valid MAE (argmax): {vmae["mae_argmax"]:.2f}°  (weighted): {vmae["mae_weighted"]:.2f}°')
         print(f'Classification Report:\n{classification_report(vlabel, vpred)}')
         
         ## 保存模型
@@ -145,6 +165,8 @@ def _run_experiment_inner(save_plots: bool):
             best_vacc = vacc
             best_tacc = tacc
             best_vloss = vloss
+            best_vmae_argmax = vmae['mae_argmax']
+            best_vmae_weighted = vmae['mae_weighted']
             best_treport = classification_report(tlabel, tpred)
             best_vreport = classification_report(vlabel, vpred)
             #torch.save(model.state_dict(), config.output_path + f'/model_epoch_{best_epoch}.pth')
@@ -161,6 +183,8 @@ def _run_experiment_inner(save_plots: bool):
             'best_train_acc': round(best_tacc, 5),
             'best_valid_acc': round(best_vacc, 5),
             'best_valid_loss': best_vloss,
+            'best_valid_mae_argmax': round(best_vmae_argmax, 3),
+            'best_valid_mae_weighted': round(best_vmae_weighted, 3),
             'final_train_loss': train_loss_history[-1] if train_loss_history else None,
         },
     )
@@ -193,6 +217,7 @@ def _run_experiment_inner(save_plots: bool):
     print(f'Best Epoch: {best_epoch}')
     print(f'Train Acc: {best_tacc}') 
     print(f'Valid Acc: {best_vacc}')
+    print(f'Valid MAE (argmax): {best_vmae_argmax:.2f}°  (weighted): {best_vmae_weighted:.2f}°')
     print(f'Best Train Classification Report: \n{best_treport}')
     print(f'Best Valid Classification Report: \n{best_vreport}')
 

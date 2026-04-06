@@ -1,8 +1,9 @@
 import torch
 from Config import config
+from src.losses import compute_angle_mae
 
 
-def evaluater(model, test_loader, criterion, device):
+def evaluater(model, test_loader, criterion, device, angle_values=None):
     """
     验证函数：封装验证过程
     """
@@ -10,6 +11,9 @@ def evaluater(model, test_loader, criterion, device):
 
     ## 记录变量初始化
     loss_list, true_labels, pred_labels = [], [], []
+    total_ae_argmax = 0.0
+    total_ae_weighted = 0.0
+    total_count = 0
 
     with torch.no_grad(): # 禁用梯度计算
         use_handcrafted_features = config.uses_handcrafted_features()
@@ -33,9 +37,24 @@ def evaluater(model, test_loader, criterion, device):
             loss = criterion(logits, labels) # 计算损失 
             loss_list.append(loss.item()) # 记录损失 
             true_labels.extend(labels.tolist()) # 真实标签 
-            pred_labels.extend(pred.tolist()) # 预测标签 
+            pred_labels.extend(pred.tolist()) # 预测标签
+
+            ### MAE 计算
+            if angle_values is not None:
+                mae_batch = compute_angle_mae(logits, labels, angle_values)
+                total_ae_argmax += mae_batch['ae_argmax']
+                total_ae_weighted += mae_batch['ae_weighted']
+                total_count += mae_batch['count']
             
             ## 验证无反向传播过程 
-        test_loss = round(sum(loss_list) / len(loss_list), 5) # 计算平均损失 
-    return test_loss, true_labels, pred_labels
+        test_loss = round(sum(loss_list) / len(loss_list), 5) # 计算平均损失
+
+    mae_dict = {'mae_argmax': 0.0, 'mae_weighted': 0.0}
+    if angle_values is not None and total_count > 0:
+        mae_dict = {
+            'mae_argmax': total_ae_argmax / total_count,
+            'mae_weighted': total_ae_weighted / total_count,
+        }
+
+    return test_loss, true_labels, pred_labels, mae_dict
 

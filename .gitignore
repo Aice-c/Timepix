@@ -10,3 +10,7 @@ __pycache__/
 # Ignore AlphaAnalysis outputs
 Program/output/
 Program/result/
+
+# 结果和数据
+representation/
+output/

@@ -1,7 +1,8 @@
 from Config import config
+from src.losses import compute_angle_mae
 
 
-def trainer(model, train_loader, criterion, optimizer, device):
+def trainer(model, train_loader, criterion, optimizer, device, angle_values=None):
     """
     训练函数：封装训练过程
     """
@@ -9,6 +10,9 @@ def trainer(model, train_loader, criterion, optimizer, device):
 
     ## 记录变量初始化
     loss_list, true_labels, pred_labels = [], [], []
+    total_ae_argmax = 0.0
+    total_ae_weighted = 0.0
+    total_count = 0
 
     use_handcrafted_features = config.uses_handcrafted_features()
 
@@ -34,9 +38,24 @@ def trainer(model, train_loader, criterion, optimizer, device):
         true_labels.extend(labels.tolist()) # 真实标签
         pred_labels.extend(pred.tolist()) # 预测标签
 
+        ### MAE 计算（不参与梯度计算）
+        if angle_values is not None:
+            mae_batch = compute_angle_mae(logits, labels, angle_values)
+            total_ae_argmax += mae_batch['ae_argmax']
+            total_ae_weighted += mae_batch['ae_weighted']
+            total_count += mae_batch['count']
+
         ## 反向传播
         loss.backward()
         optimizer.step()
 
     train_loss = round(sum(loss_list) / len(loss_list), 5) # 计算平均损失
-    return train_loss, true_labels, pred_labels
+
+    mae_dict = {'mae_argmax': 0.0, 'mae_weighted': 0.0}
+    if angle_values is not None and total_count > 0:
+        mae_dict = {
+            'mae_argmax': total_ae_argmax / total_count,
+            'mae_weighted': total_ae_weighted / total_count,
+        }
+
+    return train_loss, true_labels, pred_labels, mae_dict

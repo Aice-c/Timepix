@@ -57,6 +57,10 @@ def config_to_dict(cfg) -> dict:
     return {
         'model_name': cfg.model_name,
         'modalities': '+'.join(cfg.modalities),
+        'loss_type': getattr(cfg, 'loss_type', 'cross_entropy'),
+        'label_encoding': getattr(cfg, 'label_encoding', 'onehot'),
+        'emd_p': getattr(cfg, 'emd_p', 2),
+        'gaussian_sigma': getattr(cfg, 'gaussian_sigma', 2.0),
         'epoch': cfg.epoch,
         'learning_rate': cfg.learning_rate,
         'weight_decay': cfg.weight_decay,

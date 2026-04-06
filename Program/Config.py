@@ -26,6 +26,14 @@ class config():
     shuffle = True  # 是否打乱数据
     num_workers = 8  # DataLoader 的并行线程数
 
+    ## 损失函数配置
+    loss_type = 'cross_entropy'   # 可选值: 'cross_entropy', 'emd'
+    emd_p = 2                     # EMD 损失的阶数, 1 或 2。p=2 训练收敛更快, p=1 直接对应角度误差
+
+    ## 标签编码配置
+    label_encoding = 'onehot'     # 可选值: 'onehot', 'gaussian'
+    gaussian_sigma = 2.0          # 高斯软标签的宽度参数(度), 仅在 label_encoding='gaussian' 时生效
+
     ## 数据增强超参
     rotation = True  # 是否使用旋转增强
 
