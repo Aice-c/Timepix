@@ -2,7 +2,6 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import importlib
 import os
 
 ## 评估模块
@@ -17,24 +16,11 @@ from src.trainer import trainer
 from src.evaluater import evaluater
 from src.logger import ExperimentLogger, config_to_dict
 from src.losses import build_loss_function
+from model.utils import build_model
 from Config import config
 
 ## 清空显存
 torch.cuda.empty_cache()
-
-## 动态导入模型
-def load_model(model_name):
-    """
-    根据模型名称动态加载模型类
-    """
-    module_name = f"model.{model_name}"  # 模块路径
-    class_name = "Model"  # 假设模型类名统一为 Model
-    try:
-        module = importlib.import_module(module_name)  # 动态导入模块
-        model_class = getattr(module, class_name)  # 获取类
-        return model_class
-    except (ModuleNotFoundError, AttributeError) as e:
-        raise ImportError(f"无法加载模型 {model_name}: {e}")
 
 
 def run_experiment(overrides: dict = None, save_plots: bool = True):
@@ -92,9 +78,8 @@ def _run_experiment_inner(save_plots: bool):
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle, num_workers=config.num_workers, pin_memory=True)
     valid_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
 
-    ## 模型导入
-    model_class = load_model(config.model_name) # 动态导入模型
-    model = model_class(num_classes=train_dataset.num_classes).to(device) # 实例化模型
+    ## 模型导入（通过工厂函数，自动打印架构摘要和参数量）
+    model = build_model(config, num_classes=train_dataset.num_classes, device=device)
 
     if config.uses_handcrafted_features() and not getattr(model, 'supports_handcrafted_features', False):
         raise ValueError(
