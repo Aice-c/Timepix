@@ -262,18 +262,37 @@ def main():
     if failed:
         print(f"\n  失败的实验: {', '.join(failed)}")
 
-    # 保存汇总 CSV
+    # 保存汇总 CSV（合并已有结果，避免单组重跑覆盖全部）
     if summary_rows:
         import csv
         csv_path = os.path.join(output_root, 'all_results_summary.csv')
+        # 读取已有的汇总
+        existing_rows = {}
+        if os.path.isfile(csv_path):
+            with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    existing_rows[row['config']] = row
+        # 用本轮结果覆盖对应 config
+        for row in summary_rows:
+            existing_rows[row['config']] = row
+        # 按 config 字母排序写入
+        merged = [existing_rows[k] for k in sorted(existing_rows.keys())]
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=summary_rows[0].keys())
             writer.writeheader()
-            writer.writerows(summary_rows)
+            writer.writerows(merged)
         print(f"\n  汇总表已保存到 {csv_path}")
 
-    # 保存完整结果 JSON（不含不可序列化的对象）
+    # 保存完整结果 JSON（合并已有结果）
     json_path = os.path.join(output_root, 'all_results_detail.json')
+    existing_json = {}
+    if os.path.isfile(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                existing_json = json.load(f)
+        except Exception:
+            pass
     serializable = {}
     for k, v in all_results.items():
         row = {}
@@ -285,8 +304,10 @@ def main():
             elif isinstance(rv, list) and len(rv) < 50:
                 row[rk] = rv
         serializable[k] = row
+    # 合并旧结果
+    existing_json.update(serializable)
     with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(serializable, f, ensure_ascii=False, indent=2)
+        json.dump(existing_json, f, ensure_ascii=False, indent=2)
 
     print(f"\n{'═'*60}")
     print("  全部实验完成！")
