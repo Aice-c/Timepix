@@ -76,6 +76,7 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 - 按类别分层划分训练、验证、测试集。
 - 保存或复用 split manifest，保证不同实验划分一致。
 - 读取 `.txt` 矩阵为 numpy 数组。
+- 按 `data.dtype` 控制读取精度，默认 `float32`。
 - 转成 PyTorch tensor。
 - 可选中心裁剪。
 - 可选 90 度旋转增强。
@@ -211,7 +212,7 @@ gated   拼接后做 feature-wise gate，再分类
 
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
-3. 逐步迁移/适配旧模型。
-4. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
-5. 根据论文需要补充更多 grid 配置。
-
+3. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
+4. 逐步迁移/适配旧模型。
+5. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
+6. 根据论文需要补充更多 grid 配置。

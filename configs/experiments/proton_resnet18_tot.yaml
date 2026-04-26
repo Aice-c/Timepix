@@ -41,6 +41,7 @@ split:
 
 data:
   crop_size: 0
+  dtype: float32
 
 normalization:
   ToT:
@@ -58,4 +59,3 @@ handcrafted_features:
 
 output:
   root: outputs/experiments
-
