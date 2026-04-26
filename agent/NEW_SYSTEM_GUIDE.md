@@ -228,6 +228,29 @@ data:
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 
+如果服务器报：
+
+```text
+ModuleNotFoundError: No module named 'timepix.data'
+```
+
+说明 `timepix/data/` 代码目录没有同步到服务器。原因通常是 `.gitignore` 把 `Data/` 写成了非根目录规则，导致 Git 在 Windows 上也忽略了 `timepix/data/`。正确规则应该是：
+
+```gitignore
+/Data/
+/Program/data/
+```
+
+然后在笔记本上提交：
+
+```bash
+git add .gitignore timepix/data
+git commit -m "Track timepix data package"
+git push
+```
+
+服务器再执行 `git pull`。
+
 下一步建议在服务器上先跑一个小实验：
 
 ```bash
