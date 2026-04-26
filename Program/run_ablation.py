@@ -152,7 +152,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    output_root = args.output_dir or config.output_path
+    output_root = args.output_dir or os.path.join(config.output_path, 'ablation_results')
     os.makedirs(output_root, exist_ok=True)
 
     # 数据划分索引文件路径（所有实验共享）

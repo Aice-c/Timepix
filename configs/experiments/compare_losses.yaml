@@ -1,0 +1,10 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: compare_losses_alpha_tot
+
+grid:
+  loss:
+    - {name: cross_entropy, label_encoding: onehot}
+    - {name: emd, label_encoding: onehot, emd_p: 2}
+    - {name: emd, label_encoding: gaussian, gaussian_sigma: 2.0, emd_p: 2}
+

@@ -1,0 +1,7 @@
+base: alpha_resnet18_tot_handcrafted_concat.yaml
+
+experiment_name: alpha_resnet18_tot_handcrafted_gated
+
+model:
+  fusion_mode: gated
+

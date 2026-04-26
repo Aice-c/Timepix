@@ -1,0 +1,8 @@
+name: alpha_clean
+particle: alpha
+root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha_Clean
+available_modalities: [ToT, ToA]
+default_modalities: [ToT, ToA]
+label_type: angle_folder
+sample_shape: [50, 50]
+

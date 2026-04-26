@@ -1,0 +1,8 @@
+name: proton_c_tot
+particle: proton
+root: ${TIMEPIX_DATA_ROOT:-Data}/Proton_C
+available_modalities: [ToT]
+default_modalities: [ToT]
+label_type: angle_folder
+sample_shape: [50, 50]
+

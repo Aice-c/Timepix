@@ -388,7 +388,7 @@ def main():
     args = parser.parse_args()
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = args.output_dir or os.path.join(script_dir, 'output')
+    output_dir = args.output_dir or os.path.join(script_dir, 'output', 'ablation_results')
 
     generate_report(output_dir)
 

@@ -1,0 +1,13 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: alpha_resnet18_tot_handcrafted_concat
+
+model:
+  fusion_mode: concat
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  features:
+    ToT: [total_energy]
+

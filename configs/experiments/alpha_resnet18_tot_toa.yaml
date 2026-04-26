@@ -1,0 +1,16 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: alpha_resnet18_tot_toa
+
+dataset:
+  modalities: [ToT, ToA]
+
+model:
+  fusion_mode: none
+
+normalization:
+  ToA:
+    enabled: true
+    log1p: true
+    ignore_zero: true
+

@@ -572,9 +572,9 @@ def main():
     parser.add_argument('--output_dir', type=str, default=None, help='输出根目录')
     args = parser.parse_args()
 
-    # 定位 output 目录
+    # 定位 ablation_results 目录
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = args.output_dir or os.path.join(script_dir, 'output')
+    output_dir = args.output_dir or os.path.join(script_dir, 'output', 'ablation_results')
 
     fig_dir = os.path.join(output_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
