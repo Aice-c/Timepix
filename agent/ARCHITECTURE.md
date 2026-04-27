@@ -36,14 +36,15 @@ owns the experiment loop:
 1. Load an experiment YAML and merge its dataset YAML.
 2. Apply CLI overrides from `--data-root`, `--output-root`, `--name`,
    `--resume`, and `--set`.
-3. Build train/validation/test dataloaders with `timepix.data.build_dataloaders`.
-4. Build a model with `timepix.models.build_model`.
-5. Build a loss function with `timepix.losses.build_loss`.
-6. Train with `timepix.training.trainer.train_one_epoch`.
-7. Validate with `timepix.training.trainer.evaluate`.
-8. Track the best validation result and save `best_model.pth` whenever it
+3. Validate the resolved config with `timepix.config_validation`.
+4. Build train/validation/test dataloaders with `timepix.data.build_dataloaders`.
+5. Build a model with `timepix.models.build_model`.
+6. Build a loss function with `timepix.losses.build_loss`.
+7. Train with `timepix.training.trainer.train_one_epoch`.
+8. Validate with `timepix.training.trainer.evaluate`.
+9. Track the best validation result and save `best_model.pth` whenever it
    improves.
-9. Save `training_log.csv`, `config.yaml`, `last_checkpoint.pth`,
+10. Save `training_log.csv`, `config.yaml`, `last_checkpoint.pth`,
    `predictions.csv`, `metrics.json`, and `metadata.json`.
 
 `last_checkpoint.pth` is updated after each completed epoch and contains model,
@@ -157,10 +158,12 @@ Angle-aware metrics:
 `scripts/train.py` runs a single experiment YAML.
 
 `scripts/run_grid.py` expands a grid config and runs multiple experiments.
+It supports `--skip-existing`, `--continue-on-error`, and CSV grid manifests
+under `outputs/grid_manifests/`.
 
 `scripts/summarize.py` rebuilds summary CSV files from experiment outputs,
 including model hyperparameters such as conv1 kernel/stride/padding and
-dropout.
+dropout, early-stopping state, training hyperparameters, and git metadata.
 
 `configs/experiments/a1_resnet18_original_baseline.yaml` defines the original
 ResNet18 baseline for A1. `configs/experiments/a1_structure_adaptation.yaml`

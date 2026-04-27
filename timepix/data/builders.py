@@ -33,6 +33,13 @@ def _default_split_path(cfg: dict[str, Any], modalities: list[str]) -> Path:
     return PROJECT_ROOT / "outputs" / "splits" / name
 
 
+def _label_counts(records, label_map: dict[int, str]) -> dict[str, int]:
+    counts = {str(label_map[label]): 0 for label in sorted(label_map)}
+    for record in records:
+        counts[str(label_map[record.label])] += 1
+    return counts
+
+
 def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None):
     dataset_cfg = cfg["dataset"]
     modalities = list(dataset_cfg.get("modalities") or dataset_cfg.get("default_modalities") or ["ToT"])
@@ -153,6 +160,11 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
             "train": len(train_records),
             "val": len(val_records),
             "test": len(test_records),
+        },
+        "split_label_counts": {
+            "train": _label_counts(train_records, label_map),
+            "val": _label_counts(val_records, label_map),
+            "test": _label_counts(test_records, label_map),
         },
         "handcrafted_dim": feature_extractor.dim,
         "handcrafted_features": feature_extractor.enabled_features,

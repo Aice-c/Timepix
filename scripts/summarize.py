@@ -36,6 +36,13 @@ SUMMARY_FIELDS = [
     "loss",
     "label_encoding",
     "best_epoch",
+    "stopped_epoch",
+    "max_epochs",
+    "early_stopped",
+    "seed",
+    "learning_rate",
+    "batch_size",
+    "scheduler",
     "val_accuracy",
     "test_accuracy",
     "val_mae_argmax",
@@ -44,6 +51,8 @@ SUMMARY_FIELDS = [
     "test_p90_error",
     "test_macro_f1",
     "params_total",
+    "git_commit",
+    "git_dirty",
 ]
 
 
@@ -86,6 +95,8 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     test = metrics.get("test", {})
     model = metadata.get("model", {})
     loss = metadata.get("loss", {})
+    training = metadata.get("training", {})
+    git = metadata.get("git", {})
     return {
         "experiment_group": _infer_group(metadata, metadata_path, root, recursive),
         "experiment_name": metadata.get("experiment_name"),
@@ -105,6 +116,13 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "loss": loss.get("name"),
         "label_encoding": loss.get("label_encoding"),
         "best_epoch": metrics.get("best_epoch"),
+        "stopped_epoch": metrics.get("stopped_epoch"),
+        "max_epochs": metrics.get("max_epochs"),
+        "early_stopped": metrics.get("early_stopped"),
+        "seed": training.get("seed"),
+        "learning_rate": training.get("learning_rate"),
+        "batch_size": training.get("batch_size"),
+        "scheduler": training.get("scheduler"),
         "val_accuracy": val.get("accuracy"),
         "test_accuracy": test.get("accuracy"),
         "val_mae_argmax": val.get("mae_argmax", val.get("mae")),
@@ -113,6 +131,8 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "test_p90_error": test.get("p90_error"),
         "test_macro_f1": test.get("macro_f1"),
         "params_total": metadata.get("param_count", {}).get("total"),
+        "git_commit": git.get("commit"),
+        "git_dirty": git.get("dirty"),
     }
 
 

@@ -22,6 +22,7 @@ configs/*.yaml
 
 ```text
 读取 YAML 配置
+  -> 校验配置字段、模型名、损失函数、模态约束和 split 比例
   -> 校验数据集支持的模态
   -> 收集数据文件并配对已启用模态
   -> 划分 train/val/test，并保存/复用 split manifest
@@ -41,7 +42,7 @@ configs/*.yaml
 
 主要配置目录：
 
-- `configs/datasets/`：描述数据集事实，例如 alpha 有 ToT/ToA，C/质子只有 ToT。
+- `configs/datasets/`：描述数据集事实，例如 `Alpha` 有 ToT/ToA，`Proton_C` 只有 ToT。
 - `configs/experiments/`：描述一次实验怎么跑。
 
 示例命令：
@@ -60,9 +61,9 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 
 ## 3. 数据集模态约束
 
-- alpha 数据集可以使用 `['ToT']`、`['ToA']` 或 `['ToT', 'ToA']`。
-- C/质子数据集只有 ToT，应使用 `['ToT']`。
-- 如果 C/质子数据误配为 `['ToT', 'ToA']`，新系统会在训练开始前报错。
+- `Alpha` 数据集可以使用 `['ToT']`、`['ToA']` 或 `['ToT', 'ToA']`。
+- `Proton_C` 数据集只有 ToT，应使用 `['ToT']`。
+- 如果 `Proton_C` 数据误配为 `['ToT', 'ToA']`，新系统会在训练开始前报错。
 
 ## 4. 数据加载
 
@@ -237,7 +238,7 @@ python scripts/summarize.py --all
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
-汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`。
+汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`，也会包含早停状态、训练超参数和 git commit。
 
 汇总某一组：
 

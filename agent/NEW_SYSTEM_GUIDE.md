@@ -36,7 +36,7 @@ configs/experiments/*.yaml
 alpha 数据集：
 
 ```yaml
-name: alpha_clean
+name: Alpha
 particle: alpha
 root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha_Clean
 available_modalities: [ToT, ToA]
@@ -46,7 +46,7 @@ default_modalities: [ToT, ToA]
 C/质子数据集：
 
 ```yaml
-name: proton_c_tot
+name: Proton_C
 particle: proton
 root: ${TIMEPIX_DATA_ROOT:-Data}/Proton_C
 available_modalities: [ToT]
@@ -57,7 +57,7 @@ default_modalities: [ToT]
 
 - alpha 支持 `ToT`、`ToA`、`ToT+ToA`。
 - C/质子只支持 `ToT`。
-- 如果 C/质子误写 `ToA`，新系统会在训练开始前报错。
+- 如果 C/质子误写 `ToA`，或配置里拼错常见字段，新系统会在训练开始前报错。
 
 ## 4. 本地和服务器路径如何处理
 
@@ -176,6 +176,21 @@ A1 ResNet18 结构适配网格：
 python scripts/run_grid.py --config configs/experiments/a1_structure_adaptation.yaml
 ```
 
+长网格实验建议开启失败续跑能力：
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a1_structure_adaptation.yaml \
+  --skip-existing \
+  --continue-on-error
+```
+
+非 dry-run 网格会写入运行 manifest，默认位于：
+
+```text
+outputs/grid_manifests/
+```
+
 只查看将会跑哪些实验，不真正训练：
 
 ```bash
@@ -253,7 +268,7 @@ python scripts/summarize.py \
   --out outputs/baseline_summary.csv
 ```
 
-汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim` 和主要验证/测试指标，A1 结构对比可以直接按这些列筛选。
+汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、早停状态、训练超参数、git commit 和主要验证/测试指标，A1 结构对比可以直接按这些列筛选。
 
 ## 9. 每个实验会保存什么
 
@@ -275,7 +290,7 @@ predictions.csv        测试集预测结果
 confusion_matrix.csv   测试集混淆矩阵
 ```
 
-其中 `predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
+其中 `metadata.json` 会记录配置、数据 split 信息、每个 split 的类别计数、环境信息、git 信息、是否早停、最佳 epoch 和停止 epoch。`predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
 
 ## 10. 数据精度设置
 

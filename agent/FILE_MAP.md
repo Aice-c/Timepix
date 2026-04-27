@@ -34,6 +34,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | Path | Role | Notes |
 | --- | --- | --- |
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
+| `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
 | `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, `shallow_resnet`, and `shallow_cnn`. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
@@ -61,7 +62,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | Path | Role | Notes |
 | --- | --- | --- |
 | `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`, and `--resume`. |
-| `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping. |
+| `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group` and model hyperparameters. |
 
 ## Legacy `Program/` Files

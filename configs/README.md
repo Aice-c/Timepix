@@ -27,8 +27,9 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 
 ## 重要模态约束
 
-- alpha 数据集支持 `ToT` 和 `ToA`。
-- C/质子数据集只支持 `ToT`。
+- `Alpha` 数据集支持 `ToT` 和 `ToA`。
+- `Proton_C` 数据集只支持 `ToT`。
+- 常见配置字段会在训练或 grid dry-run 前校验，拼错字段会直接报错。
 
 ## 实验组
 
@@ -59,6 +60,17 @@ python scripts/summarize.py --all
 ```
 
 汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding` 和 `dropout`，方便直接筛选 A1 结果。
+
+长网格实验可以使用：
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a1_structure_adaptation.yaml \
+  --skip-existing \
+  --continue-on-error
+```
+
+非 dry-run 网格会写入 `outputs/grid_manifests/`，记录每个组合的 `planned/running/done/failed/skipped_existing` 状态。
 
 ## ResNet18 结构参数
 

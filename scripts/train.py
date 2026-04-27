@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from timepix.config import load_experiment_config, parse_override, set_by_dotted_key
+from timepix.config_validation import validate_experiment_config
 from timepix.training.runner import load_config_from_checkpoint, run_experiment
 
 
@@ -48,6 +49,7 @@ def main() -> int:
             raise ValueError(f"--set expects KEY=VALUE, got {item}")
         key, value = item.split("=", 1)
         set_by_dotted_key(cfg, key, parse_override(value))
+    validate_experiment_config(cfg)
 
     metadata = run_experiment(
         cfg,

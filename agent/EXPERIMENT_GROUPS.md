@@ -94,9 +94,13 @@ conv1_kernel_size
 conv1_stride
 conv1_padding
 dropout
+early_stopped
+git_commit
 ```
 
 因此可以在 Excel 或 pandas 中按实验组筛选。
+
+网格实验还会生成 manifest CSV，记录每个组合的运行状态。配合 `--skip-existing` 和 `--continue-on-error`，服务器中断或单个组合失败后可以更容易续跑。
 
 ## 按路径汇总
 

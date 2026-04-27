@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import copy
 import csv
+import hashlib
+import importlib.metadata
+import platform
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,7 +17,7 @@ import numpy as np
 import torch
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from timepix.config import resolve_project_path
+from timepix.config import PROJECT_ROOT, resolve_project_path
 from timepix.data import build_dataloaders
 from timepix.losses import build_loss
 from timepix.models import build_model
@@ -38,6 +43,59 @@ def _atomic_torch_save(obj: Any, path: Path) -> None:
     tmp_path = path.with_name(f"{path.name}.tmp")
     torch.save(obj, tmp_path)
     tmp_path.replace(path)
+
+
+def _sha256_file(path: str | Path) -> str | None:
+    path = Path(path)
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _run_git(args: list[str]) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return result.stdout.strip()
+
+
+def _git_info() -> dict[str, Any]:
+    status = _run_git(["status", "--porcelain"])
+    return {
+        "commit": _run_git(["rev-parse", "HEAD"]),
+        "branch": _run_git(["branch", "--show-current"]),
+        "dirty": bool(status),
+    }
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def _environment_info(device: torch.device) -> dict[str, Any]:
+    return {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "torch": torch.__version__,
+        "torchvision": _package_version("torchvision"),
+        "cuda_available": torch.cuda.is_available(),
+        "cuda_version": torch.version.cuda,
+        "device": str(device),
+    }
 
 
 def load_config_from_checkpoint(path: str | Path) -> dict:
@@ -274,7 +332,10 @@ def run_experiment(
     if start_epoch > epochs:
         print(f"[Resume] Checkpoint already reached epoch {start_epoch - 1}; skipping training loop.")
 
+    stopped_epoch = start_epoch - 1
+    early_stopped = False
     for epoch in range(start_epoch, epochs + 1):
+        stopped_epoch = epoch
         lr = optimizer.param_groups[0]["lr"]
         print(f"\nEpoch {epoch}/{epochs} | lr={lr:.6g}")
         train_payload = train_one_epoch(
@@ -360,6 +421,7 @@ def run_experiment(
 
         if patience > 0 and patience_counter >= patience:
             print(f"Early stopping at epoch {epoch} (patience={patience})")
+            early_stopped = True
             break
 
     if best_state is not None:
@@ -372,6 +434,9 @@ def run_experiment(
 
     metrics = {
         "best_epoch": best_epoch,
+        "stopped_epoch": stopped_epoch,
+        "max_epochs": epochs,
+        "early_stopped": early_stopped,
         "best_score": best_score,
         "validation": best_val_metrics,
         "test": test_metrics,
@@ -397,6 +462,10 @@ def run_experiment(
         "best_epoch": best_epoch,
         "metrics": metrics,
         "device": str(device),
+        "environment": _environment_info(device),
+        "git": _git_info(),
+        "command": " ".join(sys.argv),
+        "split_manifest_hash": _sha256_file(data_info.get("split_path", "")),
     }
     write_json(exp_dir / "metadata.json", metadata)
     return metadata
