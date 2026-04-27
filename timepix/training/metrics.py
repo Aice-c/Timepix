@@ -18,10 +18,24 @@ def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int) -
     return matrix
 
 
+def p90_error(abs_errors: np.ndarray) -> float:
+    """Return the 90th percentile of absolute angle errors in degrees."""
+    if abs_errors.size == 0:
+        return 0.0
+    return float(np.percentile(abs_errors, 90))
+
+
 def classification_metrics(logits: np.ndarray, y_true: np.ndarray, angle_values: list[float]) -> dict:
     num_classes = len(angle_values)
     if y_true.size == 0:
-        return {"accuracy": 0.0, "mae_argmax": 0.0, "mae_weighted": 0.0, "macro_f1": 0.0}
+        return {
+            "accuracy": 0.0,
+            "mae_argmax": 0.0,
+            "mae_weighted": 0.0,
+            "p90_error": 0.0,
+            "p90_error_weighted": 0.0,
+            "macro_f1": 0.0,
+        }
 
     probs = _softmax(logits)
     y_pred = probs.argmax(axis=1)
@@ -30,8 +44,10 @@ def classification_metrics(logits: np.ndarray, y_true: np.ndarray, angle_values:
     true_angles = angles[y_true.astype(int)]
     pred_angles = angles[y_pred.astype(int)]
     weighted_angles = probs @ angles
-    mae_argmax = float(np.mean(np.abs(pred_angles - true_angles)))
-    mae_weighted = float(np.mean(np.abs(weighted_angles - true_angles)))
+    abs_errors_argmax = np.abs(pred_angles - true_angles)
+    abs_errors_weighted = np.abs(weighted_angles - true_angles)
+    mae_argmax = float(np.mean(abs_errors_argmax))
+    mae_weighted = float(np.mean(abs_errors_weighted))
     cm = confusion_matrix(y_true, y_pred, num_classes)
 
     per_class = []
@@ -50,6 +66,8 @@ def classification_metrics(logits: np.ndarray, y_true: np.ndarray, angle_values:
         "accuracy": accuracy,
         "mae_argmax": mae_argmax,
         "mae_weighted": mae_weighted,
+        "p90_error": p90_error(abs_errors_argmax),
+        "p90_error_weighted": p90_error(abs_errors_weighted),
         "macro_f1": float(np.mean(f1_values)),
         "confusion_matrix": cm.tolist(),
         "per_class": per_class,
@@ -60,8 +78,9 @@ def regression_metrics(predictions: np.ndarray, targets: np.ndarray, max_angle: 
     pred_angles = predictions * max_angle
     true_angles = targets * max_angle
     errors = pred_angles - true_angles
+    abs_errors = np.abs(errors)
     return {
-        "mae": float(np.mean(np.abs(errors))) if errors.size else 0.0,
+        "mae": float(np.mean(abs_errors)) if errors.size else 0.0,
         "rmse": float(np.sqrt(np.mean(errors**2))) if errors.size else 0.0,
+        "p90_error": p90_error(abs_errors),
     }
-

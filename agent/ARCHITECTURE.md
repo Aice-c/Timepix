@@ -136,6 +136,9 @@ Angle-aware metrics:
   weighted angle.
 - `compute_regression_mae`: regression MAE/RMSE after multiplying by
   `max_angle`.
+- `p90_error`: 90th percentile of absolute angle error in degrees. For
+  classification it is based on argmax angle by default; weighted-angle P90 is
+  also recorded as `p90_error_weighted`.
 
 ## Experiment Scripts
 

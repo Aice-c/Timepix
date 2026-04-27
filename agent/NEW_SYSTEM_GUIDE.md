@@ -185,6 +185,8 @@ predictions.csv        测试集预测结果
 confusion_matrix.csv   测试集混淆矩阵
 ```
 
+其中 `predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
+
 ## 9. 数据精度设置
 
 新系统支持在实验配置中指定读取矩阵时使用的浮点精度：
@@ -221,10 +223,31 @@ data:
 - `none` / `concat` / `gated` 三种融合模式。
 - `resnet18`、`shallow_resnet`、`shallow_cnn` 新接口模型。
 - CrossEntropy 和 EMD 损失。
-- accuracy、角度 MAE、macro-F1、混淆矩阵。
+- accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
 - 单实验运行、网格实验运行、结果汇总。
 
-## 11. 当前限制
+## 11. P90 Error 指标
+
+新系统会在 `metrics.json`、`metadata.json` 和 `training_log.csv` 中记录 `p90_error`。
+
+它的含义是：
+
+```text
+90% 样本的角度绝对误差不超过多少度
+```
+
+分类任务中：
+
+- `p90_error`：基于 argmax 预测类别对应角度。
+- `p90_error_weighted`：基于概率加权预测角度。
+
+回归任务中：
+
+- `p90_error`：基于连续预测角度。
+
+这个指标比平均误差更能反映“较差的那一部分样本”的表现，适合和 accuracy、MAE、混淆矩阵一起用于论文分析。
+
+## 12. 当前限制
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 

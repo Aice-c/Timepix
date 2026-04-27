@@ -82,6 +82,7 @@
 - test accuracy。
 - angle MAE by argmax。
 - angle MAE by probability-weighted angle。
+- P90 Error。
 - confusion matrix。
 - per-class precision/recall/F1。
 

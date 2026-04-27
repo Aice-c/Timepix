@@ -181,6 +181,7 @@ gated   拼接后做 feature-wise gate，再分类
 - accuracy。
 - angle MAE by argmax。
 - angle MAE by probability-weighted angle。
+- P90 Error：角度绝对误差的 90 分位数，分类任务默认基于 argmax 预测角度。
 - macro-F1。
 - per-class precision/recall/F1。
 - confusion matrix。

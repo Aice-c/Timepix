@@ -54,6 +54,8 @@ def main() -> int:
                 "test_accuracy": test.get("accuracy"),
                 "val_mae_argmax": val.get("mae_argmax", val.get("mae")),
                 "test_mae_argmax": test.get("mae_argmax", test.get("mae")),
+                "val_p90_error": val.get("p90_error"),
+                "test_p90_error": test.get("p90_error"),
                 "test_macro_f1": test.get("macro_f1"),
                 "params_total": metadata.get("param_count", {}).get("total"),
             }
@@ -77,6 +79,8 @@ def main() -> int:
         "test_accuracy",
         "val_mae_argmax",
         "test_mae_argmax",
+        "val_p90_error",
+        "test_p90_error",
         "test_macro_f1",
         "params_total",
     ]
@@ -90,4 +94,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

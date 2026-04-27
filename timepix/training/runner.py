@@ -34,8 +34,11 @@ def _metrics_from_payload(payload: dict, task: str, angle_values: list[float], m
 
 
 def _primary_score(metrics: dict, task: str, primary_metric: str) -> float:
+    lower_is_better = any(token in primary_metric for token in ("mae", "error", "rmse", "loss"))
     if primary_metric in metrics:
         value = float(metrics[primary_metric])
+        if lower_is_better:
+            value = -value
     elif task == "classification" and primary_metric == "val_accuracy":
         value = float(metrics["accuracy"])
     elif task == "regression":
@@ -49,10 +52,19 @@ def _save_predictions(path: Path, payload: dict, task: str, angle_values: list[f
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         if task == "regression":
-            writer = csv.DictWriter(f, fieldnames=["row", "true_angle", "pred_angle"])
+            writer = csv.DictWriter(f, fieldnames=["row", "true_angle", "pred_angle", "abs_error"])
             writer.writeheader()
             for idx, (true, pred) in enumerate(zip(payload["labels"], payload["regression"])):
-                writer.writerow({"row": idx, "true_angle": float(true) * max_angle, "pred_angle": float(pred) * max_angle})
+                true_angle = float(true) * max_angle
+                pred_angle = float(pred) * max_angle
+                writer.writerow(
+                    {
+                        "row": idx,
+                        "true_angle": true_angle,
+                        "pred_angle": pred_angle,
+                        "abs_error": abs(pred_angle - true_angle),
+                    }
+                )
         else:
             logits = payload["logits"]
             labels = payload["labels"].astype(int)
@@ -62,18 +74,32 @@ def _save_predictions(path: Path, payload: dict, task: str, angle_values: list[f
             preds = probs.argmax(axis=1)
             writer = csv.DictWriter(
                 f,
-                fieldnames=["row", "true_label", "pred_label", "true_angle", "pred_angle_argmax", "pred_angle_weighted"],
+                fieldnames=[
+                    "row",
+                    "true_label",
+                    "pred_label",
+                    "true_angle",
+                    "pred_angle_argmax",
+                    "pred_angle_weighted",
+                    "abs_error_argmax",
+                    "abs_error_weighted",
+                ],
             )
             writer.writeheader()
             for idx, (true, pred, prob) in enumerate(zip(labels, preds, probs)):
+                true_angle = float(angles[true])
+                pred_angle_argmax = float(angles[pred])
+                pred_angle_weighted = float(prob @ angles)
                 writer.writerow(
                     {
                         "row": idx,
                         "true_label": int(true),
                         "pred_label": int(pred),
-                        "true_angle": float(angles[true]),
-                        "pred_angle_argmax": float(angles[pred]),
-                        "pred_angle_weighted": float(prob @ angles),
+                        "true_angle": true_angle,
+                        "pred_angle_argmax": pred_angle_argmax,
+                        "pred_angle_weighted": pred_angle_weighted,
+                        "abs_error_argmax": abs(pred_angle_argmax - true_angle),
+                        "abs_error_weighted": abs(pred_angle_weighted - true_angle),
                     }
                 )
 
@@ -132,6 +158,8 @@ def run_experiment(
         "val_accuracy",
         "train_mae_argmax",
         "val_mae_argmax",
+        "train_p90_error",
+        "val_p90_error",
         "train_macro_f1",
         "val_macro_f1",
     ]
@@ -166,6 +194,8 @@ def run_experiment(
                 "val_accuracy": val_metrics.get("accuracy", ""),
                 "train_mae_argmax": train_metrics.get("mae_argmax", train_metrics.get("mae", "")),
                 "val_mae_argmax": val_metrics.get("mae_argmax", val_metrics.get("mae", "")),
+                "train_p90_error": train_metrics.get("p90_error", ""),
+                "val_p90_error": val_metrics.get("p90_error", ""),
                 "train_macro_f1": train_metrics.get("macro_f1", ""),
                 "val_macro_f1": val_metrics.get("macro_f1", ""),
             }

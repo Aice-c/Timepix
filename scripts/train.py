@@ -53,12 +53,13 @@ def main() -> int:
         print(f"Val accuracy: {metrics['validation'].get('accuracy', 0):.4f}")
         print(f"Test accuracy: {metrics['test'].get('accuracy', 0):.4f}")
         print(f"Test MAE(argmax): {metrics['test'].get('mae_argmax', 0):.3f}")
+        print(f"Test P90 Error: {metrics['test'].get('p90_error', 0):.3f}")
     else:
         print(f"Val MAE: {metrics['validation'].get('mae', 0):.3f}")
         print(f"Test MAE: {metrics['test'].get('mae', 0):.3f}")
+        print(f"Test P90 Error: {metrics['test'].get('p90_error', 0):.3f}")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
