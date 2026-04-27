@@ -37,6 +37,8 @@ training:
   pin_memory: true
   progress_bar: true
   save_last_checkpoint: true
+  mixed_precision: false
+  mixed_precision_dtype: float16
 
 split:
   train: 0.8

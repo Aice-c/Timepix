@@ -40,16 +40,18 @@ owns the experiment loop:
 4. Build train/validation/test dataloaders with `timepix.data.build_dataloaders`.
 5. Build a model with `timepix.models.build_model`.
 6. Build a loss function with `timepix.losses.build_loss`.
-7. Train with `timepix.training.trainer.train_one_epoch`.
-8. Validate with `timepix.training.trainer.evaluate`.
-9. Track the best validation result and save `best_model.pth` whenever it
+7. Configure optional CUDA AMP from `training.mixed_precision`.
+8. Train with `timepix.training.trainer.train_one_epoch`.
+9. Validate with `timepix.training.trainer.evaluate`.
+10. Track the best validation result and save `best_model.pth` whenever it
    improves.
-10. Save `training_log.csv`, `config.yaml`, `last_checkpoint.pth`,
+11. Save `training_log.csv`, `config.yaml`, `last_checkpoint.pth`,
    `predictions.csv`, `metrics.json`, and `metadata.json`.
 
 `last_checkpoint.pth` is updated after each completed epoch and contains model,
-optimizer, scheduler, best-metric, best-model, config, and resume metadata.
-This supports `python scripts/train.py --resume <last_checkpoint.pth>`.
+optimizer, scheduler, optional AMP GradScaler state, best-metric, best-model,
+config, and resume metadata. This supports
+`python scripts/train.py --resume <last_checkpoint.pth>`.
 
 ## Dataset Details
 
@@ -163,11 +165,14 @@ under `outputs/grid_manifests/`.
 
 `scripts/summarize.py` rebuilds summary CSV files from experiment outputs,
 including model hyperparameters such as conv1 kernel/stride/padding and
-dropout, early-stopping state, training hyperparameters, and git metadata.
+dropout, early-stopping state, training hyperparameters, mixed-precision state,
+fit/test/total timing, and git metadata.
 
 `configs/experiments/a1_resnet18_original_baseline.yaml` defines the original
 ResNet18 baseline for A1. `configs/experiments/a1_structure_adaptation.yaml`
 defines the A1 alpha ToT ResNet18 structure-adaptation grid: no-maxpool vs
 maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
+`configs/experiments/compare_mixed_precision.yaml` compares FP32 and CUDA AMP
+under the same Alpha ToT ResNet18 CE one-hot baseline settings.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

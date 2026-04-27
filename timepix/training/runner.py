@@ -9,6 +9,7 @@ import importlib.metadata
 import platform
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -95,7 +96,69 @@ def _environment_info(device: torch.device) -> dict[str, Any]:
         "cuda_available": torch.cuda.is_available(),
         "cuda_version": torch.version.cuda,
         "device": str(device),
+        "cuda_device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
     }
+
+
+def _mixed_precision_dtype(name: str) -> tuple[str, torch.dtype]:
+    normalized = str(name).strip().lower().replace("torch.", "")
+    aliases = {
+        "fp16": "float16",
+        "float16": "float16",
+        "bf16": "bfloat16",
+        "bfloat16": "bfloat16",
+    }
+    dtype_name = aliases.get(normalized)
+    if dtype_name is None:
+        raise ValueError("training.mixed_precision_dtype must be one of: float16, fp16, bfloat16, bf16")
+    return dtype_name, torch.float16 if dtype_name == "float16" else torch.bfloat16
+
+
+def _cuda_autocast_factory(dtype: torch.dtype):
+    def factory():
+        if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
+            try:
+                return torch.amp.autocast("cuda", dtype=dtype)
+            except TypeError:
+                pass
+        return torch.cuda.amp.autocast(dtype=dtype)
+
+    return factory
+
+
+def _make_grad_scaler(enabled: bool):
+    if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+        try:
+            return torch.amp.GradScaler("cuda", enabled=enabled)
+        except TypeError:
+            pass
+    return torch.cuda.amp.GradScaler(enabled=enabled)
+
+
+def _mixed_precision_setup(training_cfg: dict, device: torch.device):
+    requested = bool(training_cfg.get("mixed_precision", False))
+    dtype_name, dtype = _mixed_precision_dtype(training_cfg.get("mixed_precision_dtype", "float16"))
+    info = {
+        "requested": requested,
+        "enabled": False,
+        "dtype": dtype_name,
+        "grad_scaler_enabled": False,
+        "reason": "",
+    }
+    if not requested:
+        return None, None, info
+    if device.type != "cuda":
+        info["reason"] = "disabled because CUDA is not available"
+        print(f"[AMP] mixed_precision requested but {info['reason']}.")
+        return None, None, info
+    if dtype == torch.bfloat16 and hasattr(torch.cuda, "is_bf16_supported") and not torch.cuda.is_bf16_supported():
+        raise ValueError("training.mixed_precision_dtype=bfloat16 was requested, but this CUDA device does not support BF16")
+
+    scaler = _make_grad_scaler(enabled=dtype == torch.float16)
+    info["enabled"] = True
+    info["grad_scaler_enabled"] = bool(scaler.is_enabled())
+    print(f"[AMP] enabled with dtype={dtype_name}, grad_scaler={info['grad_scaler_enabled']}")
+    return _cuda_autocast_factory(dtype), scaler, info
 
 
 def load_config_from_checkpoint(path: str | Path) -> dict:
@@ -196,6 +259,7 @@ def _save_last_checkpoint(
     best_model_state: dict[str, torch.Tensor] | None,
     best_val_metrics: dict[str, Any],
     patience_counter: int,
+    grad_scaler,
     experiment_dir: Path,
     cfg: dict,
     data_root_override: str | None,
@@ -210,6 +274,7 @@ def _save_last_checkpoint(
         "best_model_state": best_model_state,
         "best_val_metrics": best_val_metrics,
         "patience_counter": patience_counter,
+        "scaler_state": grad_scaler.state_dict() if grad_scaler is not None and grad_scaler.is_enabled() else None,
         "experiment_dir": str(experiment_dir),
         "config": cfg,
         "data_root_override": data_root_override,
@@ -223,6 +288,7 @@ def run_experiment(
     data_root_override: str | None = None,
     experiment_name: str | None = None,
 ) -> dict:
+    run_started_at = time.perf_counter()
     training_cfg = cfg.get("training", {})
     task_cfg = cfg.get("task", {})
     task = task_cfg.get("type", "classification")
@@ -259,6 +325,7 @@ def run_experiment(
     max_angle = float(task_cfg.get("max_angle", 90.0))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    autocast_factory, grad_scaler, mixed_precision_info = _mixed_precision_setup(training_cfg, device)
     model = build_model(
         cfg,
         input_channels=len(data_info["modalities"]),
@@ -292,6 +359,7 @@ def run_experiment(
         "val_p90_error",
         "train_macro_f1",
         "val_macro_f1",
+        "epoch_seconds",
     ]
     best_score = -float("inf")
     best_epoch = 0
@@ -314,6 +382,8 @@ def run_experiment(
         best_epoch = int(resume_checkpoint.get("best_epoch", best_epoch))
         best_val_metrics = dict(resume_checkpoint.get("best_val_metrics", {}))
         patience_counter = int(resume_checkpoint.get("patience_counter", 0))
+        if grad_scaler is not None and resume_checkpoint.get("scaler_state") is not None:
+            grad_scaler.load_state_dict(resume_checkpoint["scaler_state"])
         if resume_checkpoint.get("best_model_state") is not None:
             best_state = resume_checkpoint["best_model_state"]
         elif best_model_path.exists():
@@ -334,7 +404,9 @@ def run_experiment(
 
     stopped_epoch = start_epoch - 1
     early_stopped = False
+    fit_started_at = time.perf_counter()
     for epoch in range(start_epoch, epochs + 1):
+        epoch_started_at = time.perf_counter()
         stopped_epoch = epoch
         lr = optimizer.param_groups[0]["lr"]
         print(f"\nEpoch {epoch}/{epochs} | lr={lr:.6g}")
@@ -347,6 +419,8 @@ def run_experiment(
             task,
             progress_bar=show_progress,
             desc=f"train {epoch}/{epochs}",
+            autocast_factory=autocast_factory,
+            grad_scaler=grad_scaler,
         )
         val_payload = evaluate(
             model,
@@ -356,6 +430,7 @@ def run_experiment(
             task,
             progress_bar=show_progress,
             desc=f"val   {epoch}/{epochs}",
+            autocast_factory=autocast_factory,
         )
         if scheduler is not None:
             scheduler.step()
@@ -363,6 +438,7 @@ def run_experiment(
         train_metrics = _metrics_from_payload(train_payload, task, angle_values, max_angle)
         val_metrics = _metrics_from_payload(val_payload, task, angle_values, max_angle)
         score = _primary_score(val_metrics, task, primary_metric)
+        epoch_seconds = time.perf_counter() - epoch_started_at
 
         log.write(
             {
@@ -378,6 +454,7 @@ def run_experiment(
                 "val_p90_error": val_metrics.get("p90_error", ""),
                 "train_macro_f1": train_metrics.get("macro_f1", ""),
                 "val_macro_f1": val_metrics.get("macro_f1", ""),
+                "epoch_seconds": epoch_seconds,
             }
         )
 
@@ -398,7 +475,8 @@ def run_experiment(
             f"val_loss={val_payload['loss']:.5f} "
             f"val_acc={val_metrics.get('accuracy', 0):.4f} "
             f"val_mae={val_metrics.get('mae_argmax', val_metrics.get('mae', 0)):.3f} "
-            f"val_p90={val_metrics.get('p90_error', 0):.3f}"
+            f"val_p90={val_metrics.get('p90_error', 0):.3f} "
+            f"time={epoch_seconds:.1f}s"
             + (" | best" if is_better else "")
         )
 
@@ -414,6 +492,7 @@ def run_experiment(
                 best_model_state=best_state,
                 best_val_metrics=best_val_metrics,
                 patience_counter=patience_counter,
+                grad_scaler=grad_scaler,
                 experiment_dir=exp_dir,
                 cfg=cfg,
                 data_root_override=str(data_info["data_root"]) if data_root_override is not None else None,
@@ -424,13 +503,17 @@ def run_experiment(
             early_stopped = True
             break
 
+    fit_seconds = time.perf_counter() - fit_started_at
     if best_state is not None:
         _atomic_torch_save(best_state, best_model_path)
         model.load_state_dict(best_state)
 
-    test_payload = evaluate(model, loaders["test"], criterion, device, task)
+    test_started_at = time.perf_counter()
+    test_payload = evaluate(model, loaders["test"], criterion, device, task, autocast_factory=autocast_factory)
+    test_seconds = time.perf_counter() - test_started_at
     test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle)
     _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle)
+    total_seconds = time.perf_counter() - run_started_at
 
     metrics = {
         "best_epoch": best_epoch,
@@ -438,6 +521,9 @@ def run_experiment(
         "max_epochs": epochs,
         "early_stopped": early_stopped,
         "best_score": best_score,
+        "fit_seconds": fit_seconds,
+        "test_seconds": test_seconds,
+        "total_seconds": total_seconds,
         "validation": best_val_metrics,
         "test": test_metrics,
     }
@@ -457,6 +543,12 @@ def run_experiment(
         "model": cfg.get("model", {}),
         "loss": cfg.get("loss", {}),
         "training": training_cfg,
+        "mixed_precision": mixed_precision_info,
+        "timing": {
+            "fit_seconds": fit_seconds,
+            "test_seconds": test_seconds,
+            "total_seconds": total_seconds,
+        },
         "param_count": param_count,
         "primary_metric": primary_metric,
         "best_epoch": best_epoch,

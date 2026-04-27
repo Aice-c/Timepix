@@ -30,6 +30,7 @@ configs/*.yaml
   -> 构建 Dataset 和 DataLoader
   -> 构建模型
   -> 构建损失函数
+  -> 按配置启用可选 CUDA AMP 混合精度
   -> 训练与验证
   -> 每个 epoch 保存 last checkpoint
   -> 用最佳模型测试
@@ -206,6 +207,8 @@ gated   拼接后做 feature-wise gate，再分类
 - `last_checkpoint.pth` 每个 epoch 原子更新，并包含当前最佳模型权重。
 - `best_model.pth` 在验证集刷新最佳结果时同步保存。
 - `--resume` 从 checkpoint 恢复训练；新 checkpoint 可直接恢复，不必重复传 `--config`。
+- `training.mixed_precision` 开关 CUDA AMP；FP16 训练使用 GradScaler，checkpoint 会保存 scaler 状态。
+- `training_log.csv` 记录每个 epoch 的耗时，`metadata.json` 记录 fit/test/total 秒数。
 
 ## 9. 实验脚本
 
@@ -238,7 +241,7 @@ python scripts/summarize.py --all
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
-汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`，也会包含早停状态、训练超参数和 git commit。
+汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`，也会包含早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
 
 汇总某一组：
 
@@ -269,7 +272,8 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
-3. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
-4. 逐步迁移/适配旧模型。
-5. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
-6. 根据论文需要补充更多 grid 配置。
+3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
+4. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
+5. 逐步迁移/适配旧模型。
+6. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
+7. 根据论文需要补充更多 grid 配置。

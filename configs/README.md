@@ -59,7 +59,7 @@ python scripts/summarize.py --group baseline
 python scripts/summarize.py --all
 ```
 
-汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding` 和 `dropout`，方便直接筛选 A1 结果。
+汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding` 和 `dropout`，也会记录 `mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1 或 AMP 对比结果。
 
 长网格实验可以使用：
 
@@ -71,6 +71,25 @@ python scripts/run_grid.py \
 ```
 
 非 dry-run 网格会写入 `outputs/grid_manifests/`，记录每个组合的 `planned/running/done/failed/skipped_existing` 状态。
+
+## 混合精度训练
+
+训练配置中可以显式开关 CUDA AMP：
+
+```yaml
+training:
+  mixed_precision: true
+  mixed_precision_dtype: float16
+```
+
+`mixed_precision: false` 是默认安全设置；开启后训练、验证和测试都会使用 autocast，FP16 训练会使用 GradScaler。checkpoint 会保存 scaler 状态，`--resume` 可以继续恢复。汇总表中的 `fit_seconds`、`test_seconds` 和 `total_seconds` 可用于比较速度。
+
+完全相同条件下对比 FP32 与 AMP：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
 
 ## ResNet18 结构参数
 

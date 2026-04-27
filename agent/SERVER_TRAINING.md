@@ -108,6 +108,16 @@ python scripts/train.py \
 training:
   progress_bar: true
   save_last_checkpoint: true
+  mixed_precision: false
+  mixed_precision_dtype: float16
 ```
 
-默认建议都保持开启。
+进度条和 checkpoint 默认建议保持开启；混合精度先保持 `false` 作为 FP32 基准，确认精度损失可接受后再改成 `true`。
+
+如果服务器 GPU 利用率高但训练仍然耗时，可以用 CUDA AMP 做速度对比：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
+
+开启 `training.mixed_precision: true` 后，训练、验证和测试都会使用 autocast，FP16 训练会使用 GradScaler。`last_checkpoint.pth` 会保存 scaler 状态，因此 AMP 实验也可以正常 `--resume`。汇总结果中的 `fit_seconds` 可以用于比较训练速度。

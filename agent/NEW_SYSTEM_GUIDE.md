@@ -164,6 +164,12 @@ python scripts/run_grid.py --config configs/experiments/compare_losses.yaml
 python scripts/run_grid.py --config configs/experiments/compare_models.yaml
 ```
 
+比较 FP32 与 CUDA AMP 混合精度：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
+
 A1 原始 ResNet18 baseline：
 
 ```bash
@@ -268,7 +274,7 @@ python scripts/summarize.py \
   --out outputs/baseline_summary.csv
 ```
 
-汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、早停状态、训练超参数、git commit 和主要验证/测试指标，A1 结构对比可以直接按这些列筛选。
+汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、早停状态、训练超参数、混合精度状态、训练/测试耗时、git commit 和主要验证/测试指标，A1 结构对比或 AMP 对比可以直接按这些列筛选。
 
 ## 9. 每个实验会保存什么
 
@@ -290,7 +296,7 @@ predictions.csv        测试集预测结果
 confusion_matrix.csv   测试集混淆矩阵
 ```
 
-其中 `metadata.json` 会记录配置、数据 split 信息、每个 split 的类别计数、环境信息、git 信息、是否早停、最佳 epoch 和停止 epoch。`predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
+其中 `metadata.json` 会记录配置、数据 split 信息、每个 split 的类别计数、环境信息、git 信息、混合精度实际启用状态、训练/测试耗时、是否早停、最佳 epoch 和停止 epoch。`training_log.csv` 会记录每个 epoch 的耗时。`predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
 
 ## 10. 数据精度设置
 
@@ -312,7 +318,30 @@ data:
 
 需要注意：如果原始数据仍是很多位小数的 `.txt`，每次训练仍然要解析文本，I/O 和文本解析可能还是慢。若服务器上训练明显受数据读取拖累，下一步应把 `.txt` 数据一次性转换成 `.npy` 或缓存格式，再训练时直接读二进制数组。
 
-## 11. 当前第一阶段已经实现的内容
+## 11. 混合精度训练
+
+训练计算精度和上一节的 `data.dtype` 是两件事：`data.dtype` 控制从文本矩阵读入后的数据张量精度，`training.mixed_precision` 控制 GPU 前向/反向计算是否使用 CUDA AMP。
+
+配置方式：
+
+```yaml
+training:
+  mixed_precision: true
+  mixed_precision_dtype: float16
+```
+
+默认配置保持 `mixed_precision: false`，便于把 FP32 作为基准。开启后，训练、验证和测试都会使用 autocast；FP16 训练会启用 GradScaler。`last_checkpoint.pth` 中会保存 scaler 状态，所以中断后可以继续 `--resume`。
+
+为了判断混合精度是否影响精度，先跑完全相同条件下的对比实验：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
+
+该配置只切换 `training.mixed_precision: false/true`，其他条件继承同一个 Alpha ToT ResNet18 CE one-hot baseline。结果汇总后重点比较 `fit_seconds`、`test_accuracy`、`test_mae_argmax` 和 `test_p90_error`。
+
+## 12. 当前第一阶段已经实现的内容
 
 已实现：
 
@@ -331,8 +360,9 @@ data:
 - accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
 - 单实验运行、网格实验运行、结果汇总。
 - 实验组目录、metadata 实验组记录、按组/全部汇总。
+- CUDA AMP 混合精度训练开关、GradScaler checkpoint 恢复、FP32/AMP 对比配置。
 
-## 12. P90 Error 指标
+## 13. P90 Error 指标
 
 新系统会在 `metrics.json`、`metadata.json` 和 `training_log.csv` 中记录 `p90_error`。
 
@@ -353,7 +383,7 @@ data:
 
 这个指标比平均误差更能反映“较差的那一部分样本”的表现，适合和 accuracy、MAE、混淆矩阵一起用于论文分析。
 
-## 13. 当前限制
+## 14. 当前限制
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 
@@ -392,7 +422,7 @@ python scripts/train.py \
 
 确认能跑通后，再开始跑正式对比实验。
 
-## 14. 进度条和持久化训练
+## 15. 进度条和持久化训练
 
 训练时终端会显示每个 epoch 的 train/val batch 进度条，并在每个 epoch 结束后打印：
 

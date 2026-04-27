@@ -1,0 +1,12 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: compare_mixed_precision_alpha_tot
+experiment_group: compare_mixed_precision
+
+training:
+  mixed_precision_dtype: float16
+
+grid:
+  training.mixed_precision:
+    - false
+    - true

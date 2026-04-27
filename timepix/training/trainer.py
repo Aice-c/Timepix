@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import sys
 import time
 
@@ -73,6 +74,14 @@ def _set_postfix(iterator, loss: float) -> None:
         iterator.set_postfix(loss=f"{loss:.4f}")
 
 
+def _autocast_context(autocast_factory):
+    return autocast_factory() if autocast_factory is not None else nullcontext()
+
+
+def _scaler_enabled(grad_scaler) -> bool:
+    return grad_scaler is not None and grad_scaler.is_enabled()
+
+
 def train_one_epoch(
     model,
     loader,
@@ -82,6 +91,8 @@ def train_one_epoch(
     task: str,
     progress_bar: bool = False,
     desc: str | None = None,
+    autocast_factory=None,
+    grad_scaler=None,
 ):
     model.train()
     total_loss = 0.0
@@ -97,17 +108,25 @@ def train_one_epoch(
         labels = labels.to(device)
         handcrafted = handcrafted.to(device) if handcrafted is not None else None
 
-        optimizer.zero_grad()
-        output = model(images, handcrafted)
+        optimizer.zero_grad(set_to_none=True)
+        with _autocast_context(autocast_factory):
+            output = model(images, handcrafted)
+            if task == "regression":
+                loss = criterion(output.regression, labels.float())
+            else:
+                loss = criterion(output.logits, labels.long())
         if task == "regression":
-            loss = criterion(output.regression, labels.float())
-            regression_list.append(output.regression.detach().cpu())
+            regression_list.append(output.regression.detach().float().cpu())
         else:
-            loss = criterion(output.logits, labels.long())
-            logits_list.append(output.logits.detach().cpu())
+            logits_list.append(output.logits.detach().float().cpu())
         labels_list.append(labels.detach().cpu())
-        loss.backward()
-        optimizer.step()
+        if _scaler_enabled(grad_scaler):
+            grad_scaler.scale(loss).backward()
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
 
         batch_size = labels.shape[0]
         total_loss += float(loss.item()) * batch_size
@@ -134,6 +153,7 @@ def evaluate(
     task: str,
     progress_bar: bool = False,
     desc: str | None = None,
+    autocast_factory=None,
 ):
     model.eval()
     total_loss = 0.0
@@ -149,13 +169,16 @@ def evaluate(
         labels = labels.to(device)
         handcrafted = handcrafted.to(device) if handcrafted is not None else None
 
-        output = model(images, handcrafted)
+        with _autocast_context(autocast_factory):
+            output = model(images, handcrafted)
+            if task == "regression":
+                loss = criterion(output.regression, labels.float())
+            else:
+                loss = criterion(output.logits, labels.long())
         if task == "regression":
-            loss = criterion(output.regression, labels.float())
-            regression_list.append(output.regression.detach().cpu())
+            regression_list.append(output.regression.detach().float().cpu())
         else:
-            loss = criterion(output.logits, labels.long())
-            logits_list.append(output.logits.detach().cpu())
+            logits_list.append(output.logits.detach().float().cpu())
         labels_list.append(labels.detach().cpu())
 
         batch_size = labels.shape[0]

@@ -56,6 +56,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares first-stage model set. |
+| `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under otherwise identical Alpha ToT ResNet18 settings. |
 
 ## `scripts/`
 
@@ -63,7 +64,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`, and `--resume`. |
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
-| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group` and model hyperparameters. |
+| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
 
 ## Legacy `Program/` Files
 

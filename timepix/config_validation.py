@@ -68,6 +68,8 @@ SECTION_KEYS = {
         "progress_bar",
         "save_last_checkpoint",
         "resume_from",
+        "mixed_precision",
+        "mixed_precision_dtype",
     },
     "split": {"train", "val", "test", "reuse_split", "path"},
     "data": {"crop_size", "dtype"},
@@ -92,6 +94,7 @@ SUPPORTED_LABEL_ENCODINGS = {"onehot", "gaussian"}
 SUPPORTED_SCHEDULERS = {"none", "cosine"}
 SUPPORTED_FUSION_MODES = {"none", "concat", "gated"}
 SUPPORTED_DATA_DTYPES = {"float16", "float32", "float64"}
+SUPPORTED_MIXED_PRECISION_DTYPES = {"float16", "fp16", "bfloat16", "bf16"}
 NORMALIZATION_KEYS = {"enabled", "log1p", "ignore_zero"}
 
 
@@ -129,6 +132,11 @@ def _check_float(value: Any, path: str, errors: list[str], *, min_value: float |
         return
     if min_value is not None and number < min_value:
         errors.append(f"{path} must be >= {min_value}")
+
+
+def _check_bool(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, bool):
+        errors.append(f"{path} must be true or false")
 
 
 def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
@@ -190,8 +198,13 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     for key in ("learning_rate", "weight_decay", "eta_min", "dropout"):
         if key in training_cfg:
             _check_float(training_cfg[key], f"training.{key}", errors, min_value=0.0)
+    for key in ("pin_memory", "progress_bar", "save_last_checkpoint", "mixed_precision"):
+        if key in training_cfg:
+            _check_bool(training_cfg[key], f"training.{key}", errors)
     if training_cfg.get("scheduler", "none") not in SUPPORTED_SCHEDULERS:
         errors.append(f"training.scheduler must be one of {sorted(SUPPORTED_SCHEDULERS)}")
+    if str(training_cfg.get("mixed_precision_dtype", "float16")).lower() not in SUPPORTED_MIXED_PRECISION_DTYPES:
+        errors.append(f"training.mixed_precision_dtype must be one of {sorted(SUPPORTED_MIXED_PRECISION_DTYPES)}")
 
     split_cfg = _require_mapping(cfg.get("split", {}), "split", errors) or {}
     if {"train", "val", "test"} <= set(split_cfg):

@@ -11,6 +11,7 @@
 - 损失函数对比。
 - 手工特征消融。
 - 模态对比。
+- FP32 与 CUDA AMP 混合精度对比。
 - alpha 与 C/质子数据集对比。
 
 如果全部放在 `outputs/experiments/` 同一层，后续筛选、写论文、画表都会比较乱。实验组的作用就是把这些实验按研究问题分开。
@@ -96,11 +97,26 @@ conv1_padding
 dropout
 early_stopped
 git_commit
+mixed_precision
+mixed_precision_enabled
+fit_seconds
 ```
 
 因此可以在 Excel 或 pandas 中按实验组筛选。
 
 网格实验还会生成 manifest CSV，记录每个组合的运行状态。配合 `--skip-existing` 和 `--continue-on-error`，服务器中断或单个组合失败后可以更容易续跑。
+
+混合精度对比实验使用：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
+
+该组默认保存到：
+
+```text
+outputs/experiments/compare_mixed_precision/
+```
 
 ## 按路径汇总
 

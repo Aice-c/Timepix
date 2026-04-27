@@ -43,6 +43,12 @@ SUMMARY_FIELDS = [
     "learning_rate",
     "batch_size",
     "scheduler",
+    "mixed_precision",
+    "mixed_precision_dtype",
+    "mixed_precision_enabled",
+    "fit_seconds",
+    "test_seconds",
+    "total_seconds",
     "val_accuracy",
     "test_accuracy",
     "val_mae_argmax",
@@ -96,6 +102,8 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     model = metadata.get("model", {})
     loss = metadata.get("loss", {})
     training = metadata.get("training", {})
+    mixed_precision = metadata.get("mixed_precision", {})
+    timing = metadata.get("timing", {})
     git = metadata.get("git", {})
     return {
         "experiment_group": _infer_group(metadata, metadata_path, root, recursive),
@@ -123,6 +131,12 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "learning_rate": training.get("learning_rate"),
         "batch_size": training.get("batch_size"),
         "scheduler": training.get("scheduler"),
+        "mixed_precision": training.get("mixed_precision", False),
+        "mixed_precision_dtype": training.get("mixed_precision_dtype", "float16"),
+        "mixed_precision_enabled": mixed_precision.get("enabled"),
+        "fit_seconds": timing.get("fit_seconds", metrics.get("fit_seconds")),
+        "test_seconds": timing.get("test_seconds", metrics.get("test_seconds")),
+        "total_seconds": timing.get("total_seconds", metrics.get("total_seconds")),
         "val_accuracy": val.get("accuracy"),
         "test_accuracy": test.get("accuracy"),
         "val_mae_argmax": val.get("mae_argmax", val.get("mae")),

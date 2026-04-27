@@ -62,31 +62,34 @@ configs/*.yaml
   -> outputs/experiments
 ```
 
-旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。
+旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。新训练链路支持 YAML 配置、进度条、checkpoint 恢复、网格实验、结果汇总和可选 CUDA AMP 混合精度。
 
 ## 当前本地状态
 
-截至 2026-04-26 的本地检查：
+截至 2026-04-28 的本地检查：
 
-- 主训练代码在 `Program/`。
+- 主训练代码已迁移到 `timepix/` + `configs/` + `scripts/`。
 - 数据预处理和探索 Notebook/脚本在 `ProcessProgram/`。
 - 本地可见的清洗后 alpha 数据在 `Data/Alpha_Clean/`。
 - `Data/Alpha_Clean/` 包含 `15`、`30`、`45`、`60` 四个角度。
-- 当前 `Program/Config.py` 默认 `data_dir` 指向仓库外部的 `../Alpha0`，本地训练前需要改路径或通过脚本覆盖。
-- 当前桌面 Python 环境缺少 `torch`，因此本次只做了静态分析和语法检查，没有实际跑训练。
+- 旧 `Program/Config.py` 仍是 legacy 参考；新实验应优先使用 YAML 配置和命令行覆盖数据路径。
+- 当前桌面 Python 环境缺少 `torch`，因此本地只能做语法、配置和 dry-run 检查；实际训练和 AMP 性能需要在服务器环境验证。
 
 ## 已做验证
 
-通过：
+最近通过：
 
 ```powershell
-python -m compileall -q Program ProcessProgram generate_presentation.py generate_ppt.py generate_literature_ppt.py generate_midterm_report.py near_vertical_analysis.py near_vertical_analysis_v2.py
+python -m compileall -q timepix scripts
+python scripts\run_grid.py --config configs\experiments\compare_mixed_precision.yaml --dry-run
+python scripts\run_grid.py --config configs\experiments\a1_structure_adaptation.yaml --dry-run
+python scripts\summarize.py --root outputs\experiments\__missing__ --out outputs\__tmp_summary_amp.csv
 ```
 
 未能运行：
 
 ```powershell
-python Program\test_losses.py
+python -c "import torch"
 ```
 
 原因：当前 Python 环境缺少 `torch`。
