@@ -116,8 +116,21 @@ class TimepixModel(nn.Module):
 ```
 
 Models return `ModelOutput`, which may contain classification `logits` and/or a
-regression tensor. The current factory supports `resnet18`, `shallow_resnet`,
-and `shallow_cnn`.
+regression tensor. The current factory supports `resnet18`,
+`resnet18_no_maxpool`, `resnet18_maxpool`, `resnet18_original`,
+`shallow_resnet`, and `shallow_cnn`.
+
+`resnet18` is an alias for `resnet18_no_maxpool`. Both ResNet18 variants accept
+`model.conv1_kernel_size`, `model.conv1_stride`, `model.conv1_padding`,
+`model.dropout`, `model.feature_dim`, and `model.hidden_dim`. The older
+`model.kernel_size` field remains supported as an alias for
+`model.conv1_kernel_size`.
+
+`resnet18_original` is a separate baseline model file with the original
+torchvision stem: conv1 `7x7/stride=2/padding=3` plus first maxpool. It still
+uses the project `FeatureFusion` and task head, so handcrafted features,
+classification/regression labels, and all existing loss choices remain
+compatible.
 
 ## Losses and Metrics
 
@@ -145,6 +158,13 @@ Angle-aware metrics:
 
 `scripts/run_grid.py` expands a grid config and runs multiple experiments.
 
-`scripts/summarize.py` rebuilds summary CSV files from experiment outputs.
+`scripts/summarize.py` rebuilds summary CSV files from experiment outputs,
+including model hyperparameters such as conv1 kernel/stride/padding and
+dropout.
+
+`configs/experiments/a1_resnet18_original_baseline.yaml` defines the original
+ResNet18 baseline for A1. `configs/experiments/a1_structure_adaptation.yaml`
+defines the A1 alpha ToT ResNet18 structure-adaptation grid: no-maxpool vs
+maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

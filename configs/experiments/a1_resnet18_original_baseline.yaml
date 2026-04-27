@@ -1,0 +1,27 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: a1_resnet18_original_alpha_tot
+experiment_group: a1_structure_adaptation
+
+dataset:
+  modalities: [ToT]
+
+model:
+  name: resnet18_original
+  pretrained: false
+  conv1_kernel_size: 7
+  conv1_stride: 2
+  conv1_padding: 3
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: none
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}

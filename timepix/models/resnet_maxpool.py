@@ -1,4 +1,4 @@
-"""ResNet-based Timepix models."""
+"""ResNet18 Timepix model variant that keeps the first maxpool layer."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .base import ModelOutput
 from .fusion import FeatureFusion
 
 
-class ResNet18Backbone(nn.Module):
+class ResNet18MaxPoolBackbone(nn.Module):
     def __init__(
         self,
         input_channels: int,
@@ -32,7 +32,6 @@ class ResNet18Backbone(nn.Module):
             padding=padding,
             bias=False,
         )
-        self.model.maxpool = nn.Identity()
         self.model.fc = nn.Linear(self.model.fc.in_features, feature_dim)
         self.feature_dim = feature_dim
 
@@ -40,7 +39,7 @@ class ResNet18Backbone(nn.Module):
         return self.model(x)
 
 
-class ResNet18Timepix(nn.Module):
+class ResNet18MaxPoolTimepix(nn.Module):
     def __init__(
         self,
         input_channels: int,
@@ -58,7 +57,7 @@ class ResNet18Timepix(nn.Module):
     ) -> None:
         super().__init__()
         self.task = task
-        self.backbone = ResNet18Backbone(input_channels, feature_dim, kernel_size, stride, padding, pretrained)
+        self.backbone = ResNet18MaxPoolBackbone(input_channels, feature_dim, kernel_size, stride, padding, pretrained)
         self.fusion = FeatureFusion(feature_dim, handcrafted_dim, fusion_mode)
         out_dim = 1 if task == "regression" else num_classes
         self.head = nn.Sequential(
@@ -78,4 +77,3 @@ class ResNet18Timepix(nn.Module):
         probabilities = F.softmax(output, dim=1)
         predictions = torch.argmax(probabilities, dim=1)
         return ModelOutput(logits=output, probabilities=probabilities, predictions=predictions, features=fused)
-

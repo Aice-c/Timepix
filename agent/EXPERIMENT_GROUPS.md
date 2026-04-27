@@ -6,6 +6,7 @@
 
 后续可能会有很多实验：
 
+- A1 结构适配实验。
 - 模型架构对比。
 - 损失函数对比。
 - 手工特征消融。
@@ -41,6 +42,12 @@ outputs/experiments/<experiment_group>/<timestamp>_<experiment_name>/
 
 ```text
 outputs/experiments/baseline/20260427_120000_alpha_resnet18_tot/
+```
+
+A1 原始 ResNet18 baseline 和 36 组结构适配网格都会保存到：
+
+```text
+outputs/experiments/a1_structure_adaptation/
 ```
 
 ## metadata
@@ -83,6 +90,10 @@ CSV 中会包含：
 
 ```text
 experiment_group
+conv1_kernel_size
+conv1_stride
+conv1_padding
+dropout
 ```
 
 因此可以在 Excel 或 pandas 中按实验组筛选。
@@ -98,4 +109,3 @@ python scripts/summarize.py \
 ```
 
 这种方式适合临时汇总某个自定义目录。
-

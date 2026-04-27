@@ -35,7 +35,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
-| `timepix/models/` | New model subsystem | Unified interface for `resnet18`, `shallow_resnet`, `shallow_cnn`. |
+| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, `shallow_resnet`, and `shallow_cnn`. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -51,6 +51,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml` | Handcrafted concat experiment | Uses ToT `total_energy`. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_gated.yaml` | Handcrafted gated experiment | Uses gated feature fusion. |
 | `configs/experiments/proton_resnet18_tot.yaml` | C/proton ToT baseline | ToT-only by dataset constraint. |
+| `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |
+| `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares first-stage model set. |
 
@@ -60,7 +62,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`, and `--resume`. |
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping. |
-| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`. |
+| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group` and model hyperparameters. |
 
 ## Legacy `Program/` Files
 

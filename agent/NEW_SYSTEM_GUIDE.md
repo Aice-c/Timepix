@@ -164,6 +164,18 @@ python scripts/run_grid.py --config configs/experiments/compare_losses.yaml
 python scripts/run_grid.py --config configs/experiments/compare_models.yaml
 ```
 
+A1 原始 ResNet18 baseline：
+
+```bash
+python scripts/train.py --config configs/experiments/a1_resnet18_original_baseline.yaml
+```
+
+A1 ResNet18 结构适配网格：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a1_structure_adaptation.yaml
+```
+
 只查看将会跑哪些实验，不真正训练：
 
 ```bash
@@ -181,6 +193,19 @@ experiment_group: compare_losses
 ```text
 outputs/experiments/compare_losses/
 ```
+
+ResNet18 结构参数可以直接写进 grid。`resnet18` 是去除第一层 maxpool 的默认适配版，等价于 `resnet18_no_maxpool`；保留第一层 maxpool 时使用 `resnet18_maxpool`。常用参数名：
+
+```yaml
+model:
+  name: resnet18_no_maxpool
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  dropout: 0.1
+```
+
+严格原始 ResNet18 stem baseline 使用 `resnet18_original`，它固定为 `7x7/stride=2/padding=3` + 第一层 maxpool，不参与 A1 网格搜索。
 
 ## 8. 汇总实验结果
 
@@ -228,7 +253,7 @@ python scripts/summarize.py \
   --out outputs/baseline_summary.csv
 ```
 
-汇总表中包含 `experiment_group` 列。
+汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim` 和主要验证/测试指标，A1 结构对比可以直接按这些列筛选。
 
 ## 9. 每个实验会保存什么
 
@@ -286,7 +311,7 @@ data:
 - 90 度旋转增强。
 - `total_energy` 手工特征。
 - `none` / `concat` / `gated` 三种融合模式。
-- `resnet18`、`shallow_resnet`、`shallow_cnn` 新接口模型。
+- `resnet18`、`resnet18_no_maxpool`、`resnet18_maxpool`、`resnet18_original`、`shallow_resnet`、`shallow_cnn` 新接口模型。
 - CrossEntropy 和 EMD 损失。
 - accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
 - 单实验运行、网格实验运行、结果汇总。

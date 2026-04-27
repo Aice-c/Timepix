@@ -15,7 +15,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from timepix.config import load_experiment_config, set_by_dotted_key
-from timepix.training.runner import run_experiment
 from timepix.utils.paths import slugify
 
 
@@ -60,6 +59,8 @@ def main() -> int:
         if args.dry_run:
             print(name)
             continue
+        from timepix.training.runner import run_experiment
+
         metadata = run_experiment(
             run_cfg,
             output_root=args.output_root,

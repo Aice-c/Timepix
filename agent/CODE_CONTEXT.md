@@ -103,6 +103,9 @@ Dataset 返回格式有两种：
 第一阶段已实现：
 
 - `resnet18`
+- `resnet18_no_maxpool`
+- `resnet18_maxpool`
+- `resnet18_original`
 - `shallow_resnet`
 - `shallow_cnn`
 
@@ -119,6 +122,12 @@ model = build_model(cfg, input_channels, num_classes, task, handcrafted_dim)
 - 任务类型。
 - 手工特征维度。
 - 融合方式。
+- ResNet18 conv1 结构参数：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`。
+- 分类头 dropout。
+
+`resnet18_original` 独立文件实现，固定原始 ResNet18 stem：
+`7x7/stride=2/padding=3` + 第一层 maxpool。它仍然走统一的 `FeatureFusion`
+和任务 head，因此手工特征、分类/回归任务、损失函数和标签编码切换都保持兼容。
 
 ## 6. 多模态实现方式
 
@@ -227,6 +236,8 @@ python scripts/summarize.py --all
 ```
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
+
+汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`。
 
 汇总某一组：
 
