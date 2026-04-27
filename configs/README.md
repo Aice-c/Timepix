@@ -72,6 +72,7 @@ training:
 
 ```bash
 python scripts/train.py \
-  --config configs/experiments/alpha_resnet18_tot.yaml \
   --resume outputs/experiments/baseline/<experiment_dir>/last_checkpoint.pth
 ```
+
+新的 checkpoint 中保存了配置。旧 checkpoint 或数据路径变动时，可以额外传入 `--config` 和 `--data-root`。

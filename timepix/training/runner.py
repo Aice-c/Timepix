@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import csv
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,22 @@ def _count_parameters(model) -> dict[str, int]:
 
 def _clone_state_dict(model) -> dict[str, torch.Tensor]:
     return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+
+
+def _atomic_torch_save(obj: Any, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    torch.save(obj, tmp_path)
+    tmp_path.replace(path)
+
+
+def load_config_from_checkpoint(path: str | Path) -> dict:
+    checkpoint_path = resolve_project_path(path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    cfg = checkpoint.get("config")
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Checkpoint does not contain a config: {checkpoint_path}")
+    return copy.deepcopy(cfg)
 
 
 def _metrics_from_payload(payload: dict, task: str, angle_values: list[float], max_angle: float) -> dict:
@@ -118,10 +135,12 @@ def _save_last_checkpoint(
     scheduler,
     best_score: float,
     best_epoch: int,
+    best_model_state: dict[str, torch.Tensor] | None,
     best_val_metrics: dict[str, Any],
     patience_counter: int,
     experiment_dir: Path,
     cfg: dict,
+    data_root_override: str | None,
 ) -> None:
     checkpoint = {
         "epoch": epoch,
@@ -130,12 +149,14 @@ def _save_last_checkpoint(
         "scheduler_state": scheduler.state_dict() if scheduler is not None else None,
         "best_score": best_score,
         "best_epoch": best_epoch,
+        "best_model_state": best_model_state,
         "best_val_metrics": best_val_metrics,
         "patience_counter": patience_counter,
         "experiment_dir": str(experiment_dir),
         "config": cfg,
+        "data_root_override": data_root_override,
     }
-    torch.save(checkpoint, path)
+    _atomic_torch_save(checkpoint, path)
 
 
 def run_experiment(
@@ -162,11 +183,16 @@ def run_experiment(
         resume_checkpoint = torch.load(resume_path, map_location="cpu")
         exp_dir = Path(resume_checkpoint.get("experiment_dir", resume_path.parent)).resolve()
         exp_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_data_root = resume_checkpoint.get("data_root_override")
+        if data_root_override is None and checkpoint_data_root:
+            data_root_override = str(checkpoint_data_root)
+            print(f"[Resume] Using checkpoint data root: {data_root_override}")
         print(f"[Resume] Loading checkpoint: {resume_path}")
         print(f"[Resume] Experiment directory: {exp_dir}")
     else:
         exp_dir = make_experiment_dir(output_root / experiment_group, name)
         write_yaml(exp_dir / "config.yaml", cfg)
+    best_model_path = exp_dir / "best_model.pth"
 
     loaders, data_info = build_dataloaders(cfg, data_root_override=data_root_override)
     label_map = data_info["label_map"]
@@ -209,8 +235,6 @@ def run_experiment(
         "train_macro_f1",
         "val_macro_f1",
     ]
-    log = CsvLogger(exp_dir / "training_log.csv", log_fields, append=resume_checkpoint is not None)
-
     best_score = -float("inf")
     best_epoch = 0
     best_state = None
@@ -232,12 +256,20 @@ def run_experiment(
         best_epoch = int(resume_checkpoint.get("best_epoch", best_epoch))
         best_val_metrics = dict(resume_checkpoint.get("best_val_metrics", {}))
         patience_counter = int(resume_checkpoint.get("patience_counter", 0))
-        best_model_path = exp_dir / "best_model.pth"
-        if best_model_path.exists():
+        if resume_checkpoint.get("best_model_state") is not None:
+            best_state = resume_checkpoint["best_model_state"]
+        elif best_model_path.exists():
             best_state = torch.load(best_model_path, map_location="cpu")
         else:
             best_state = _clone_state_dict(model)
         print(f"[Resume] Continue from epoch {start_epoch}/{epochs}")
+
+    log = CsvLogger(
+        exp_dir / "training_log.csv",
+        log_fields,
+        append=resume_checkpoint is not None,
+        resume_from_epoch=start_epoch if resume_checkpoint is not None else None,
+    )
 
     if start_epoch > epochs:
         print(f"[Resume] Checkpoint already reached epoch {start_epoch - 1}; skipping training loop.")
@@ -295,6 +327,7 @@ def run_experiment(
             best_val_metrics = val_metrics
             best_state = _clone_state_dict(model)
             patience_counter = 0
+            _atomic_torch_save(best_state, best_model_path)
         else:
             patience_counter += 1
 
@@ -317,10 +350,12 @@ def run_experiment(
                 scheduler=scheduler,
                 best_score=best_score,
                 best_epoch=best_epoch,
+                best_model_state=best_state,
                 best_val_metrics=best_val_metrics,
                 patience_counter=patience_counter,
                 experiment_dir=exp_dir,
                 cfg=cfg,
+                data_root_override=str(data_info["data_root"]) if data_root_override is not None else None,
             )
 
         if patience > 0 and patience_counter >= patience:
@@ -328,7 +363,7 @@ def run_experiment(
             break
 
     if best_state is not None:
-        torch.save(best_state, exp_dir / "best_model.pth")
+        _atomic_torch_save(best_state, best_model_path)
         model.load_state_dict(best_state)
 
     test_payload = evaluate(model, loaders["test"], criterion, device, task)

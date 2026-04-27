@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import time
+
 import torch
 
 try:
@@ -18,9 +21,50 @@ def _unpack_batch(batch):
     return images, labels, None
 
 
+class _SimpleProgress:
+    def __init__(self, iterable, desc: str | None) -> None:
+        self.iterable = iterable
+        self.desc = desc or "progress"
+        try:
+            self.total = len(iterable)
+        except TypeError:
+            self.total = None
+        self.count = 0
+        self.postfix: dict[str, str] = {}
+        self.start_time = time.monotonic()
+        self.last_print = 0.0
+
+    def __iter__(self):
+        for item in self.iterable:
+            yield item
+            self.count += 1
+            self._print()
+        self._print(force=True, done=True)
+        print(file=sys.stderr)
+
+    def set_postfix(self, **kwargs) -> None:
+        self.postfix = {str(k): str(v) for k, v in kwargs.items()}
+
+    def _print(self, force: bool = False, done: bool = False) -> None:
+        now = time.monotonic()
+        if not force and now - self.last_print < 1.0:
+            return
+        self.last_print = now
+        if self.total:
+            pct = self.count / self.total * 100
+            progress = f"{self.count}/{self.total} ({pct:5.1f}%)"
+        else:
+            progress = str(self.count)
+        elapsed = now - self.start_time
+        postfix = " ".join(f"{k}={v}" for k, v in self.postfix.items())
+        suffix = " done" if done else ""
+        message = f"\r{self.desc}: {progress} elapsed={elapsed:.0f}s {postfix}{suffix}"
+        print(message, end="", file=sys.stderr, flush=True)
+
+
 def _progress(iterable, enabled: bool, desc: str | None):
     if not enabled or tqdm is None:
-        return iterable
+        return _SimpleProgress(iterable, desc) if enabled else iterable
     return tqdm(iterable, desc=desc, unit="batch", leave=False, dynamic_ncols=True)
 
 

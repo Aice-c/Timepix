@@ -193,8 +193,9 @@ gated   拼接后做 feature-wise gate，再分类
 
 - tqdm batch 进度条。
 - 每个 epoch 结束打印训练摘要。
-- `last_checkpoint.pth` 自动保存。
-- `--resume` 从 checkpoint 恢复训练。
+- `last_checkpoint.pth` 每个 epoch 原子更新，并包含当前最佳模型权重。
+- `best_model.pth` 在验证集刷新最佳结果时同步保存。
+- `--resume` 从 checkpoint 恢复训练；新 checkpoint 可直接恢复，不必重复传 `--config`。
 
 ## 9. 实验脚本
 

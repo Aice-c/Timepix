@@ -30,42 +30,45 @@ Only samples present in every enabled modality are used.
 
 ## Main Training Flow
 
-`Program/main.py` owns the experiment loop:
+`scripts/train.py` owns the CLI, and `timepix.training.runner.run_experiment`
+owns the experiment loop:
 
-1. Apply temporary config overrides passed by scripts such as `sweep.py` or
-   `run_ablation.py`.
-2. Build datasets with `src.dataset.build_datasets`.
-3. Build a model with `model.utils.build_model`.
-4. Build a loss function with `src.losses.build_loss_function`.
-5. Train with `src.trainer.trainer`.
-6. Validate with `src.evaluater.evaluater`.
-7. Track the best validation result.
-8. Optionally evaluate the test split.
-9. Save `best_model.pth`, `training_log.csv`, `config.yaml`, curves, and
-   optional `test_predictions.npz`.
+1. Load an experiment YAML and merge its dataset YAML.
+2. Apply CLI overrides from `--data-root`, `--output-root`, `--name`,
+   `--resume`, and `--set`.
+3. Build train/validation/test dataloaders with `timepix.data.build_dataloaders`.
+4. Build a model with `timepix.models.build_model`.
+5. Build a loss function with `timepix.losses.build_loss`.
+6. Train with `timepix.training.trainer.train_one_epoch`.
+7. Validate with `timepix.training.trainer.evaluate`.
+8. Track the best validation result and save `best_model.pth` whenever it
+   improves.
+9. Save `training_log.csv`, `config.yaml`, `last_checkpoint.pth`,
+   `predictions.csv`, `metrics.json`, and `metadata.json`.
 
-The code uses a mutable class `Config.config` rather than immutable config
-objects. Scripts mutate this class directly through override dictionaries.
+`last_checkpoint.pth` is updated after each completed epoch and contains model,
+optimizer, scheduler, best-metric, best-model, config, and resume metadata.
+This supports `python scripts/train.py --resume <last_checkpoint.pth>`.
 
 ## Dataset Details
 
-`src.dataset.collect_samples`:
+`timepix.data.dataset.collect_samples`:
 
 - Lists numeric angle folders.
 - Sorts them numerically.
 - Maps them to consecutive labels: `{0: "15", 1: "30", ...}`.
 - Collects paired modality paths into `SampleRecord` objects.
 
-`split_samples` and `split_samples_three_way`:
+`timepix.data.splits.stratified_split`:
 
 - Perform per-class stratified splits.
 - Use `random.Random(seed)`.
 - Three-way split requires ratios summing to 1.0.
 
-`ParticleDataset`:
+`TimepixDataset`:
 
 - Loads text matrices through `np.loadtxt`.
-- Converts them to tensors with `torchvision.transforms.ToTensor`.
+- Converts them to tensors with `torch.as_tensor(...).unsqueeze(0)`.
 - Optionally center-crops.
 - Optionally rotates training samples by `0`, `90`, `180`, and `270` degrees.
 - Optionally normalizes per modality.
@@ -75,15 +78,15 @@ objects. Scripts mutate this class directly through override dictionaries.
 
 ## Normalization
 
-Per-modality z-score normalization is configured in `Config.standardization`.
-Statistics are computed only on the training split. Options:
+Per-modality z-score normalization is configured in experiment YAML under
+`normalization`. Statistics are computed only on the training split. Options:
 
 - `enabled`: whether to normalize this modality.
 - `log1p`: apply `log1p(max(x, 0))` before statistics and application.
 - `ignore_zero`: ignore zeros when computing statistics.
 
-Handcrafted feature standardization is separate and configured by
-`Config.handcrafted_standardization`.
+Handcrafted feature standardization is configured under
+`handcrafted_features.standardize`.
 
 ## Handcrafted Features
 
@@ -91,7 +94,7 @@ Currently registered handcrafted features:
 
 - `total_energy`: sum of the modality array.
 
-Feature flags are stored by modality:
+Feature flags are stored by modality in YAML:
 
 ```python
 handcrafted_features = {
@@ -105,24 +108,20 @@ that support this path.
 
 ## Model Interface
 
-The expected model module contract is:
+The expected model contract is:
 
 ```python
-class Model(nn.Module):
-    def __init__(self, num_classes, task=None): ...
-    def forward(self, samples, handcrafted_features=None):
-        return logits_or_regression, probabilities_or_none, pred_or_none
+class TimepixModel(nn.Module):
+    def forward(self, samples, handcrafted_features=None) -> ModelOutput: ...
 ```
 
-In practice, only `Resnet18` and `ShallowResNet` currently match this contract
-well enough for classification and regression. `ShallowCNN` supports
-handcrafted classification but does not accept `task`. Several older model
-files are not compatible with the current factory or input-channel contract.
-See `agent/REVIEW_NOTES.md`.
+Models return `ModelOutput`, which may contain classification `logits` and/or a
+regression tensor. The current factory supports `resnet18`, `shallow_resnet`,
+and `shallow_cnn`.
 
 ## Losses and Metrics
 
-`src.losses` supports:
+`timepix.losses` supports:
 
 - `cross_entropy`: wrapper around `nn.CrossEntropyLoss`.
 - `emd`: ordinal Earth Mover's Distance / Wasserstein-style loss over ordered
@@ -142,19 +141,10 @@ Angle-aware metrics:
 
 ## Experiment Scripts
 
-`run_ablation.py` defines six thesis-style comparisons:
+`scripts/train.py` runs a single experiment YAML.
 
-- A: ResNet18 + CE classification.
-- B: ResNet18 + EMD classification.
-- C: ShallowResNet + CE classification.
-- D: ShallowResNet + EMD classification.
-- E: ResNet18 + SmoothL1 regression.
-- F: ShallowResNet + SmoothL1 regression.
+`scripts/run_grid.py` expands a grid config and runs multiple experiments.
 
-`rebuild_summary.py` rebuilds summary CSV/JSON files from experiment outputs.
+`scripts/summarize.py` rebuilds summary CSV files from experiment outputs.
 
-`generate_figures.py` and `generate_report.py` consume ablation outputs and
-produce thesis figures and text.
-
-`sweep.py` is intended for Optuna hyperparameter search but currently has a
-return-value bug; see the review notes.
+Legacy scripts under `Program/` are preserved as references during the refactor.

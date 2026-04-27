@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | `.github/` | GitHub metadata | Not inspected deeply. |
 | `.vscode/` | Editor settings | Not part of runtime. |
-| `.gitignore` | Ignore rules | Pre-existing uncommitted modifications were present. |
+| `.gitignore` | Ignore rules | Excludes local data, cache, and generated outputs. |
 | `Data/Alpha_Clean/` | Local cleaned alpha dataset | Angle-first layout with `ToA` and `ToT`. |
 | `Data/Alpha_Original/` | Local original alpha data | Likely raw or less processed angle folders. |
 | `Document/` | Project documents | Not part of training code. |
@@ -58,7 +58,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`. |
+| `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`, and `--resume`. |
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`. |
 

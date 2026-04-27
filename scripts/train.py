@@ -12,12 +12,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from timepix.config import load_experiment_config, parse_override, set_by_dotted_key
-from timepix.training.runner import run_experiment
+from timepix.training.runner import load_config_from_checkpoint, run_experiment
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a Timepix experiment")
-    parser.add_argument("--config", required=True, help="Experiment YAML file")
+    parser.add_argument("--config", default=None, help="Experiment YAML file; required unless --resume is used")
     parser.add_argument("--data-root", default=None, help="Override dataset.root for this machine")
     parser.add_argument("--output-root", default=None, help="Override output root")
     parser.add_argument("--name", default=None, help="Override experiment name")
@@ -29,12 +29,18 @@ def parse_args() -> argparse.Namespace:
         metavar="KEY=VALUE",
         help="Override a config value, e.g. --set training.epochs=5",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.config and not args.resume:
+        parser.error("--config is required unless --resume is provided")
+    return args
 
 
 def main() -> int:
     args = parse_args()
-    cfg = load_experiment_config(args.config)
+    if args.config:
+        cfg = load_experiment_config(args.config)
+    else:
+        cfg = load_config_from_checkpoint(args.resume)
     if args.resume:
         cfg.setdefault("training", {})["resume_from"] = args.resume
     for item in args.set:

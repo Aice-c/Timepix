@@ -392,8 +392,9 @@ tmux attach -t timepix
 
 ```bash
 python scripts/train.py \
-  --config configs/experiments/alpha_resnet18_tot.yaml \
   --resume outputs/experiments/baseline/<experiment_dir>/last_checkpoint.pth
 ```
+
+新的 checkpoint 会保存训练配置，因此恢复命令可以不再重复写 `--config`。如果是旧 checkpoint，或者服务器上的数据路径变了，可以显式加上 `--config` 和 `--data-root`。
 
 更完整说明见 `agent/SERVER_TRAINING.md`。
