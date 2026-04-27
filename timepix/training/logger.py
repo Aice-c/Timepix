@@ -24,10 +24,12 @@ def write_json(path: str | Path, data: dict[str, Any]) -> None:
 
 
 class CsvLogger:
-    def __init__(self, path: str | Path, fieldnames: list[str]) -> None:
+    def __init__(self, path: str | Path, fieldnames: list[str], append: bool = False) -> None:
         self.path = Path(path)
         self.fieldnames = fieldnames
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if append and self.path.exists():
+            return
         with self.path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writeheader()
@@ -36,4 +38,3 @@ class CsvLogger:
         with self.path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames, extrasaction="ignore")
             writer.writerow(row)
-

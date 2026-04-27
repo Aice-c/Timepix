@@ -33,6 +33,8 @@ training:
   seed: 42
   num_workers: 4
   pin_memory: true
+  progress_bar: true
+  save_last_checkpoint: true
 
 split:
   train: 0.8

@@ -21,6 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", default=None, help="Override dataset.root for this machine")
     parser.add_argument("--output-root", default=None, help="Override output root")
     parser.add_argument("--name", default=None, help="Override experiment name")
+    parser.add_argument("--resume", default=None, help="Resume from a last_checkpoint.pth file")
     parser.add_argument(
         "--set",
         action="append",
@@ -34,6 +35,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     cfg = load_experiment_config(args.config)
+    if args.resume:
+        cfg.setdefault("training", {})["resume_from"] = args.resume
     for item in args.set:
         if "=" not in item:
             raise ValueError(f"--set expects KEY=VALUE, got {item}")

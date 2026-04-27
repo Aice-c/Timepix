@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import torch
 
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - fallback for minimal environments
+    tqdm = None
+
 
 def _unpack_batch(batch):
     if len(batch) == 3:
@@ -13,7 +18,27 @@ def _unpack_batch(batch):
     return images, labels, None
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, task: str):
+def _progress(iterable, enabled: bool, desc: str | None):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, desc=desc, unit="batch", leave=False, dynamic_ncols=True)
+
+
+def _set_postfix(iterator, loss: float) -> None:
+    if hasattr(iterator, "set_postfix"):
+        iterator.set_postfix(loss=f"{loss:.4f}")
+
+
+def train_one_epoch(
+    model,
+    loader,
+    criterion,
+    optimizer,
+    device,
+    task: str,
+    progress_bar: bool = False,
+    desc: str | None = None,
+):
     model.train()
     total_loss = 0.0
     total_count = 0
@@ -21,7 +46,8 @@ def train_one_epoch(model, loader, criterion, optimizer, device, task: str):
     labels_list = []
     regression_list = []
 
-    for batch in loader:
+    iterator = _progress(loader, progress_bar, desc)
+    for batch in iterator:
         images, labels, handcrafted = _unpack_batch(batch)
         images = images.to(device)
         labels = labels.to(device)
@@ -42,6 +68,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, task: str):
         batch_size = labels.shape[0]
         total_loss += float(loss.item()) * batch_size
         total_count += batch_size
+        _set_postfix(iterator, total_loss / max(total_count, 1))
 
     payload = {
         "loss": total_loss / max(total_count, 1),
@@ -55,7 +82,15 @@ def train_one_epoch(model, loader, criterion, optimizer, device, task: str):
 
 
 @torch.no_grad()
-def evaluate(model, loader, criterion, device, task: str):
+def evaluate(
+    model,
+    loader,
+    criterion,
+    device,
+    task: str,
+    progress_bar: bool = False,
+    desc: str | None = None,
+):
     model.eval()
     total_loss = 0.0
     total_count = 0
@@ -63,7 +98,8 @@ def evaluate(model, loader, criterion, device, task: str):
     labels_list = []
     regression_list = []
 
-    for batch in loader:
+    iterator = _progress(loader, progress_bar, desc)
+    for batch in iterator:
         images, labels, handcrafted = _unpack_batch(batch)
         images = images.to(device)
         labels = labels.to(device)
@@ -81,6 +117,7 @@ def evaluate(model, loader, criterion, device, task: str):
         batch_size = labels.shape[0]
         total_loss += float(loss.item()) * batch_size
         total_count += batch_size
+        _set_postfix(iterator, total_loss / max(total_count, 1))
 
     payload = {
         "loss": total_loss / max(total_count, 1),
@@ -91,4 +128,3 @@ def evaluate(model, loader, criterion, device, task: str):
     else:
         payload["logits"] = torch.cat(logits_list).numpy() if logits_list else None
     return payload
-

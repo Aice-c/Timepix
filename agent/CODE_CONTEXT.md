@@ -30,6 +30,7 @@ configs/*.yaml
   -> 构建模型
   -> 构建损失函数
   -> 训练与验证
+  -> 每个 epoch 保存 last checkpoint
   -> 用最佳模型测试
   -> 保存模型、日志、预测、指标和 metadata
 ```
@@ -187,6 +188,13 @@ gated   拼接后做 feature-wise gate，再分类
 - confusion matrix。
 
 主优化指标暂时以 validation accuracy 为主。
+
+训练过程支持：
+
+- tqdm batch 进度条。
+- 每个 epoch 结束打印训练摘要。
+- `last_checkpoint.pth` 自动保存。
+- `--resume` 从 checkpoint 恢复训练。
 
 ## 9. 实验脚本
 

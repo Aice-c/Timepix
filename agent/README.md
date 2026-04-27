@@ -31,6 +31,9 @@
 8. `EXPERIMENT_GROUPS.md`  
    实验组功能说明：如何用 `experiment_group` 分组保存实验，如何按组或汇总全部结果。
 
+9. `SERVER_TRAINING.md`  
+   服务器持久化训练说明：如何用 `tmux/nohup` 防止 VSCode 断开导致训练中断，以及如何从 `last_checkpoint.pth` 恢复。
+
 ## 项目一句话概括
 
 本项目用深度学习识别带电粒子入射 Timepix/Timepix3 探测器的极角。输入是粒子事件在探测器像素平面上形成的 ToT 和/或 ToA 二维矩阵，输出是该事件所属的入射角类别。

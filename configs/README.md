@@ -58,3 +58,20 @@ python scripts/summarize.py --group baseline
 python scripts/summarize.py --all
 ```
 
+## 训练进度与恢复
+
+推荐开启：
+
+```yaml
+training:
+  progress_bar: true
+  save_last_checkpoint: true
+```
+
+如果训练中断，可以恢复：
+
+```bash
+python scripts/train.py \
+  --config configs/experiments/alpha_resnet18_tot.yaml \
+  --resume outputs/experiments/baseline/<experiment_dir>/last_checkpoint.pth
+```

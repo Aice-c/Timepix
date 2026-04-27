@@ -351,3 +351,49 @@ python scripts/train.py \
 ```
 
 确认能跑通后，再开始跑正式对比实验。
+
+## 14. 进度条和持久化训练
+
+训练时终端会显示每个 epoch 的 train/val batch 进度条，并在每个 epoch 结束后打印：
+
+```text
+Epoch summary | train_loss=... val_loss=... val_acc=... val_mae=... val_p90=...
+```
+
+配置项：
+
+```yaml
+training:
+  progress_bar: true
+  save_last_checkpoint: true
+```
+
+服务器长时间训练推荐使用 `tmux`：
+
+```bash
+cd ~/Timepix
+tmux new -s timepix
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_Clean
+```
+
+断开 tmux：
+
+```text
+Ctrl+b 然后按 d
+```
+
+恢复查看：
+
+```bash
+tmux attach -t timepix
+```
+
+如果进程真的中断，可以用自动保存的 checkpoint 恢复：
+
+```bash
+python scripts/train.py \
+  --config configs/experiments/alpha_resnet18_tot.yaml \
+  --resume outputs/experiments/baseline/<experiment_dir>/last_checkpoint.pth
+```
+
+更完整说明见 `agent/SERVER_TRAINING.md`。
