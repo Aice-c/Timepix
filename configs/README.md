@@ -60,7 +60,7 @@ python scripts/summarize.py --group baseline
 python scripts/summarize.py --all
 ```
 
-汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding` 和 `dropout`，也会记录 `mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1 或 AMP 对比结果。
+汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP 或主干模型对比结果。
 
 长网格实验可以使用：
 
@@ -75,11 +75,11 @@ python scripts/run_grid.py \
 
 ## 训练超参数搜索
 
-代表性 Alpha ToT ResNet18 设置的搜索配置：
+代表性 Alpha ToT ResNet18 设置的 A2 搜索配置：
 
 ```bash
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
 该配置使用 Optuna TPE，在固定 dataset、modality、model、loss、label、seed 的条件下搜索训练超参数：
@@ -96,6 +96,27 @@ search:
 ```
 
 搜索目标只使用 validation 指标；test 指标保留在每个 trial 的输出中用于最终报告，不用于挑选超参数。搜索结果会写入 `outputs/hparam_search/`，并生成 `best_config.yaml`、`best_params.json`、`study_summary.json` 和 `trials.csv`。Optuna study 默认持久化到 `outputs/optuna/`，中断后可用同一个配置继续运行。
+
+## 主干模型对比
+
+`configs/experiments/compare_models.yaml` 用于对比 7 个模型主干：
+
+```text
+shallow_cnn
+shallow_resnet
+resnet18_no_maxpool
+densenet121
+efficientnet_b0
+convnext_tiny
+vit_tiny
+```
+
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，默认 `image_size: 50`、`patch_size: 10`。
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_models.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/compare_models.yaml
+```
 
 ## 混合精度训练
 

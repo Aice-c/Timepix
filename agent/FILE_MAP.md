@@ -37,7 +37,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
 | `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
-| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, `shallow_resnet`, and `shallow_cnn`. |
+| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, and ViT-Tiny. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -56,9 +56,10 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
-| `configs/experiments/compare_models.yaml` | Grid config | Compares first-stage model set. |
+| `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
 | `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
+| `configs/search/a2_alpha_resnet18_tot_training.yaml` | A2 Optuna search config | Searches training hyperparameters after fixing the A1 ResNet18 structure. |
 
 ## `scripts/`
 

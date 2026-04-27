@@ -111,6 +111,10 @@ Dataset 返回格式有两种：
 - `resnet18_original`
 - `shallow_resnet`
 - `shallow_cnn`
+- `densenet121`
+- `efficientnet_b0`
+- `convnext_tiny`
+- `vit_tiny`
 
 新模型工厂在 `timepix/models/registry.py`：
 
@@ -131,6 +135,12 @@ model = build_model(cfg, input_channels, num_classes, task, handcrafted_dim)
 `resnet18_original` 独立文件实现，固定原始 ResNet18 stem：
 `7x7/stride=2/padding=3` + 第一层 maxpool。它仍然走统一的 `FeatureFusion`
 和任务 head，因此手工特征、分类/回归任务、损失函数和标签编码切换都保持兼容。
+
+DenseNet121、EfficientNet-B0、ConvNeXt-Tiny 和 ViT-Tiny 在
+`timepix/models/torchvision_backbones.py` 中适配。它们会把输入 stem 改成
+当前模态通道数，输出投影到 `feature_dim`，再复用统一 `FeatureFusion` 和
+task head。`vit_tiny` 是面向 50x50 Timepix 矩阵的本地小型 ViT，默认
+`image_size=50`、`patch_size=10`，不提供预训练权重。
 
 ## 6. 多模态实现方式
 
@@ -243,16 +253,25 @@ python scripts/summarize.py --all
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
-汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`，也会包含早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
+汇总 CSV 会包含结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`，也会包含早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
 
-训练超参数搜索入口：
+训练超参数搜索入口，A2 使用：
 
 ```powershell
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
 搜索配置继承一个普通实验配置，`search.parameters` 用 dotted key 指向要采样的字段，例如 `training.learning_rate`、`training.weight_decay`、`training.batch_size`、`training.eta_min` 和 `model.dropout`。每个 trial 都调用同一个 `run_experiment`，因此 checkpoint、AMP、早停、metadata 和汇总字段都保持一致。搜索目标应使用 validation 指标，test 指标只用于最终报告。
+
+主干模型对比入口：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/compare_models.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/compare_models.yaml
+```
+
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。
 
 汇总某一组：
 
@@ -284,7 +303,7 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
 3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
-4. 用 `configs/search/alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用于后续消融和模型对比。
+4. 用 `configs/search/a2_alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用于后续消融和模型对比。
 5. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
 6. 逐步迁移/适配旧模型。
 7. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。

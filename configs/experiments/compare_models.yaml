@@ -3,8 +3,44 @@ base: alpha_resnet18_tot.yaml
 experiment_name: compare_models_alpha_tot
 experiment_group: compare_models
 
+dataset:
+  modalities: [ToT]
+
+task:
+  type: classification
+  primary_metric: val_accuracy
+
+model:
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.3
+  fusion_mode: none
+  image_size: 50
+  patch_size: 10
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}
+
+training:
+  mixed_precision: true
+  mixed_precision_dtype: float16
+
 grid:
   model.name:
-    - resnet18
-    - shallow_resnet
     - shallow_cnn
+    - shallow_resnet
+    - resnet18_no_maxpool
+    - densenet121
+    - efficientnet_b0
+    - convnext_tiny
+    - vit_tiny

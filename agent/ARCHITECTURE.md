@@ -121,7 +121,8 @@ class TimepixModel(nn.Module):
 Models return `ModelOutput`, which may contain classification `logits` and/or a
 regression tensor. The current factory supports `resnet18`,
 `resnet18_no_maxpool`, `resnet18_maxpool`, `resnet18_original`,
-`shallow_resnet`, and `shallow_cnn`.
+`shallow_resnet`, `shallow_cnn`, `densenet121`, `efficientnet_b0`,
+`convnext_tiny`, and `vit_tiny`.
 
 `resnet18` is an alias for `resnet18_no_maxpool`. Both ResNet18 variants accept
 `model.conv1_kernel_size`, `model.conv1_stride`, `model.conv1_padding`,
@@ -134,6 +135,13 @@ torchvision stem: conv1 `7x7/stride=2/padding=3` plus first maxpool. It still
 uses the project `FeatureFusion` and task head, so handcrafted features,
 classification/regression labels, and all existing loss choices remain
 compatible.
+
+DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny are adapted in
+`timepix.models.torchvision_backbones`. They replace the input stem for 1/2
+Timepix channels, project the backbone output to `model.feature_dim`, and then
+reuse the same `FeatureFusion` and task head as the ResNet models. `vit_tiny`
+is a local 50x50 adapter with default `model.patch_size=10`; pretrained weights
+are not provided for this adapter.
 
 ## Losses and Metrics
 
@@ -183,8 +191,10 @@ maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
 `configs/experiments/compare_mixed_precision.yaml` compares FP32 and CUDA AMP
 under the current A1 best structure: `resnet18_no_maxpool`,
 `conv1_kernel_size=2`, `conv1_stride=1`, and `dropout=0.3`.
-`configs/search/alpha_resnet18_tot_training.yaml` searches representative
-training hyperparameters before they are fixed for later ablations and model
+`configs/experiments/compare_models.yaml` compares ShallowCNN, ShallowResNet,
+ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny under the
+same Alpha ToT CE one-hot setting. `configs/search/a2_alpha_resnet18_tot_training.yaml`
+defines the A2 training-hyperparameter search before later ablations and model
 comparisons.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

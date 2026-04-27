@@ -128,7 +128,7 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 
 ```bash
 python scripts/search_hparams.py \
-  --config configs/search/alpha_resnet18_tot_training.yaml
+  --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
 每个 trial 都会保存普通实验输出，Optuna study 默认写入 `outputs/optuna/` 的 SQLite 文件。VSCode 或 tmux 中断后，用同一条命令重新运行即可继续已有 study。

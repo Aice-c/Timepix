@@ -8,6 +8,21 @@ from .resnet import ResNet18Timepix
 from .resnet18_original import ResNet18OriginalTimepix
 from .resnet_maxpool import ResNet18MaxPoolTimepix
 from .shallow import build_shallow_cnn, build_shallow_resnet
+from .torchvision_backbones import (
+    build_convnext_tiny,
+    build_densenet121,
+    build_efficientnet_b0,
+    build_vit_tiny,
+)
+
+
+def _default_image_size(cfg: dict) -> int:
+    sample_shape = cfg.get("dataset", {}).get("sample_shape", [50])
+    if isinstance(sample_shape, int):
+        return sample_shape
+    if isinstance(sample_shape, (list, tuple)) and sample_shape:
+        return int(sample_shape[0])
+    return 50
 
 
 def build_model(
@@ -63,6 +78,36 @@ def build_model(
         return build_shallow_cnn(**common, hidden_dim=int(model_cfg.get("hidden_dim", 128)))
     if name == "shallow_resnet":
         return build_shallow_resnet(**common, hidden_dim=int(model_cfg.get("hidden_dim", 128)))
+    if name == "densenet121":
+        return build_densenet121(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            pretrained=bool(model_cfg.get("pretrained", False)),
+        )
+    if name == "efficientnet_b0":
+        return build_efficientnet_b0(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            pretrained=bool(model_cfg.get("pretrained", False)),
+        )
+    if name == "convnext_tiny":
+        return build_convnext_tiny(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            pretrained=bool(model_cfg.get("pretrained", False)),
+        )
+    if name == "vit_tiny":
+        return build_vit_tiny(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            pretrained=bool(model_cfg.get("pretrained", False)),
+            image_size=int(model_cfg.get("image_size", _default_image_size(cfg))),
+            patch_size=int(model_cfg.get("patch_size", 10)),
+        )
 
     raise ValueError(f"Unknown model: {name}")
 

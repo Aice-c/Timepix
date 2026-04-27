@@ -49,6 +49,8 @@ SECTION_KEYS = {
         "conv1_padding",
         "feature_dim",
         "hidden_dim",
+        "image_size",
+        "patch_size",
         "dropout",
         "fusion_mode",
     },
@@ -86,6 +88,10 @@ SUPPORTED_MODELS = {
     "resnet18_original",
     "shallow_resnet",
     "shallow_cnn",
+    "densenet121",
+    "efficientnet_b0",
+    "convnext_tiny",
+    "vit_tiny",
 }
 SUPPORTED_TASKS = {"classification", "regression"}
 SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd"}
@@ -168,9 +174,20 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     model_name = model_cfg.get("name", "resnet18")
     if model_name not in SUPPORTED_MODELS:
         errors.append(f"model.name must be one of {sorted(SUPPORTED_MODELS)}, got {model_name!r}")
+    if "pretrained" in model_cfg:
+        _check_bool(model_cfg["pretrained"], "model.pretrained", errors)
     if "fusion_mode" in model_cfg and model_cfg["fusion_mode"] not in SUPPORTED_FUSION_MODES:
         errors.append(f"model.fusion_mode must be one of {sorted(SUPPORTED_FUSION_MODES)}")
-    for key in ("conv1_kernel_size", "kernel_size", "conv1_stride", "stride", "feature_dim", "hidden_dim"):
+    for key in (
+        "conv1_kernel_size",
+        "kernel_size",
+        "conv1_stride",
+        "stride",
+        "feature_dim",
+        "hidden_dim",
+        "image_size",
+        "patch_size",
+    ):
         if key in model_cfg:
             _check_positive_int(model_cfg[key], f"model.{key}", errors)
     for key in ("conv1_padding", "padding"):
@@ -178,6 +195,14 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
             _check_positive_int(model_cfg[key], f"model.{key}", errors, allow_zero=True)
     if "dropout" in model_cfg:
         _check_float(model_cfg["dropout"], "model.dropout", errors, min_value=0.0)
+    if model_cfg.get("name") == "vit_tiny" and "image_size" in model_cfg and "patch_size" in model_cfg:
+        try:
+            if int(model_cfg["image_size"]) % int(model_cfg["patch_size"]) != 0:
+                errors.append("model.image_size must be divisible by model.patch_size for vit_tiny")
+        except (TypeError, ValueError):
+            pass
+    if model_cfg.get("name") == "vit_tiny" and model_cfg.get("pretrained", False):
+        errors.append("model.pretrained must be false for vit_tiny")
 
     loss_cfg = _require_mapping(cfg.get("loss", {}), "loss", errors) or {}
     loss_name = loss_cfg.get("name", "cross_entropy")

@@ -164,6 +164,20 @@ python scripts/run_grid.py --config configs/experiments/compare_losses.yaml
 python scripts/run_grid.py --config configs/experiments/compare_models.yaml
 ```
 
+当前模型主干对比包含：
+
+```text
+shallow_cnn
+shallow_resnet
+resnet18_no_maxpool
+densenet121
+efficientnet_b0
+convnext_tiny
+vit_tiny
+```
+
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，默认 `image_size: 50`、`patch_size: 10`。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash
@@ -274,7 +288,7 @@ python scripts/summarize.py \
   --out outputs/baseline_summary.csv
 ```
 
-汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、早停状态、训练超参数、混合精度状态、训练/测试耗时、git commit 和主要验证/测试指标，A1 结构对比或 AMP 对比可以直接按这些列筛选。
+汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`、早停状态、训练超参数、混合精度状态、训练/测试耗时、git commit 和主要验证/测试指标，A1 结构对比、AMP 对比或主干模型对比可以直接按这些列筛选。
 
 ## 9. 每个实验会保存什么
 
@@ -345,11 +359,11 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 
 新系统提供 Optuna/TPE 搜索入口，用于在代表性设置上先找一组较好的训练超参数，再固定到后续消融和模型对比中。
 
-代表性 Alpha ToT ResNet18 搜索：
+代表性 Alpha ToT ResNet18 A2 搜索：
 
 ```bash
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
 搜索配置继承 `configs/experiments/alpha_resnet18_tot.yaml`，固定 Dataset、Modality、Model、Loss、Label 和 Seed，只搜索训练相关超参数：
@@ -385,7 +399,7 @@ best_config.yaml
 Optuna study 默认保存为 SQLite：
 
 ```text
-outputs/optuna/hparam_alpha_resnet18_tot.db
+outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 ```
 
 服务器中断后，用同一个搜索配置再次运行即可接着已有 study 继续采样。搜索结束后，可以把 `best_config.yaml` 中的训练超参数整理回后续正式实验配置，作为消融和模型对比的固定训练预算。
@@ -404,7 +418,7 @@ outputs/optuna/hparam_alpha_resnet18_tot.db
 - 90 度旋转增强。
 - `total_energy` 手工特征。
 - `none` / `concat` / `gated` 三种融合模式。
-- `resnet18`、`resnet18_no_maxpool`、`resnet18_maxpool`、`resnet18_original`、`shallow_resnet`、`shallow_cnn` 新接口模型。
+- `resnet18`、`resnet18_no_maxpool`、`resnet18_maxpool`、`resnet18_original`、`shallow_resnet`、`shallow_cnn`、`densenet121`、`efficientnet_b0`、`convnext_tiny`、`vit_tiny` 新接口模型。
 - CrossEntropy 和 EMD 损失。
 - accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
 - 单实验运行、网格实验运行、结果汇总。

@@ -52,6 +52,12 @@ A1 原始 ResNet18 baseline 和 36 组结构适配网格都会保存到：
 outputs/experiments/a1_structure_adaptation/
 ```
 
+模型主干对比会保存到：
+
+```text
+outputs/experiments/compare_models/
+```
+
 ## metadata
 
 每个实验的 `metadata.json` 会记录：
@@ -122,13 +128,13 @@ outputs/experiments/compare_mixed_precision/
 训练超参数搜索使用：
 
 ```bash
-python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
 每个 trial 是一个普通实验，默认保存到：
 
 ```text
-outputs/experiments/hparam_search_training/
+outputs/experiments/a2_hparam_search_training/
 ```
 
 搜索本身的汇总文件保存到：

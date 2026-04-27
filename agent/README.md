@@ -81,7 +81,7 @@ configs/*.yaml
 
 ```powershell
 python -m compileall -q timepix scripts
-python scripts\search_hparams.py --config configs\search\alpha_resnet18_tot_training.yaml --dry-run
+python scripts\search_hparams.py --config configs\search\a2_alpha_resnet18_tot_training.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\compare_mixed_precision.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\a1_structure_adaptation.yaml --dry-run
 python scripts\summarize.py --root outputs\experiments\__missing__ --out outputs\__tmp_summary_amp.csv
