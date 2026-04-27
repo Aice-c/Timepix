@@ -1,7 +1,14 @@
 base: alpha_resnet18_tot.yaml
 
-experiment_name: compare_mixed_precision_alpha_tot
+experiment_name: compare_mixed_precision_a1best_alpha_tot
 experiment_group: compare_mixed_precision
+
+model:
+  name: resnet18_no_maxpool
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  dropout: 0.3
 
 training:
   mixed_precision_dtype: float16

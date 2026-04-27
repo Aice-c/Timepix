@@ -332,14 +332,14 @@ training:
 
 默认配置保持 `mixed_precision: false`，便于把 FP32 作为基准。开启后，训练、验证和测试都会使用 autocast；FP16 训练会启用 GradScaler。`last_checkpoint.pth` 中会保存 scaler 状态，所以中断后可以继续 `--resume`。
 
-为了判断混合精度是否影响精度，先跑完全相同条件下的对比实验：
+为了判断混合精度是否影响精度，先在 A1 当前最佳结构上跑完全相同条件下的对比实验：
 
 ```bash
 python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
 ```
 
-该配置只切换 `training.mixed_precision: false/true`，其他条件继承同一个 Alpha ToT ResNet18 CE one-hot baseline。结果汇总后重点比较 `fit_seconds`、`test_accuracy`、`test_mae_argmax` 和 `test_p90_error`。
+该配置固定 `resnet18_no_maxpool`、`conv1_kernel_size: 2`、`conv1_stride: 1`、`dropout: 0.3`，只切换 `training.mixed_precision: false/true`。结果汇总后重点比较 `fit_seconds`、`test_accuracy`、`test_mae_argmax` 和 `test_p90_error`。
 
 ## 12. 训练超参数搜索
 

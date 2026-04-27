@@ -181,7 +181,8 @@ ResNet18 baseline for A1. `configs/experiments/a1_structure_adaptation.yaml`
 defines the A1 alpha ToT ResNet18 structure-adaptation grid: no-maxpool vs
 maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
 `configs/experiments/compare_mixed_precision.yaml` compares FP32 and CUDA AMP
-under the same Alpha ToT ResNet18 CE one-hot baseline settings.
+under the current A1 best structure: `resnet18_no_maxpool`,
+`conv1_kernel_size=2`, `conv1_stride=1`, and `dropout=0.3`.
 `configs/search/alpha_resnet18_tot_training.yaml` searches representative
 training hyperparameters before they are fixed for later ablations and model
 comparisons.

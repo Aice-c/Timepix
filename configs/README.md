@@ -109,12 +109,14 @@ training:
 
 `mixed_precision: false` 是默认安全设置；开启后训练、验证和测试都会使用 autocast，FP16 训练会使用 GradScaler。checkpoint 会保存 scaler 状态，`--resume` 可以继续恢复。汇总表中的 `fit_seconds`、`test_seconds` 和 `total_seconds` 可用于比较速度。
 
-完全相同条件下对比 FP32 与 AMP：
+在 A1 当前最佳结构上对比 FP32 与 AMP：
 
 ```bash
 python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
 ```
+
+该配置固定 `resnet18_no_maxpool`、`conv1_kernel_size: 2`、`conv1_stride: 1`、`dropout: 0.3`，只切换 `training.mixed_precision`。
 
 ## ResNet18 结构参数
 

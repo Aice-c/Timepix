@@ -57,7 +57,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares first-stage model set. |
-| `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under otherwise identical Alpha ToT ResNet18 settings. |
+| `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
 | `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
 
 ## `scripts/`
