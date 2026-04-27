@@ -30,3 +30,31 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 - alpha 数据集支持 `ToT` 和 `ToA`。
 - C/质子数据集只支持 `ToT`。
 
+## 实验组
+
+实验配置可以设置：
+
+```yaml
+experiment_group: baseline
+```
+
+输出会保存到：
+
+```text
+outputs/experiments/baseline/<timestamp>_<experiment_name>/
+```
+
+如果不设置，默认使用 `default` 组。
+
+汇总某个实验组：
+
+```bash
+python scripts/summarize.py --group baseline
+```
+
+汇总全部实验组：
+
+```bash
+python scripts/summarize.py --all
+```
+

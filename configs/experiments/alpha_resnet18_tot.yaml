@@ -1,4 +1,5 @@
 experiment_name: alpha_resnet18_tot
+experiment_group: baseline
 
 dataset:
   config: ../datasets/alpha_clean.yaml

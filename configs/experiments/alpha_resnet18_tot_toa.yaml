@@ -1,6 +1,7 @@
 base: alpha_resnet18_tot.yaml
 
 experiment_name: alpha_resnet18_tot_toa
+experiment_group: modality_compare
 
 dataset:
   modalities: [ToT, ToA]
@@ -13,4 +14,3 @@ normalization:
     enabled: true
     log1p: true
     ignore_zero: true
-

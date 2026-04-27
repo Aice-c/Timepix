@@ -194,7 +194,42 @@ gated   拼接后做 feature-wise gate，再分类
 
 - `scripts/train.py`：跑单个实验。
 - `scripts/run_grid.py`：跑一组网格对比实验。
-- `scripts/summarize.py`：汇总 `outputs/experiments` 下的结果。
+- `scripts/summarize.py`：汇总全部实验或某个实验组。
+
+实验可以通过 `experiment_group` 分组保存，例如：
+
+```yaml
+experiment_name: alpha_resnet18_tot
+experiment_group: baseline
+```
+
+输出目录会变成：
+
+```text
+outputs/experiments/baseline/<timestamp>_alpha_resnet18_tot/
+```
+
+`metadata.json` 中也会记录 `experiment_group`，便于后续汇总和论文筛选。
+
+汇总全部实验：
+
+```powershell
+python scripts/summarize.py --all
+```
+
+无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
+
+汇总某一组：
+
+```powershell
+python scripts/summarize.py --group baseline
+```
+
+按路径汇总：
+
+```powershell
+python scripts/summarize.py --root outputs/experiments/baseline --out outputs/baseline_summary.csv
+```
 
 旧的 `Program/run_ablation.py` 目前只是临时消融实验脚本，主要用于快速对比不同损失函数、软标签和回归任务的效果。它不应被理解为论文最终的消融实验框架。
 

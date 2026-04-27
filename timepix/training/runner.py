@@ -17,7 +17,7 @@ from timepix.models import build_model
 from timepix.training.logger import CsvLogger, write_json, write_yaml
 from timepix.training.metrics import classification_metrics, regression_metrics
 from timepix.training.trainer import evaluate, train_one_epoch
-from timepix.utils.paths import make_experiment_dir
+from timepix.utils.paths import make_experiment_dir, slugify
 from timepix.utils.seed import set_seed
 
 
@@ -117,9 +117,11 @@ def run_experiment(
     set_seed(seed)
 
     name = experiment_name or cfg.get("experiment_name") or "timepix_experiment"
+    experiment_group = cfg.get("experiment_group") or "default"
+    experiment_group = slugify(str(experiment_group))
     output_root = output_root or cfg.get("output", {}).get("root", "outputs/experiments")
     output_root = resolve_project_path(output_root)
-    exp_dir = make_experiment_dir(output_root, name)
+    exp_dir = make_experiment_dir(output_root / experiment_group, name)
     write_yaml(exp_dir / "config.yaml", cfg)
 
     loaders, data_info = build_dataloaders(cfg, data_root_override=data_root_override)
@@ -232,6 +234,7 @@ def run_experiment(
 
     metadata = {
         "experiment_name": name,
+        "experiment_group": experiment_group,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "experiment_dir": str(exp_dir),
         "config_path": cfg.get("_config_path"),

@@ -125,7 +125,32 @@ C/质子 ToT：
 python scripts/train.py --config configs/experiments/proton_resnet18_tot.yaml
 ```
 
-## 6. 跑一组对比实验
+## 6. 实验组
+
+实验配置支持：
+
+```yaml
+experiment_name: alpha_resnet18_tot
+experiment_group: baseline
+```
+
+输出目录会按组保存：
+
+```text
+outputs/experiments/baseline/20260427_120000_alpha_resnet18_tot/
+```
+
+如果没有写 `experiment_group`，默认使用 `default` 组。
+
+`metadata.json` 中也会记录：
+
+```json
+{
+  "experiment_group": "baseline"
+}
+```
+
+## 7. 跑一组对比实验
 
 比较不同损失函数：
 
@@ -145,7 +170,19 @@ python scripts/run_grid.py --config configs/experiments/compare_models.yaml
 python scripts/run_grid.py --config configs/experiments/compare_losses.yaml --dry-run
 ```
 
-## 7. 汇总实验结果
+如果 grid 配置中写了：
+
+```yaml
+experiment_group: compare_losses
+```
+
+该组 grid 实验都会保存到：
+
+```text
+outputs/experiments/compare_losses/
+```
+
+## 8. 汇总实验结果
 
 所有新实验默认输出到：
 
@@ -154,6 +191,12 @@ outputs/experiments/
 ```
 
 汇总：
+
+```bash
+python scripts/summarize.py --all
+```
+
+无参数运行也会汇总全部实验组：
 
 ```bash
 python scripts/summarize.py
@@ -165,12 +208,34 @@ python scripts/summarize.py
 outputs/experiment_summary.csv
 ```
 
-## 8. 每个实验会保存什么
+只汇总某个实验组：
+
+```bash
+python scripts/summarize.py --group baseline
+```
+
+默认生成：
+
+```text
+outputs/baseline_summary.csv
+```
+
+也可以按路径汇总：
+
+```bash
+python scripts/summarize.py \
+  --root outputs/experiments/baseline \
+  --out outputs/baseline_summary.csv
+```
+
+汇总表中包含 `experiment_group` 列。
+
+## 9. 每个实验会保存什么
 
 每次实验会创建一个单独目录，例如：
 
 ```text
-outputs/experiments/20260426_203000_alpha_resnet18_tot/
+outputs/experiments/baseline/20260426_203000_alpha_resnet18_tot/
 ```
 
 里面包含：
@@ -187,7 +252,7 @@ confusion_matrix.csv   测试集混淆矩阵
 
 其中 `predictions.csv` 会同时保存每个测试样本的绝对角度误差，便于后续分析 P90 Error 对应的高误差样本。
 
-## 9. 数据精度设置
+## 10. 数据精度设置
 
 新系统支持在实验配置中指定读取矩阵时使用的浮点精度：
 
@@ -207,7 +272,7 @@ data:
 
 需要注意：如果原始数据仍是很多位小数的 `.txt`，每次训练仍然要解析文本，I/O 和文本解析可能还是慢。若服务器上训练明显受数据读取拖累，下一步应把 `.txt` 数据一次性转换成 `.npy` 或缓存格式，再训练时直接读二进制数组。
 
-## 10. 当前第一阶段已经实现的内容
+## 11. 当前第一阶段已经实现的内容
 
 已实现：
 
@@ -225,8 +290,9 @@ data:
 - CrossEntropy 和 EMD 损失。
 - accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
 - 单实验运行、网格实验运行、结果汇总。
+- 实验组目录、metadata 实验组记录、按组/全部汇总。
 
-## 11. P90 Error 指标
+## 12. P90 Error 指标
 
 新系统会在 `metrics.json`、`metadata.json` 和 `training_log.csv` 中记录 `p90_error`。
 
@@ -247,7 +313,7 @@ data:
 
 这个指标比平均误差更能反映“较差的那一部分样本”的表现，适合和 accuracy、MAE、混淆矩阵一起用于论文分析。
 
-## 12. 当前限制
+## 13. 当前限制
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 

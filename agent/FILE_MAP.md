@@ -60,7 +60,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`. |
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping. |
-| `scripts/summarize.py` | Summarize outputs | Writes `outputs/experiment_summary.csv`. |
+| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`. |
 
 ## Legacy `Program/` Files
 

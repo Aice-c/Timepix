@@ -1,10 +1,10 @@
 base: alpha_resnet18_tot.yaml
 
 experiment_name: compare_models_alpha_tot
+experiment_group: compare_models
 
 grid:
   model.name:
     - resnet18
     - shallow_resnet
     - shallow_cnn
-

@@ -1,6 +1,7 @@
 base: alpha_resnet18_tot.yaml
 
 experiment_name: alpha_resnet18_tot_handcrafted_concat
+experiment_group: handcrafted_ablation
 
 model:
   fusion_mode: concat
@@ -10,4 +11,3 @@ handcrafted_features:
   standardize: true
   features:
     ToT: [total_energy]
-
