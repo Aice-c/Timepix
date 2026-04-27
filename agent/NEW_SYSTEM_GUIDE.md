@@ -341,7 +341,56 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 
 该配置只切换 `training.mixed_precision: false/true`，其他条件继承同一个 Alpha ToT ResNet18 CE one-hot baseline。结果汇总后重点比较 `fit_seconds`、`test_accuracy`、`test_mae_argmax` 和 `test_p90_error`。
 
-## 12. 当前第一阶段已经实现的内容
+## 12. 训练超参数搜索
+
+新系统提供 Optuna/TPE 搜索入口，用于在代表性设置上先找一组较好的训练超参数，再固定到后续消融和模型对比中。
+
+代表性 Alpha ToT ResNet18 搜索：
+
+```bash
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+```
+
+搜索配置继承 `configs/experiments/alpha_resnet18_tot.yaml`，固定 Dataset、Modality、Model、Loss、Label 和 Seed，只搜索训练相关超参数：
+
+```yaml
+search:
+  sampler: tpe
+  objective: validation.accuracy
+  parameters:
+    training.learning_rate: ...
+    training.weight_decay: ...
+    training.batch_size: ...
+    training.eta_min: ...
+    model.dropout: ...
+```
+
+搜索目标使用 validation 指标，test 指标只用于最终报告，避免用测试集调参。每个 trial 都是一个普通实验目录，完整保存 `config.yaml`、checkpoint、metadata 和预测结果。搜索总目录默认在：
+
+```text
+outputs/hparam_search/
+```
+
+其中包含：
+
+```text
+search_config.yaml
+trials.csv
+study_summary.json
+best_params.json
+best_config.yaml
+```
+
+Optuna study 默认保存为 SQLite：
+
+```text
+outputs/optuna/hparam_alpha_resnet18_tot.db
+```
+
+服务器中断后，用同一个搜索配置再次运行即可接着已有 study 继续采样。搜索结束后，可以把 `best_config.yaml` 中的训练超参数整理回后续正式实验配置，作为消融和模型对比的固定训练预算。
+
+## 13. 当前第一阶段已经实现的内容
 
 已实现：
 
@@ -361,8 +410,9 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 - 单实验运行、网格实验运行、结果汇总。
 - 实验组目录、metadata 实验组记录、按组/全部汇总。
 - CUDA AMP 混合精度训练开关、GradScaler checkpoint 恢复、FP32/AMP 对比配置。
+- Optuna/TPE 训练超参数搜索入口、搜索配置、trial CSV 和 best config 导出。
 
-## 13. P90 Error 指标
+## 14. P90 Error 指标
 
 新系统会在 `metrics.json`、`metadata.json` 和 `training_log.csv` 中记录 `p90_error`。
 
@@ -383,7 +433,7 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 
 这个指标比平均误差更能反映“较差的那一部分样本”的表现，适合和 accuracy、MAE、混淆矩阵一起用于论文分析。
 
-## 14. 当前限制
+## 15. 当前限制
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 
@@ -422,7 +472,7 @@ python scripts/train.py \
 
 确认能跑通后，再开始跑正式对比实验。
 
-## 15. 进度条和持久化训练
+## 16. 进度条和持久化训练
 
 训练时终端会显示每个 epoch 的 train/val batch 进度条，并在每个 epoch 结束后打印：
 

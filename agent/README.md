@@ -54,7 +54,7 @@
 
 ```text
 configs/*.yaml
-  -> scripts/train.py 或 scripts/run_grid.py
+  -> scripts/train.py / scripts/run_grid.py / scripts/search_hparams.py
   -> timepix/data
   -> timepix/models
   -> timepix/losses.py
@@ -62,7 +62,7 @@ configs/*.yaml
   -> outputs/experiments
 ```
 
-旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。新训练链路支持 YAML 配置、进度条、checkpoint 恢复、网格实验、结果汇总和可选 CUDA AMP 混合精度。
+旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。新训练链路支持 YAML 配置、进度条、checkpoint 恢复、网格实验、Optuna/TPE 超参数搜索、结果汇总和可选 CUDA AMP 混合精度。
 
 ## 当前本地状态
 
@@ -81,6 +81,7 @@ configs/*.yaml
 
 ```powershell
 python -m compileall -q timepix scripts
+python scripts\search_hparams.py --config configs\search\alpha_resnet18_tot_training.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\compare_mixed_precision.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\a1_structure_adaptation.yaml --dry-run
 python scripts\summarize.py --root outputs\experiments\__missing__ --out outputs\__tmp_summary_amp.csv

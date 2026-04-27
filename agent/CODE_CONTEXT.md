@@ -45,6 +45,7 @@ configs/*.yaml
 
 - `configs/datasets/`：描述数据集事实，例如 `Alpha` 有 ToT/ToA，`Proton_C` 只有 ToT。
 - `configs/experiments/`：描述一次实验怎么跑。
+- `configs/search/`：描述 Optuna/TPE 超参数搜索空间。
 
 示例命令：
 
@@ -216,6 +217,7 @@ gated   拼接后做 feature-wise gate，再分类
 
 - `scripts/train.py`：跑单个实验。
 - `scripts/run_grid.py`：跑一组网格对比实验。
+- `scripts/search_hparams.py`：在代表性实验设置上做 Optuna/TPE 训练超参数搜索。
 - `scripts/summarize.py`：汇总全部实验或某个实验组。
 
 实验可以通过 `experiment_group` 分组保存，例如：
@@ -242,6 +244,15 @@ python scripts/summarize.py --all
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
 汇总 CSV 会包含 A1 需要的结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`，也会包含早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
+
+训练超参数搜索入口：
+
+```powershell
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+```
+
+搜索配置继承一个普通实验配置，`search.parameters` 用 dotted key 指向要采样的字段，例如 `training.learning_rate`、`training.weight_decay`、`training.batch_size`、`training.eta_min` 和 `model.dropout`。每个 trial 都调用同一个 `run_experiment`，因此 checkpoint、AMP、早停、metadata 和汇总字段都保持一致。搜索目标应使用 validation 指标，test 指标只用于最终报告。
 
 汇总某一组：
 
@@ -273,7 +284,8 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
 3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
-4. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
-5. 逐步迁移/适配旧模型。
-6. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
-7. 根据论文需要补充更多 grid 配置。
+4. 用 `configs/search/alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用于后续消融和模型对比。
+5. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
+6. 逐步迁移/适配旧模型。
+7. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。
+8. 根据论文需要补充更多 grid 配置。

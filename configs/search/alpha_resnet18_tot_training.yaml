@@ -1,0 +1,43 @@
+base: ../experiments/alpha_resnet18_tot.yaml
+
+experiment_name: hparam_alpha_resnet18_tot
+experiment_group: hparam_search_training
+
+training:
+  epochs: 30
+  early_stopping_patience: 8
+  mixed_precision: false
+
+search:
+  study_name: hparam_alpha_resnet18_tot
+  sampler: tpe
+  seed: 42
+  n_startup_trials: 6
+  n_trials: 30
+  direction: maximize
+  objective: validation.accuracy
+  storage: sqlite:///outputs/optuna/hparam_alpha_resnet18_tot.db
+  load_if_exists: true
+  output_root: outputs/hparam_search
+  parameters:
+    training.learning_rate:
+      type: float
+      low: 0.00003
+      high: 0.003
+      log: true
+    training.weight_decay:
+      type: float
+      low: 0.000001
+      high: 0.001
+      log: true
+    training.batch_size:
+      type: categorical
+      choices: [32, 64, 128]
+    training.eta_min:
+      type: float
+      low: 0.0000001
+      high: 0.00001
+      log: true
+    model.dropout:
+      type: categorical
+      choices: [0.0, 0.1, 0.2, 0.3]

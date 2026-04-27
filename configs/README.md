@@ -7,6 +7,7 @@
 ```text
 configs/datasets/      数据集事实：粒子类型、路径、可用模态
 configs/experiments/   具体实验：模型、损失、模态、训练参数
+configs/search/        Optuna/TPE 超参数搜索配置
 ```
 
 ## 路径规则
@@ -71,6 +72,30 @@ python scripts/run_grid.py \
 ```
 
 非 dry-run 网格会写入 `outputs/grid_manifests/`，记录每个组合的 `planned/running/done/failed/skipped_existing` 状态。
+
+## 训练超参数搜索
+
+代表性 Alpha ToT ResNet18 设置的搜索配置：
+
+```bash
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+```
+
+该配置使用 Optuna TPE，在固定 dataset、modality、model、loss、label、seed 的条件下搜索训练超参数：
+
+```yaml
+search:
+  objective: validation.accuracy
+  parameters:
+    training.learning_rate: ...
+    training.weight_decay: ...
+    training.batch_size: ...
+    training.eta_min: ...
+    model.dropout: ...
+```
+
+搜索目标只使用 validation 指标；test 指标保留在每个 trial 的输出中用于最终报告，不用于挑选超参数。搜索结果会写入 `outputs/hparam_search/`，并生成 `best_config.yaml`、`best_params.json`、`study_summary.json` 和 `trials.csv`。Optuna study 默认持久化到 `outputs/optuna/`，中断后可用同一个配置继续运行。
 
 ## 混合精度训练
 

@@ -168,11 +168,22 @@ including model hyperparameters such as conv1 kernel/stride/padding and
 dropout, early-stopping state, training hyperparameters, mixed-precision state,
 fit/test/total timing, and git metadata.
 
+`scripts/search_hparams.py` runs Optuna hyperparameter search from
+`configs/search/*.yaml`. It consumes the top-level `search` section, samples
+dotted config paths such as `training.learning_rate`, applies them to the same
+resolved experiment config used by `scripts/train.py`, and then calls
+`timepix.training.runner.run_experiment` for each trial. Search outputs are
+written under `outputs/hparam_search/`; Optuna storage defaults to SQLite under
+`outputs/optuna/`. The objective should use validation metrics only.
+
 `configs/experiments/a1_resnet18_original_baseline.yaml` defines the original
 ResNet18 baseline for A1. `configs/experiments/a1_structure_adaptation.yaml`
 defines the A1 alpha ToT ResNet18 structure-adaptation grid: no-maxpool vs
 maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
 `configs/experiments/compare_mixed_precision.yaml` compares FP32 and CUDA AMP
 under the same Alpha ToT ResNet18 CE one-hot baseline settings.
+`configs/search/alpha_resnet18_tot_training.yaml` searches representative
+training hyperparameters before they are fixed for later ablations and model
+comparisons.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

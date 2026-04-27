@@ -35,6 +35,7 @@
 - 是否启用手工特征。
 - 是否启用多模态。
 - 是否启用 CUDA AMP 混合精度。
+- 固定训练超参数前的 Optuna/TPE 搜索。
 - alpha 与 C/质子数据集上的不同实验设置。
 
 注意：alpha 有 ToT/ToA 双模态，C/质子只有 ToT。
@@ -64,14 +65,14 @@
 
 ## 5. `sweep.py` 的定位
 
-当前 `Program/sweep.py` 不建议只做小修小补。原因：
+当前 `Program/sweep.py` 不建议只做小修小补，也不作为后续搜索入口。原因：
 
 - 目前 objective 返回值错误，返回了 `run_experiment` 的 dict。
 - 搜索空间比较随意，未与实验设计强绑定。
 - 结果和参数记录不够全面。
 - 不适合支撑论文里的系统性对比实验。
 
-建议后续和新的实验 runner 一起重构，或者删除旧脚本后重写。
+新的搜索入口已经放在 `scripts/search_hparams.py`，配置放在 `configs/search/`。它直接复用新 `run_experiment`，每个 trial 都会产生完整 metadata、checkpoint 和预测输出。后续如果扩展搜索空间，应优先扩展 `configs/search/*.yaml` 和新脚本，而不是继续维护旧 `Program/sweep.py`。
 
 ## 6. 指标优化原则
 

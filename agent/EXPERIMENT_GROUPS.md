@@ -12,6 +12,7 @@
 - 手工特征消融。
 - 模态对比。
 - FP32 与 CUDA AMP 混合精度对比。
+- 训练超参数搜索 trial。
 - alpha 与 C/质子数据集对比。
 
 如果全部放在 `outputs/experiments/` 同一层，后续筛选、写论文、画表都会比较乱。实验组的作用就是把这些实验按研究问题分开。
@@ -116,6 +117,24 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 
 ```text
 outputs/experiments/compare_mixed_precision/
+```
+
+训练超参数搜索使用：
+
+```bash
+python scripts/search_hparams.py --config configs/search/alpha_resnet18_tot_training.yaml
+```
+
+每个 trial 是一个普通实验，默认保存到：
+
+```text
+outputs/experiments/hparam_search_training/
+```
+
+搜索本身的汇总文件保存到：
+
+```text
+outputs/hparam_search/
 ```
 
 ## 按路径汇总

@@ -16,6 +16,7 @@
 | `timepix/` | New experiment-driven training package | First-stage refactor target; old `Program/` is preserved. |
 | `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
 | `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`. |
+| `requirements.txt` | Refactored runtime dependencies | Minimal new-system dependencies including Optuna. |
 | `generate_presentation.py` | Builds analysis PPT | Uses handcrafted feature CSV/plots for near-vertical analysis. |
 | `generate_ppt.py` | Builds a PPT deck | General presentation generation helper. |
 | `generate_literature_ppt.py` | Builds literature review PPT | Untracked at inspection time. |
@@ -57,6 +58,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares first-stage model set. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under otherwise identical Alpha ToT ResNet18 settings. |
+| `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
 
 ## `scripts/`
 
@@ -64,6 +66,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `scripts/train.py` | Run one experiment | Supports `--data-root`, `--output-root`, `--set`, and `--resume`. |
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
+| `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
 
 ## Legacy `Program/` Files

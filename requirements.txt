@@ -1,0 +1,14 @@
+# Timepix refactored experiment runtime
+#
+# Install regular Python dependencies with:
+#   pip install -r requirements.txt
+#
+# For CUDA training, install the PyTorch wheel that matches the server CUDA
+# version first, following https://pytorch.org/get-started/locally/.
+
+numpy>=1.26
+pyyaml>=6.0
+tqdm>=4.66
+torch>=2.4
+torchvision>=0.19
+optuna>=3.5

@@ -121,3 +121,14 @@ python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.
 ```
 
 开启 `training.mixed_precision: true` 后，训练、验证和测试都会使用 autocast，FP16 训练会使用 GradScaler。`last_checkpoint.pth` 会保存 scaler 状态，因此 AMP 实验也可以正常 `--resume`。汇总结果中的 `fit_seconds` 可以用于比较训练速度。
+
+## 超参数搜索
+
+代表性训练超参数搜索也建议放在 tmux 中运行：
+
+```bash
+python scripts/search_hparams.py \
+  --config configs/search/alpha_resnet18_tot_training.yaml
+```
+
+每个 trial 都会保存普通实验输出，Optuna study 默认写入 `outputs/optuna/` 的 SQLite 文件。VSCode 或 tmux 中断后，用同一条命令重新运行即可继续已有 study。
