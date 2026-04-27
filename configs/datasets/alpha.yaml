@@ -1,6 +1,6 @@
 name: Alpha
 particle: alpha
-root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha_Clean
+root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha
 available_modalities: [ToT, ToA]
 default_modalities: [ToT, ToA]
 label_type: angle_folder

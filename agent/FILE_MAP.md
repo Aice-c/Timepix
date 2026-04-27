@@ -7,7 +7,7 @@
 | `.github/` | GitHub metadata | Not inspected deeply. |
 | `.vscode/` | Editor settings | Not part of runtime. |
 | `.gitignore` | Ignore rules | Excludes local data, cache, and generated outputs. |
-| `Data/Alpha_Clean/` | Local cleaned alpha dataset | Angle-first layout with `ToA` and `ToT`. |
+| `Data/Alpha/` | Local alpha dataset | Angle-first layout with `ToA` and `ToT`. |
 | `Data/Alpha_Original/` | Local original alpha data | Likely raw or less processed angle folders. |
 | `Document/` | Project documents | Not part of training code. |
 | `Thesis/` | Thesis materials | Contains `images/`. |
@@ -46,8 +46,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `configs/datasets/alpha_clean.yaml` | Alpha dataset description | Declares alpha supports `ToT` and `ToA`. |
-| `configs/datasets/proton_c_tot.yaml` | C/proton dataset description | Declares proton/C supports only `ToT`. |
+| `configs/datasets/alpha.yaml` | Alpha dataset description | Declares Alpha supports `ToT` and `ToA`. |
+| `configs/datasets/proton_c.yaml` | Proton_C dataset description | Declares Proton_C supports only `ToT`. |
 | `configs/experiments/alpha_resnet18_tot.yaml` | Alpha ToT baseline | Single-modality baseline. |
 | `configs/experiments/alpha_resnet18_tot_toa.yaml` | Alpha ToT+ToA baseline | Multimodal alpha experiment. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml` | Handcrafted concat experiment | Uses ToT `total_energy`. |

@@ -23,7 +23,7 @@ export TIMEPIX_DATA_ROOT=/root/autodl-tmp
 2. 运行时覆盖：
 
 ```bash
-python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_Clean
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha
 ```
 
 ## 重要模态约束

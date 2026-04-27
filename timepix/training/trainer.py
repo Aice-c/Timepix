@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
 import sys
 import time
 
@@ -74,10 +73,6 @@ def _set_postfix(iterator, loss: float) -> None:
         iterator.set_postfix(loss=f"{loss:.4f}")
 
 
-def _autocast_context(autocast_factory):
-    return autocast_factory() if autocast_factory is not None else nullcontext()
-
-
 def _scaler_enabled(grad_scaler) -> bool:
     return grad_scaler is not None and grad_scaler.is_enabled()
 
@@ -100,6 +95,7 @@ def train_one_epoch(
     logits_list = []
     labels_list = []
     regression_list = []
+    use_scaler = _scaler_enabled(grad_scaler)
 
     iterator = _progress(loader, progress_bar, desc)
     for batch in iterator:
@@ -109,18 +105,25 @@ def train_one_epoch(
         handcrafted = handcrafted.to(device) if handcrafted is not None else None
 
         optimizer.zero_grad(set_to_none=True)
-        with _autocast_context(autocast_factory):
+        if autocast_factory is None:
             output = model(images, handcrafted)
             if task == "regression":
                 loss = criterion(output.regression, labels.float())
             else:
                 loss = criterion(output.logits, labels.long())
+        else:
+            with autocast_factory():
+                output = model(images, handcrafted)
+                if task == "regression":
+                    loss = criterion(output.regression, labels.float())
+                else:
+                    loss = criterion(output.logits, labels.long())
         if task == "regression":
             regression_list.append(output.regression.detach().float().cpu())
         else:
             logits_list.append(output.logits.detach().float().cpu())
         labels_list.append(labels.detach().cpu())
-        if _scaler_enabled(grad_scaler):
+        if use_scaler:
             grad_scaler.scale(loss).backward()
             grad_scaler.step(optimizer)
             grad_scaler.update()
@@ -169,12 +172,19 @@ def evaluate(
         labels = labels.to(device)
         handcrafted = handcrafted.to(device) if handcrafted is not None else None
 
-        with _autocast_context(autocast_factory):
+        if autocast_factory is None:
             output = model(images, handcrafted)
             if task == "regression":
                 loss = criterion(output.regression, labels.float())
             else:
                 loss = criterion(output.logits, labels.long())
+        else:
+            with autocast_factory():
+                output = model(images, handcrafted)
+                if task == "regression":
+                    loss = criterion(output.regression, labels.float())
+                else:
+                    loss = criterion(output.logits, labels.long())
         if task == "regression":
             regression_list.append(output.regression.detach().float().cpu())
         else:

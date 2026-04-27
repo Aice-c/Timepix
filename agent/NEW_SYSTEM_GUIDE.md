@@ -38,7 +38,7 @@ alpha 数据集：
 ```yaml
 name: Alpha
 particle: alpha
-root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha_Clean
+root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha
 available_modalities: [ToT, ToA]
 default_modalities: [ToT, ToA]
 ```
@@ -68,7 +68,7 @@ default_modalities: [ToT]
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha_Clean
+  --data-root /root/autodl-tmp/Alpha
 ```
 
 推荐方法二：环境变量。
@@ -465,7 +465,7 @@ git push
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha_Clean \
+  --data-root /root/autodl-tmp/Alpha \
   --set training.epochs=2 \
   --set training.batch_size=32
 ```
@@ -493,7 +493,7 @@ training:
 ```bash
 cd ~/Timepix
 tmux new -s timepix
-python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_Clean
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha
 ```
 
 断开 tmux：

@@ -56,7 +56,7 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml
 服务器路径不同，可以覆盖：
 
 ```powershell
-python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_Clean
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha
 ```
 
 也可以用环境变量 `TIMEPIX_DATA_ROOT`，这样同一份配置可以在笔记本和服务器复用。

@@ -19,7 +19,7 @@ tmux new -s timepix
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha_Clean
+  --data-root /root/autodl-tmp/Alpha
 ```
 
 断开 tmux 但保持训练运行：
@@ -52,7 +52,7 @@ Epoch summary | train_loss=... val_loss=... val_acc=... val_mae=... val_p90=...
 mkdir -p logs
 PYTHONUNBUFFERED=1 nohup python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha_Clean \
+  --data-root /root/autodl-tmp/Alpha \
   > logs/alpha_resnet18_tot.log 2>&1 &
 ```
 
@@ -96,7 +96,7 @@ python scripts/train.py \
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha_Clean \
+  --data-root /root/autodl-tmp/Alpha \
   --resume outputs/experiments/baseline/20260427_120000_alpha_resnet18_tot/last_checkpoint.pth
 ```
 

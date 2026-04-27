@@ -2,7 +2,7 @@ experiment_name: proton_resnet18_tot
 experiment_group: baseline
 
 dataset:
-  config: ../datasets/proton_c_tot.yaml
+  config: ../datasets/proton_c.yaml
   modalities: [ToT]
 
 task:

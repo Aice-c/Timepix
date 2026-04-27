@@ -74,8 +74,8 @@ raise a clear error before constructing loaders.
 
 ### 6. Default data path points outside the repository
 
-`Config.data_dir` defaults to `../Alpha0`, while the local clean dataset is under
-`Data/Alpha_Clean`. A fresh agent running `Program/main.py` from this checkout
+`Config.data_dir` defaults to `../Alpha0`, while the current alpha dataset path is
+`Data/Alpha`. A fresh agent running `Program/main.py` from this checkout
 will likely hit `FileNotFoundError`.
 
 Suggested fix: expose `--data_dir` on `main.py` or set the default to a checked

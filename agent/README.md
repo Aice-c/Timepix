@@ -70,8 +70,8 @@ configs/*.yaml
 
 - 主训练代码已迁移到 `timepix/` + `configs/` + `scripts/`。
 - 数据预处理和探索 Notebook/脚本在 `ProcessProgram/`。
-- 本地可见的清洗后 alpha 数据在 `Data/Alpha_Clean/`。
-- `Data/Alpha_Clean/` 包含 `15`、`30`、`45`、`60` 四个角度。
+- 本地可见的 alpha 数据应在 `Data/Alpha/`。
+- `Data/Alpha/` 包含数字角度文件夹。
 - 旧 `Program/Config.py` 仍是 legacy 参考；新实验应优先使用 YAML 配置和命令行覆盖数据路径。
 - 当前桌面 Python 环境缺少 `torch`，因此本地只能做语法、配置和 dry-run 检查；实际训练和 AMP 性能需要在服务器环境验证。
 
