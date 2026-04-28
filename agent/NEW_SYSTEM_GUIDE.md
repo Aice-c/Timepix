@@ -82,6 +82,37 @@ python scripts/train.py \
 $env:TIMEPIX_DATA_ROOT="D:\Project\Timepix\Data"
 ```
 
+当前本地实际数据路径：
+
+```text
+Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
+Proton_C   -> E:\C1Analysis\Proton_C
+Proton_C_7 -> E:\C1Analysis\Proton_C_7
+```
+
+因为 Alpha 与 Proton 位于不同盘符，不建议在本地长期依赖单个 `TIMEPIX_DATA_ROOT` 覆盖所有任务。更稳妥的方式是按任务显式传 `--data-root`。
+
+训练/评估脚本的 `--data-root` 是具体数据集目录：
+
+```powershell
+python scripts\train.py --config configs\experiments\alpha_resnet18_tot.yaml --data-root D:\Project\Timepix\Data\Alpha_100
+python scripts\run_grid.py --config configs\experiments\b1_proton_c7_resnet18_tot_lr_batch.yaml --data-root E:\C1Analysis\Proton_C_7 --dry-run
+```
+
+数据分析脚本的 `--data-root` 是父目录：
+
+```powershell
+python scripts\analyze_datasets.py --data-root D:\Project\Timepix\Data --datasets Alpha_100
+python scripts\analyze_datasets.py --data-root E:\C1Analysis --datasets Proton_C
+python scripts\analyze_resolution_limit.py --data-root E:\C1Analysis --dataset Proton_C
+```
+
+本地验证环境：
+
+```powershell
+conda activate timepix-local
+```
+
 服务器 bash：
 
 ```bash
@@ -240,6 +271,35 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 ```
 
 这个脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。它会统计 ToT 正确/错误与 ToA 或 relative ToT+ToA 正确/错误的重叠关系，并给出 oracle accuracy 与 oracle MAE，用来判断 ToA 是否存在值得继续挖掘的互补信息。
+
+A4b-3a/b oracle 控制诊断会重新加载 checkpoint，在 validation/test 上做确定性推理，不训练新模型。A4b-3a 的 ToT-vs-ToT 多 seed control 使用 `a2_best_3seed`，因为它是当前已完成且与 A3/A4 主线一致的 ToT 三 seed 基准组：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-seed-control \
+  --tot-group a2_best_3seed \
+  --splits val,test \
+  --seeds 42 43 44 \
+  --output-json outputs/a4b_3a_tot_seed_control.json \
+  --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
+  --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
+```
+
+A4b-3b 先做 seed42 的 ToT vs `relative_minmax/no mask` 复查：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --splits val,test \
+  --seeds 42 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
+  --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv \
+  --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv
+```
 
 B1 Proton/C 训练超参搜索：
 

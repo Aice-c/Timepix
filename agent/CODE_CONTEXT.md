@@ -59,7 +59,21 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml
 python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_100
 ```
 
-也可以用环境变量 `TIMEPIX_DATA_ROOT`，这样同一份配置可以在笔记本和服务器复用。
+也可以用环境变量 `TIMEPIX_DATA_ROOT`，但当前本地 Alpha 与 Proton 位于不同盘符，通常更建议按任务显式传 `--data-root`。
+
+当前本地 Windows 路径：
+
+```text
+Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
+Proton_C   -> E:\C1Analysis\Proton_C
+Proton_C_7 -> E:\C1Analysis\Proton_C_7
+```
+
+路径语义不同：
+
+- `scripts/train.py`、`scripts/run_grid.py` 和 checkpoint 评估脚本的 `--data-root` 是具体数据集目录，例如 `D:\Project\Timepix\Data\Alpha_100` 或 `E:\C1Analysis\Proton_C_7`。
+- `scripts/analyze_datasets.py` 和 `scripts/analyze_resolution_limit.py` 的 `--data-root` 是数据集父目录，例如 `D:\Project\Timepix\Data` 或 `E:\C1Analysis`。
+- 本地验证环境为 `timepix-local`；服务器正式训练仍按 Linux 环境命令书写。
 
 ## 3. 数据集模态约束
 
@@ -341,6 +355,15 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 ```
 
 该脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。默认匹配 A4 seed42 的 ToT/ToA 单模态结果，以及 A4b-1 seed42 的 relative ToT+ToA 候选，输出 oracle accuracy、oracle MAE、ToT 错误时其他预测是否正确/误差更小，以及每个类别的 correct-overlap。
+
+A4b-3a/b oracle 控制诊断入口：
+
+```powershell
+python scripts/evaluate_oracle_complementarity.py --mode tot-seed-control --tot-group a2_best_3seed --splits val,test --seeds 42 43 44 --output-summary outputs/a4b_3a_tot_seed_control_summary.csv --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv --output-json outputs/a4b_3a_tot_seed_control.json
+python scripts/evaluate_oracle_complementarity.py --mode tot-vs-candidate --tot-group a2_best_3seed --candidate-group a4b_toa_transform_seed42 --splits val,test --seeds 42 --candidate-toa-transform relative_minmax --candidate-add-hit-mask false --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv --output-json outputs/a4b_3b_tot_vs_relative_minmax.json
+```
+
+该脚本重新加载 `best_model.pth` 和 run 配置做确定性推理。A4b-3a 的 ToT-vs-ToT seed control 使用 `a2_best_3seed`，因为这是当前唯一已完成、且与 A3/A4 主线一致的 ToT 三 seed 基准组；A4b-3b 暂用 seed42 的 `relative_minmax/no mask` candidate 做 validation/test 复查。
 
 B1 Proton/C 训练超参搜索入口：
 

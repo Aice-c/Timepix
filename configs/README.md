@@ -32,6 +32,31 @@ export TIMEPIX_DATA_ROOT=/root/autodl-tmp
 python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_100
 ```
 
+本地 Windows 当前数据路径：
+
+```text
+Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
+Proton_C   -> E:\C1Analysis\Proton_C
+Proton_C_7 -> E:\C1Analysis\Proton_C_7
+```
+
+训练和 checkpoint 评估脚本的 `--data-root` 覆盖的是具体数据集目录：
+
+```powershell
+python scripts\train.py --config configs\experiments\alpha_resnet18_tot.yaml --data-root D:\Project\Timepix\Data\Alpha_100
+python scripts\run_grid.py --config configs\experiments\b1_proton_c7_resnet18_tot_lr_batch.yaml --data-root E:\C1Analysis\Proton_C_7 --dry-run
+```
+
+论文数据分析脚本的 `--data-root` 是父目录：
+
+```powershell
+python scripts\analyze_datasets.py --data-root D:\Project\Timepix\Data --datasets Alpha_100
+python scripts\analyze_datasets.py --data-root E:\C1Analysis --datasets Proton_C
+python scripts\analyze_resolution_limit.py --data-root E:\C1Analysis --dataset Proton_C
+```
+
+由于本地 Alpha 与 Proton 不在同一个父目录下，不要直接用一个本地 `--data-root` 同时分析 `Alpha_100 Proton_C`；如需合并报告，先建立本地链接/镜像父目录。
+
 ## 重要模态约束
 
 - 当前正式 Alpha 主线使用 `Alpha_100`，配置文件为 `configs/datasets/alpha_100.yaml`，输入尺寸为 `100x100`。
@@ -312,6 +337,37 @@ outputs/a4b_prediction_complementarity_seed42_by_class.csv
 ```
 
 这个脚本回答：ToA 或 relative ToT+ToA 是否能在 ToT 出错时预测正确、是否有更小角度误差，以及 oracle fusion 的 accuracy/MAE 上限。
+
+A4b-3a/b 使用 checkpoint 重新在 validation/test 上做确定性推理，用于排查 oracle 提升是否只是 seed 差异，并复查互补性是否也存在于 validation。该脚本不会训练新模型。
+
+A4b-3a 的纯 ToT seed control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed 基准组：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-seed-control \
+  --tot-group a2_best_3seed \
+  --splits val,test \
+  --seeds 42 43 44 \
+  --output-json outputs/a4b_3a_tot_seed_control.json \
+  --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
+  --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
+```
+
+A4b-3b 先做 seed42 的 `ToT` vs `relative_minmax/no mask` 复查；ToT 侧同样优先来自 `a2_best_3seed`，candidate 侧来自 `a4b_toa_transform_seed42`：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --splits val,test \
+  --seeds 42 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
+  --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv \
+  --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv
+```
 
 ## B1 Proton/C 训练超参搜索
 

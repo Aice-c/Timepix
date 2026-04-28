@@ -55,6 +55,22 @@ pip install umap-learn
 - `Skipped t-SNE: pass --tsne to enable the optional slow embedding.` 不是缺依赖，而是脚本默认跳过较慢的 t-SNE；需要时加 `--tsne`。
 - 绘图采用 Matplotlib 后端，默认保存 300 dpi PNG 和可编辑/可放大的 PDF，并设置论文友好的字号、色盲友好配色和可嵌入字体。
 
+本地 Windows 验证环境：
+
+```powershell
+conda activate timepix-local
+```
+
+本地数据路径：
+
+```text
+Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
+Proton_C   -> E:\C1Analysis\Proton_C
+Proton_C_7 -> E:\C1Analysis\Proton_C_7
+```
+
+注意：数据分析脚本的 `--data-root` 参数是数据集父目录，而不是具体数据集目录。因此本地 Alpha 分析使用 `D:\Project\Timepix\Data`，全量 Proton 分析使用 `E:\C1Analysis`。
+
 ## 3. 数据集分析
 
 服务器 Linux 命令：
@@ -67,6 +83,26 @@ python scripts/analyze_datasets.py \
   --sample-cap-plot 5000 \
   --seed 42
 ```
+
+本地 Windows 分开分析命令：
+
+```powershell
+python scripts\analyze_datasets.py `
+  --data-root D:\Project\Timepix\Data `
+  --output-root outputs\data_analysis_alpha_local `
+  --datasets Alpha_100 `
+  --sample-cap-plot 5000 `
+  --seed 42
+
+python scripts\analyze_datasets.py `
+  --data-root E:\C1Analysis `
+  --output-root outputs\data_analysis_proton_local `
+  --datasets Proton_C `
+  --sample-cap-plot 5000 `
+  --seed 42
+```
+
+如果希望本地一次性生成 `Alpha_100 + Proton_C` 的合并数据集报告，需要先建立一个同时包含 `Alpha_100` 和 `Proton_C` 的本地链接/镜像父目录，再把该父目录传给 `--data-root`。
 
 主要输出：
 
@@ -114,6 +150,20 @@ python scripts/analyze_resolution_limit.py \
   --output-root outputs/resolution_limit \
   --sample-cap-plot 5000 \
   --sample-cap-ml 10000 \
+  --seeds 42 43 44 45 46
+```
+
+本地 Windows 命令：
+
+```powershell
+python scripts\analyze_resolution_limit.py `
+  --data-root E:\C1Analysis `
+  --dataset Proton_C `
+  --angles 80 82 84 86 88 90 `
+  --modality ToT `
+  --output-root outputs\resolution_limit_local `
+  --sample-cap-plot 5000 `
+  --sample-cap-ml 10000 `
   --seeds 42 43 44 45 46
 ```
 

@@ -19,6 +19,37 @@
 - 默认 split 命名逻辑是 `dataset.name + modalities + split.seed + ratios`；如果显式提供 `split.path`，文件不存在时会按该路径创建。
 - 如果 Alpha 数据内容发生变化，例如删除异常样本，需要删除或更换对应 split manifest 后再重跑相关实验。
 
+## 本地验证环境与数据路径
+
+本地 Windows 笔记本已新增独立 conda 环境：
+
+```powershell
+conda activate timepix-local
+```
+
+也可以直接调用解释器：
+
+```powershell
+& 'D:\Program\Anaconda\envs\timepix-local\python.exe' <script> ...
+```
+
+该环境用于本地验证、checkpoint 推理诊断、数据分析和论文图表生成，不作为正式训练环境。
+
+本地数据路径：
+
+```text
+Alpha_100    -> D:\Project\Timepix\Data\Alpha_100
+Proton_C     -> E:\C1Analysis\Proton_C
+Proton_C_7   -> E:\C1Analysis\Proton_C_7
+```
+
+路径使用注意：
+
+- 训练/评估脚本的 `--data-root` 覆盖的是具体数据集目录，例如 `D:\Project\Timepix\Data\Alpha_100` 或 `E:\C1Analysis\Proton_C_7`。
+- 数据分析脚本的 `--data-root` 是包含数据集文件夹的父目录；Alpha 用 `D:\Project\Timepix\Data`，Proton 用 `E:\C1Analysis`。
+- 由于 Alpha 与 Proton 位于不同盘符，`scripts/analyze_datasets.py --datasets Alpha_100 Proton_C` 不能直接用单个本地 `--data-root` 同时覆盖两者；本地可分别运行，或建立本地数据链接目录后再合并分析。
+- 文档中的正式训练命令仍默认按 Linux 服务器环境书写；Windows 路径只用于本地检查和分析。
+
 ## 随机性与划分策略
 
 - `split.seed` 控制 train/validation/test 的分层划分。
@@ -678,6 +709,65 @@ python scripts/evaluate_logit_fusion.py \
 - 按预先设定的验证集选择规则，late logit fusion 的最佳策略退化为 ToT-only。
 - Test set 上个别非零 alpha 的小幅提升只能作为现象记录，不能用于选择模型或宣称 ToA 稳定提升。
 - A4b-1 与 A4b-2 合起来说明：ToA 可能包含局部补充信息，尤其可能与 30 deg 类别有关，但当前 raw/relative early fusion 与 late logit fusion 都不足以支撑“ToA 带来可靠总体提升”的结论。
+
+### A4b-3a/b oracle 控制诊断
+
+新增脚本：
+
+```text
+scripts/evaluate_oracle_complementarity.py
+```
+
+实验目的：
+
+- A4b-3a：做 `ToT-vs-ToT` 多 seed oracle control，判断 A4b-2.5 中较高 oracle 上限是否主要来自随机种子/模型多样性。
+- A4b-3b：在 validation/test 上复查 `ToT` 与 `relative_minmax/no mask` candidate 的互补性，避免只根据 test-set oracle 做后续决策。
+
+关键实现：
+
+- 脚本重新加载已有 `best_model.pth`，而不是只读 test-only `predictions.csv`。
+- 复用 run 目录中的 `config.yaml`、split manifest、normalization、ToA transform 和模型结构。
+- 使用 `build_dataloaders(..., eval_mode=True)` 构造确定性推理 dataloader：train split 也不做 `rotation_90` 扩增，且不 shuffle。
+- 对齐检查使用 sample key、label map 和 labels，不只依赖行号。
+- 输出 summary CSV、by-class CSV 和 JSON。
+
+服务器命令：
+
+A4b-3a 纯 ToT 多 seed oracle control 使用 `a2_best_3seed`，而不是 A4 的 seed42 快速组。原因是 `a2_best_3seed` 是当前唯一已经完成的 ToT 三 seed 结果，并且固定了与 A3/A4 主线一致的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 架构和训练超参数：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-seed-control \
+  --tot-group a2_best_3seed \
+  --splits val,test \
+  --seeds 42 43 44 \
+  --output-json outputs/a4b_3a_tot_seed_control.json \
+  --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
+  --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
+```
+
+A4b-3b 先做 seed42 的 `ToT` vs `relative_minmax/no mask` 复查。这里 ToT 侧也优先从 `a2_best_3seed` 中取 seed42，使 ToT baseline 与 A4b-3a 控制实验来自同一三 seed 基准组；candidate 侧来自 `a4b_toa_transform_seed42`：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --splits val,test \
+  --seeds 42 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
+  --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv \
+  --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv
+```
+
+决策备注：
+
+- A4b-3a 的正式输入组改为 `a2_best_3seed`。该组比 `a4_modality_comparison_seed42` 更适合做 seed control，因为它包含 seed 42/43/44 的纯 ToT 结果。
+- A4b-3b 目前只对 seed42 做 `ToT` vs `relative_minmax/no mask` 复查；如果后续补跑 A4b ToA transform 三 seed，再扩展到 seed 42/43/44。
+- A4b-3 的 `eval_mode=True` 只用于确定性推理和逐样本 oracle 对齐，不改变正常训练入口。
+- 本地 `timepix-local` conda 环境可以运行脚本 smoke test；但如果本地 `Data/Alpha_100` 与服务器训练数据/checkpoint 不完全一致，本地数值只作为脚本验证，正式结果应在 Linux 服务器同一数据与 checkpoint 环境下生成。
 
 ## 数据分析链路：数据集与近垂直分辨极限
 

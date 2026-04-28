@@ -42,7 +42,7 @@ def _label_counts(records, label_map: dict[int, str]) -> dict[str, int]:
     return counts
 
 
-def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None):
+def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None, *, eval_mode: bool = False):
     dataset_cfg = cfg["dataset"]
     modalities = list(dataset_cfg.get("modalities") or dataset_cfg.get("default_modalities") or ["ToT"])
     _validate_modalities(dataset_cfg, modalities)
@@ -106,9 +106,9 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         train_records,
         label_map,
         modalities,
-        training=True,
+        training=not eval_mode,
         crop_size=crop_size,
-        rotation_enabled=rotation_enabled,
+        rotation_enabled=rotation_enabled and not eval_mode,
         normalizer=normalizer,
         feature_extractor=feature_extractor,
         feature_scaler=feature_scaler,
@@ -157,7 +157,13 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     pin_memory = bool(training_cfg.get("pin_memory", True))
 
     loaders = {
-        "train": DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory),
+        "train": DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=not eval_mode,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+        ),
         "val": DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory),
         "test": DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory),
     }
@@ -186,5 +192,6 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "toa_transform": toa_transform,
         "add_hit_mask": add_hit_mask,
         "input_channels": len(modalities) + int(add_hit_mask),
+        "eval_mode": bool(eval_mode),
     }
     return loaders, info

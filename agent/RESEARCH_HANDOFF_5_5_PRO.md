@@ -61,6 +61,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
 - B1 Proton/C 第一轮训练超参搜索配置已准备；正式质子/C 数据集名称已切换为 `Proton_C_7`，固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
+- 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
 
 ## 数据集主线
@@ -325,6 +326,16 @@ scripts/analyze_prediction_complementarity.py
 | relative_rank, no mask | 104 | 113 / 297 | 80.82% | +10.34% | 3.862 deg |
 
 30 deg 类别中，ToA 单模态对 ToT 错误没有补救能力；但 `relative_minmax, no mask` 可将 oracle accuracy 从 ToT 的 29.66% 提高到 55.17%。这说明 ToA 相关输入存在可挖掘的类别局部互补信息，关键在于设计选择性融合机制，而不是简单拼接或固定权重融合。
+
+阶段 3：oracle 控制诊断。
+
+脚本：
+
+```text
+scripts/evaluate_oracle_complementarity.py
+```
+
+该阶段不训练新模型，而是重新加载 checkpoint，在 validation/test 上做确定性推理。关键决策是：A4b-3a 的纯 ToT 多 seed oracle control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed基准组；A4b-3b 先使用 `a2_best_3seed` 的 seed42 ToT 与 `a4b_toa_transform_seed42` 的 `relative_minmax/no mask` candidate 做验证集/测试集复查。
 
 ### B1 Proton/C 训练超参搜索
 

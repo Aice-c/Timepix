@@ -26,6 +26,22 @@
 | `near_vertical_analysis.py` | Feature analysis for near-vertical angles | Extracts features, plots distributions, RF, PCA/t-SNE-like views, report. |
 | `near_vertical_analysis_v2.py` | Expanded near-vertical analysis | More advanced features and reporting. |
 
+## Local Data Paths
+
+These paths are local Windows paths for notebook validation, checkpoint diagnostics, and paper data analysis. Server commands in experiment docs are still written for Linux.
+
+| Dataset | Local Path | Usage |
+| --- | --- | --- |
+| `Alpha_100` | `D:\Project\Timepix\Data\Alpha_100` | Formal Alpha dataset; use this exact path for training/checkpoint `--data-root`, or parent `D:\Project\Timepix\Data` for analysis scripts. |
+| `Proton_C` | `E:\C1Analysis\Proton_C` | Full C/proton dataset for thesis data analysis and near-vertical separability analysis. |
+| `Proton_C_7` | `E:\C1Analysis\Proton_C_7` | Seven-class C/proton training dataset for B1 and later Proton/C training experiments. |
+
+Local conda environment:
+
+```powershell
+conda activate timepix-local
+```
+
 ## `Program/`
 
 `Program/` is now legacy/reference code during the refactor. It is still useful
@@ -39,6 +55,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of A1-A4 configs, results, and design decisions. |
 | `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
 | `agent/A4B_IMPLEMENTATION_PLAN.md` | A4b implementation plan | Staged plan for ToA representation, late logit fusion, ToA scalar features, and later multimodal fusion models. |
+| `agent/A4B_SELECTOR_FUSION_PLAN.md` | A4b selector plan | Follow-up plan after A4b-2.5, including ToT seed-control diagnostics with `a2_best_3seed` and selective/gated fusion ideas. |
 | `agent/DATA_ANALYSIS_HANDOFF_5_5_PRO.md` | Data analysis handoff | Thesis data-analysis context: raw frames, trajectory extraction, cleaning, final datasets, and near-vertical C/proton distinguishability. |
 | `agent/DATA_ANALYSIS_GUIDE.md` | Data analysis script guide | Documents the new `timepix/analysis/` subsystem, output layout, server commands, and thesis wording boundaries. |
 | `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
@@ -101,6 +118,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
 | `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
+| `scripts/evaluate_oracle_complementarity.py` | Evaluate oracle complementarity | Reloads checkpoints and recomputes deterministic train/val/test logits for A4b-3a/b ToT-vs-ToT and ToT-vs-candidate oracle controls. |
 | `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report; defaults to full `Proton_C`, not training-only `Proton_C_7`. |
 | `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
