@@ -53,7 +53,15 @@ configs/experiments/a4b_toa_transform.yaml
 configs/experiments/a4b_toa_transform_seed42.yaml
 ```
 
-## Later Phases
+Current result:
+
+- Relative ToA representations improved over the original raw/log1p ToT+ToA
+  early fusion.
+- None of the phase-1 variants exceeded the ToT-only baseline.
+- `relative_centered, no mask` produced the best Test Acc among phase-1 variants
+  at 68.79%, still below the ToT baseline at 70.48%.
+- `relative_minmax, no mask` improved the 30 deg F1 to 0.447, suggesting local
+  complementary signal, but not enough to improve the overall model.
 
 Phase 2 adds a validation-only late logit fusion evaluator using existing ToT
 and ToA checkpoints:
@@ -71,6 +79,19 @@ logits = (1 - alpha_toa) * logits_tot + alpha_toa * logits_toa
 and selects `alpha_toa` on validation data only. The selected alpha is then
 reported on test. This phase does not train a new model and is intended to
 quickly check whether ToA has decision-level complementary information.
+
+Current result:
+
+- Validation selected `alpha_toa=0.00`, meaning the selected late-fusion model is
+  the ToT-only baseline.
+- Some nonzero alpha values slightly improved test accuracy, but they were not
+  selected by validation and therefore should not be used as evidence of a
+  reliable ToA gain.
+- Phase 1 and Phase 2 together suggest that ToA may contain weak or class-local
+  information, but current early fusion and late logit fusion are not sufficient
+  to show a robust overall improvement.
+
+## Later Phases
 
 Phase 3 can add ToA scalar physical features such as `toa_span`, `toa_std`,
 `toa_valid_count`, and `toa_p90_minus_p10`. This likely requires separating

@@ -58,6 +58,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - AMP 对比已完成，结论是混合精度有效且没有明显降低准确率，后续正式训练可以开启 AMP。
 - A3 主干模型对比已有当前结果记录，支持 `resnet18_no_maxpool` 作为当前最佳主干模型。
 - A4 模态对比已有当前结果记录，当前实现下 ToT 单模态最好，ToT+ToA 没有提升。
+- A4b ToA 融合策略前两步已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`，不能证明 ToA 有稳定增益。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
 
 ## 数据集主线
@@ -274,6 +275,35 @@ configs/experiments/a4_modality_comparison_seed42.yaml
 | ToT + ToA | 0.733 | 0.178 | 0.730 | 0.572 |
 | ToA | 0.675 | 0.000 | - | - |
 
+### A4b ToA 融合策略初步验证
+
+目的：在 A4 显示 raw/log1p ToT+ToA 不如 ToT 单模态之后，检查 ToA 是否可以通过更合适的表达或更保守的融合方式提供稳定补充。
+
+阶段 1：ToA 相对时间表达 + early fusion。
+
+当前结果记录（用户汇报）：
+
+| Experiment | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 | 30 deg F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A4 ToT baseline | **69.53%** | **70.48%** | **5.96 deg** | **15 deg** | **0.646** | 0.402 |
+| A4 ToT+ToA raw/log1p | 64.04% | 65.90% | 6.92 deg | 30 deg | 0.553 | 0.178 |
+| A4b relative_centered, no mask | 67.83% | **68.79%** | **6.49 deg** | 30 deg | 0.612 | 0.290 |
+| A4b relative_minmax, no mask | 67.13% | 67.10% | 6.86 deg | 30 deg | 0.635 | **0.447** |
+
+阶段 1 结论：相对 ToA 表达确实比 raw/log1p ToT+ToA 好，但仍未超过 ToT 单模态。30 deg F1 的局部改善说明 ToA 可能包含类别局部信息，但不足以改善总体指标。
+
+阶段 2：late logit fusion。
+
+当前结果记录（用户汇报）：
+
+| alpha_toa | Selected by val | Val Acc | Test Acc | Test MAE | Test Macro-F1 |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 0.00 | **yes** | **69.53%** | 70.48% | 5.96 deg | **0.646** |
+| 0.05 | no | 69.23% | 70.68% | **5.93 deg** | 0.646 |
+| 0.30 | no | 68.93% | **70.97%** | 5.95 deg | 0.636 |
+
+阶段 2 结论：验证集选择 `alpha_toa=0`，即完全不用 ToA。test 上个别非零 alpha 的轻微提升不能用于选择模型或宣称稳定增益。
+
 ## 当前可讲的论文故事线
 
 建议主线：
@@ -282,7 +312,7 @@ configs/experiments/a4_modality_comparison_seed42.yaml
 2. 先在 alpha ToT 单模态上确定适合稀疏探测器矩阵的 ResNet18 结构。
 3. 再搜索训练超参数，固定统一训练预算，避免后续消融和模型对比混入调参因素。
 4. 在统一训练设置下比较多种 CNN/现代视觉主干和 ViT-Tiny；当前 A3 记录支持 `resnet18_no_maxpool` 作为主干。
-5. 比较 ToT、ToA、ToT+ToA；当前 A4 记录显示 ToT 单模态最好，ToT+ToA 没有提升。
+5. 比较 ToT、ToA、ToT+ToA；当前 A4 记录显示 ToT 单模态最好，ToT+ToA 没有提升。A4b 进一步说明，相对 ToA 表达和 late logit fusion 仍不足以稳定超过 ToT。
 6. 后续可以继续讨论手工物理特征、损失函数、标签编码、C/质子数据泛化或跨粒子比较。
 
 ## 5.5 Pro 可以重点协助的任务

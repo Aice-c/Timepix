@@ -16,28 +16,31 @@
 3. `A4B_IMPLEMENTATION_PLAN.md`
    A4b ToA 表达方式与后续融合策略的分阶段实现计划。
 
-4. `CODE_CONTEXT.md`
+4. `DATA_ANALYSIS_HANDOFF_5_5_PRO.md`
+   给研究型模型的数据分析交接：原始帧、轨迹提取、清洗筛选、两个数据集和近垂直角度不可分证据链。
+
+5. `CODE_CONTEXT.md`
    再理解代码如何把物理任务转成深度学习分类/回归流程。
 
-5. `ARCHITECTURE.md`
+6. `ARCHITECTURE.md`
    英文版训练架构细节，适合查 pipeline 和接口。
 
-6. `FILE_MAP.md`
+7. `FILE_MAP.md`
    全仓库文件地图，适合定位脚本和模块。
 
-7. `REVIEW_NOTES.md`
+8. `REVIEW_NOTES.md`
    已发现的 bug、风险和重构建议。
 
-8. `REFACTOR_DIRECTION.md`
+9. `REFACTOR_DIRECTION.md`
    当前和用户确认过的重构取舍：`run_ablation.py` 的临时性质、实验记录体系、sweep 是否重构、指标优化原则等。
 
-9. `NEW_SYSTEM_GUIDE.md`
+10. `NEW_SYSTEM_GUIDE.md`
    第一阶段新自动化实验系统的使用说明：如何写配置、如何处理本地/服务器路径、如何跑单实验/网格实验/汇总结果。
 
-10. `EXPERIMENT_GROUPS.md`
+11. `EXPERIMENT_GROUPS.md`
    实验组功能说明：如何用 `experiment_group` 分组保存实验，如何按组或汇总全部结果。
 
-11. `SERVER_TRAINING.md`
+12. `SERVER_TRAINING.md`
     服务器持久化训练说明：如何用 `tmux/nohup` 防止 VSCode 断开导致训练中断，以及如何从 `last_checkpoint.pth` 恢复。
 
 ## 项目一句话概括

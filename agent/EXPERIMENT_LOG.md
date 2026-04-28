@@ -509,6 +509,30 @@ python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_tran
 python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
 ```
 
+当前结果记录（用户汇报）：
+
+- 相对 ToA 表达相比 A4 的 raw/log1p ToT+ToA 有明显改善。
+- 但所有 A4b-1 early fusion 变体仍未超过 ToT 单模态 baseline。
+- `relative_centered, no mask` 的 Test Acc 最高，为 68.79%，但仍低于 ToT baseline 的 70.48%。
+- `relative_minmax, no mask` 的 30 deg F1 最高，为 0.447，高于 ToT baseline 的 0.402；这说明 ToA 表达可能对 30 deg 类别有局部帮助，但总体验证/测试指标不足以支持替代 ToT。
+
+| Experiment | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 | 30 deg F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A4 ToT baseline | **69.53%** | **70.48%** | **5.96 deg** | **15 deg** | **0.646** | 0.402 |
+| A4 ToT+ToA raw/log1p | 64.04% | 65.90% | 6.92 deg | 30 deg | 0.553 | 0.178 |
+| A4b relative_centered, no mask | 67.83% | **68.79%** | **6.49 deg** | 30 deg | 0.612 | 0.290 |
+| A4b relative_minmax, mask | 68.03% | 67.99% | 6.80 deg | 30 deg | 0.625 | 0.341 |
+| A4b relative_centered, mask | 67.23% | 67.59% | 6.64 deg | 30 deg | 0.568 | 0.261 |
+| A4b relative_rank, no mask | 66.53% | 67.20% | 6.80 deg | 30 deg | 0.617 | 0.362 |
+| A4b relative_minmax, no mask | 67.13% | 67.10% | 6.86 deg | 30 deg | 0.635 | **0.447** |
+| A4b relative_rank, mask | **69.23%** | 66.00% | 7.05 deg | 30 deg | 0.564 | 0.241 |
+
+阶段性结论：
+
+- A4b-1 支持“原始 ToA 表达方式不理想”这一判断。
+- 但在当前 early fusion 框架下，改用相对 ToA 表达仍不能证明 ToA+ToT 优于 ToT。
+- 后续如果继续使用 ToA，应优先考虑更保守的辅助方式，而不是简单 early channel concat。
+
 ## A4b 阶段 2：Late Logit Fusion 评估
 
 脚本：
@@ -564,6 +588,28 @@ python scripts/evaluate_logit_fusion.py \
   --output-csv outputs/a4b_late_logit_fusion_runs.csv \
   --output-json outputs/a4b_late_logit_fusion_runs.json
 ```
+
+当前结果记录（用户汇报）：
+
+- Late logit fusion 没有可靠证明 ToA 能提升效果。
+- 验证集选择 `alpha_toa=0.00`，即完全不用 ToA。
+- 虽然 test 上 `alpha_toa=0.30` 的 Test Acc 达到 70.97%，比 ToT baseline 高 0.50 个百分点，但该权重没有被 validation 选中，因此不能作为正式结论或调参依据。
+- `alpha_toa=0.05` 的 Test Acc/MAE 也略有改善，但 validation accuracy 低于 `alpha_toa=0.00`，同样不能用 test 结果反向选择。
+
+| alpha_toa | Selected by val | Val Acc | Test Acc | Test Acc Change | Test MAE | Test Macro-F1 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | **yes** | **69.53%** | 70.48% | 0 | 5.96 deg | **0.646** |
+| 0.05 | no | 69.23% | 70.68% | +0.20% | **5.93 deg** | 0.646 |
+| 0.10 | no | 69.23% | 70.58% | +0.10% | 5.98 deg | 0.641 |
+| 0.20 | no | 68.83% | 70.58% | +0.10% | 6.01 deg | 0.636 |
+| 0.30 | no | 68.93% | **70.97%** | +0.50% | 5.95 deg | 0.636 |
+| 0.50 | no | 67.53% | 69.38% | -1.09% | 6.38 deg | 0.599 |
+
+阶段性结论：
+
+- 按预先设定的验证集选择规则，late logit fusion 的最佳策略退化为 ToT-only。
+- Test set 上个别非零 alpha 的小幅提升只能作为现象记录，不能用于选择模型或宣称 ToA 稳定提升。
+- A4b-1 与 A4b-2 合起来说明：ToA 可能包含局部补充信息，尤其可能与 30 deg 类别有关，但当前 raw/relative early fusion 与 late logit fusion 都不足以支撑“ToA 带来可靠总体提升”的结论。
 
 ## 过渡或旧配置
 
