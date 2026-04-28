@@ -533,6 +533,70 @@ python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv -
 - 但在当前 early fusion 框架下，改用相对 ToA 表达仍不能证明 ToA+ToT 优于 ToT。
 - 后续如果继续使用 ToA，应优先考虑更保守的辅助方式，而不是简单 early channel concat。
 
+## A4b-2.5 预测互补性诊断
+
+脚本：
+
+```text
+scripts/analyze_prediction_complementarity.py
+```
+
+实验目的：
+
+- 不训练新模型，只使用已有 `predictions.csv` 分析 ToA 或 ToT+ToA 是否在 ToT 出错样本上提供互补预测。
+- 在继续实现 GMU/residual 等复杂融合前，先估计 ToA 可挖掘信息的上限。
+
+默认输入：
+
+- ToT baseline: `outputs/experiments/a4_modality_comparison_seed42`
+- ToA baseline: `outputs/experiments/a4_modality_comparison_seed42`
+- Relative ToT+ToA candidates: `outputs/experiments/a4b_toa_transform_seed42`
+
+运行命令：
+
+```bash
+python scripts/analyze_prediction_complementarity.py --seed 42
+```
+
+输出：
+
+```text
+outputs/a4b_prediction_complementarity_seed42.json
+outputs/a4b_prediction_complementarity_seed42_summary.csv
+outputs/a4b_prediction_complementarity_seed42_by_class.csv
+```
+
+总体互补性结果：
+
+| Comparator | Other Acc | ToT Wrong + Other Correct | Other Better When ToT Wrong | Oracle Acc | Oracle Gain | Oracle MAE | MAE Gain |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ToA | 60.14% | 74 | 77 / 297 | 77.83% | +7.36% | 4.443 deg | +1.521 deg |
+| relative_minmax, no mask | 67.10% | 111 | 125 / 297 | **81.51%** | **+11.03%** | **3.698 deg** | **+2.266 deg** |
+| relative_minmax, mask | 67.99% | 81 | 84 / 297 | 78.53% | +8.05% | 4.309 deg | +1.655 deg |
+| relative_centered, no mask | 68.79% | 82 | 84 / 297 | 78.63% | +8.15% | 4.324 deg | +1.640 deg |
+| relative_centered, mask | 67.59% | 101 | 106 / 297 | 80.52% | +10.04% | 3.862 deg | +2.102 deg |
+| relative_rank, no mask | 67.20% | 104 | 113 / 297 | 80.82% | +10.34% | 3.862 deg | +2.102 deg |
+| relative_rank, mask | 66.00% | 72 | 75 / 297 | 77.63% | +7.16% | 4.488 deg | +1.476 deg |
+
+30 deg 类别互补性结果：
+
+| Comparator | ToT Acc | Other Acc | ToT Wrong + Other Correct | Oracle Acc | Oracle Gain | Other Better Error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ToA | 29.66% | 0.00% | 0 | 29.66% | 0.00% | 0 |
+| relative_minmax, no mask | 29.66% | 46.21% | 37 | **55.17%** | **+25.52%** | 40 |
+| relative_minmax, mask | 29.66% | 26.90% | 12 | 37.93% | +8.28% | 12 |
+| relative_centered, no mask | 29.66% | 20.00% | 8 | 35.17% | +5.52% | 8 |
+| relative_centered, mask | 29.66% | 16.55% | 8 | 35.17% | +5.52% | 9 |
+| relative_rank, no mask | 29.66% | 28.97% | 20 | 43.45% | +13.79% | 22 |
+| relative_rank, mask | 29.66% | 15.86% | 4 | 32.41% | +2.76% | 4 |
+
+阶段性结论：
+
+- ToA 单模态虽然总体弱，但 oracle ToT/ToA 相比 ToT 有 +7.36% accuracy 上限和 1.52 deg MAE 上限改善，说明错误并非完全重叠。
+- 原始 ToA 对 30 deg 没有补救能力；30 deg 的互补性主要来自相对 ToA early-fusion 候选，尤其是 `relative_minmax, no mask`。
+- `relative_minmax, no mask` 的自身 Test Acc 不如 ToT，但 oracle 可达 81.51%，30 deg oracle 可达 55.17%，说明“什么时候信它”比“直接替代 ToT”更关键。
+- 该诊断支持继续尝试 gated/residual/选择性融合，但不支持简单 early fusion 或固定 late fusion。
+
 ## A4b 阶段 2：Late Logit Fusion 评估
 
 脚本：

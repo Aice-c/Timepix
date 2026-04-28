@@ -204,6 +204,11 @@ trained single-modality checkpoints. It discovers matching ToT and ToA runs by
 logits_toa`, selects `alpha_toa` on validation metrics only, and reports the
 selected setting on test.
 
+`scripts/analyze_prediction_complementarity.py` analyzes A4b prediction
+complementarity from existing `predictions.csv` files. It computes correct
+overlap, ToT-failure rescue counts, lower-error counts, oracle accuracy, oracle
+MAE, and per-class overlap without loading models or training.
+
 `scripts/search_hparams.py` runs Optuna hyperparameter search from
 `configs/search/*.yaml`. It consumes the top-level `search` section, samples
 dotted config paths such as `training.learning_rate`, applies them to the same

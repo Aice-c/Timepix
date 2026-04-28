@@ -233,6 +233,14 @@ logits = (1 - alpha_toa) * logits_tot + alpha_toa * logits_toa
 
 `alpha_toa` 只在 validation set 上选择，test set 只用于最终报告。完整 A4 三 seed 结果存在时，把 `--group` 改为 `a4_modality_comparison`。
 
+A4b-2.5 预测互补性诊断：
+
+```bash
+python scripts/analyze_prediction_complementarity.py --seed 42
+```
+
+这个脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。它会统计 ToT 正确/错误与 ToA 或 relative ToT+ToA 正确/错误的重叠关系，并给出 oracle accuracy 与 oracle MAE，用来判断 ToA 是否存在值得继续挖掘的互补信息。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash

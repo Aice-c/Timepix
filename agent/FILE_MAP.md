@@ -95,6 +95,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
+| `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
 | `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields. |
 

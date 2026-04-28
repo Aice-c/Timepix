@@ -58,7 +58,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - AMP 对比已完成，结论是混合精度有效且没有明显降低准确率，后续正式训练可以开启 AMP。
 - A3 主干模型对比已有当前结果记录，支持 `resnet18_no_maxpool` 作为当前最佳主干模型。
 - A4 模态对比已有当前结果记录，当前实现下 ToT 单模态最好，ToT+ToA 没有提升。
-- A4b ToA 融合策略前两步已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`，不能证明 ToA 有稳定增益。
+- A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
 
 ## 数据集主线
@@ -304,6 +304,25 @@ configs/experiments/a4_modality_comparison_seed42.yaml
 
 阶段 2 结论：验证集选择 `alpha_toa=0`，即完全不用 ToA。test 上个别非零 alpha 的轻微提升不能用于选择模型或宣称稳定增益。
 
+阶段 2.5：预测互补性诊断。
+
+脚本：
+
+```text
+scripts/analyze_prediction_complementarity.py
+```
+
+当前 seed-42 结果记录：
+
+| Comparator | ToT Wrong + Other Correct | Other Better When ToT Wrong | Oracle Acc | Oracle Gain | Oracle MAE |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ToA | 74 | 77 / 297 | 77.83% | +7.36% | 4.443 deg |
+| relative_minmax, no mask | 111 | 125 / 297 | **81.51%** | **+11.03%** | **3.698 deg** |
+| relative_centered, no mask | 82 | 84 / 297 | 78.63% | +8.15% | 4.324 deg |
+| relative_rank, no mask | 104 | 113 / 297 | 80.82% | +10.34% | 3.862 deg |
+
+30 deg 类别中，ToA 单模态对 ToT 错误没有补救能力；但 `relative_minmax, no mask` 可将 oracle accuracy 从 ToT 的 29.66% 提高到 55.17%。这说明 ToA 相关输入存在可挖掘的类别局部互补信息，关键在于设计选择性融合机制，而不是简单拼接或固定权重融合。
+
 ## 当前可讲的论文故事线
 
 建议主线：
@@ -312,7 +331,7 @@ configs/experiments/a4_modality_comparison_seed42.yaml
 2. 先在 alpha ToT 单模态上确定适合稀疏探测器矩阵的 ResNet18 结构。
 3. 再搜索训练超参数，固定统一训练预算，避免后续消融和模型对比混入调参因素。
 4. 在统一训练设置下比较多种 CNN/现代视觉主干和 ViT-Tiny；当前 A3 记录支持 `resnet18_no_maxpool` 作为主干。
-5. 比较 ToT、ToA、ToT+ToA；当前 A4 记录显示 ToT 单模态最好，ToT+ToA 没有提升。A4b 进一步说明，相对 ToA 表达和 late logit fusion 仍不足以稳定超过 ToT。
+5. 比较 ToT、ToA、ToT+ToA；当前 A4 记录显示 ToT 单模态最好，ToT+ToA 没有提升。A4b 进一步说明，相对 ToA 表达和 late logit fusion 仍不足以稳定超过 ToT，但 oracle 互补性分析支持继续探索选择性融合。
 6. 后续可以继续讨论手工物理特征、损失函数、标签编码、C/质子数据泛化或跨粒子比较。
 
 ## 5.5 Pro 可以重点协助的任务

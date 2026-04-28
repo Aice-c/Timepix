@@ -295,6 +295,22 @@ python scripts/evaluate_logit_fusion.py \
   --output-json outputs/a4b_late_logit_fusion_runs.json
 ```
 
+A4b-2.5 使用已有 `predictions.csv` 做预测互补性诊断，不训练、不加载 checkpoint：
+
+```bash
+python scripts/analyze_prediction_complementarity.py --seed 42
+```
+
+默认输出：
+
+```text
+outputs/a4b_prediction_complementarity_seed42.json
+outputs/a4b_prediction_complementarity_seed42_summary.csv
+outputs/a4b_prediction_complementarity_seed42_by_class.csv
+```
+
+这个脚本回答：ToA 或 relative ToT+ToA 是否能在 ToT 出错时预测正确、是否有更小角度误差，以及 oracle fusion 的 accuracy/MAE 上限。
+
 ## 混合精度训练
 
 训练配置中可以显式开关 CUDA AMP：

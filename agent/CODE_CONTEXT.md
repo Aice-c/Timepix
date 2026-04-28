@@ -332,6 +332,14 @@ python scripts/evaluate_logit_fusion.py --group a4_modality_comparison_seed42
 
 脚本会扫描实验组，自动匹配同一 `training.seed` 下的 `[ToT]` 和 `[ToA]` 单模态 run，加载各自 `best_model.pth`，在 validation set 上搜索 `alpha_toa`，再用选定的 alpha 报告 test 指标。它也支持通过 `--tot-run` 和 `--toa-run` 手动传入两个 run 目录。
 
+A4b 预测互补性诊断入口：
+
+```powershell
+python scripts/analyze_prediction_complementarity.py --seed 42
+```
+
+该脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。默认匹配 A4 seed42 的 ToT/ToA 单模态结果，以及 A4b-1 seed42 的 relative ToT+ToA 候选，输出 oracle accuracy、oracle MAE、ToT 错误时其他预测是否正确/误差更小，以及每个类别的 correct-overlap。
+
 汇总某一组：
 
 ```powershell

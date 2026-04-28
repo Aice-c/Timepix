@@ -91,6 +91,31 @@ Current result:
   information, but current early fusion and late logit fusion are not sufficient
   to show a robust overall improvement.
 
+## Phase 2.5: Prediction Complementarity Diagnosis
+
+Implemented as:
+
+```text
+scripts/analyze_prediction_complementarity.py
+```
+
+This phase uses existing `predictions.csv` files only. It measures whether ToA
+or a ToT+ToA candidate is correct on samples where ToT is wrong, whether it has
+lower angle error on ToT failures, and the oracle upper bound if a selector
+could choose the better prediction per sample.
+
+Current seed-42 result:
+
+- ToA alone gives an oracle accuracy of 77.83% with ToT, a +7.36 percentage
+  point upper-bound gain over ToT.
+- `relative_minmax, no mask` gives the best oracle result among A4b-1
+  candidates: 81.51% oracle accuracy and 3.698 deg oracle MAE.
+- For the 30 deg class, ToA alone does not rescue ToT failures, but
+  `relative_minmax, no mask` raises the oracle accuracy from 29.66% to 55.17%.
+- This supports continuing with selective/gated/residual fusion, because the
+  problem appears to be choosing when to trust the auxiliary prediction, not a
+  complete absence of complementary information.
+
 ## Later Phases
 
 Phase 3 can add ToA scalar physical features such as `toa_span`, `toa_std`,
