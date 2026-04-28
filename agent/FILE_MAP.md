@@ -37,6 +37,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | Path | Role | Notes |
 | --- | --- | --- |
 | `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of A1-A4 configs, results, and design decisions. |
+| `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
 | `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
 | `agent/CODE_CONTEXT.md` | Code context | Practical overview for future code changes. |
 | `agent/ARCHITECTURE.md` | Architecture reference | English notes on data/model/training internals. |

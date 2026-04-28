@@ -296,6 +296,33 @@ python scripts/aggregate_seeds.py --summary outputs/a3_backbone_comparison_runs.
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml --continue-on-error
 ```
 
+当前结果记录（2026-04-29 用户汇报）：
+
+- A3 支持 `resnet18_no_maxpool` 作为当前最佳主干模型。
+- `resnet18_no_maxpool` 相比第二梯队高约 1.49 个百分点，同时 Test MAE 最低、Test Macro-F1 最高。
+
+总体结果：
+
+| Rank | Model | Test Acc | Val Acc | Test MAE | Test Macro-F1 | Params | Time |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | `resnet18_no_maxpool` | 70.48% | 69.53% | 5.96 deg | 0.646 | 11.43M | 10.0 min |
+| 2 | `convnext_tiny` | 68.99% | 67.03% | 6.29 deg | 0.612 | 28.15M | 23.2 min |
+| 3 | `shallow_resnet` | 68.99% | 67.03% | 6.26 deg | 0.634 | 1.34M | 4.1 min |
+| 4 | `densenet121` | 68.69% | 67.73% | 6.40 deg | 0.610 | 7.34M | 24.8 min |
+| 5 | `shallow_cnn` | 65.01% | 62.74% | 6.86 deg | 0.485 | 0.52M | 1.8 min |
+| 6 | `efficientnet_b0` | 64.51% | 63.84% | 6.95 deg | 0.616 | 4.47M | 24.5 min |
+| 7 | `vit_tiny` | 35.19% | 35.16% | 14.96 deg | 0.130 | 5.56M | 10.8 min |
+
+每类 F1：
+
+| Model | 15 deg F1 | 30 deg F1 | 45 deg F1 | 60 deg F1 |
+| --- | ---: | ---: | ---: | ---: |
+| `resnet18_no_maxpool` | 0.763 | 0.402 | 0.751 | 0.669 |
+| `shallow_resnet` | 0.732 | 0.410 | 0.762 | 0.632 |
+| `convnext_tiny` | 0.756 | 0.306 | 0.747 | 0.638 |
+| `densenet121` | 0.749 | 0.315 | 0.751 | 0.623 |
+| `efficientnet_b0` | 0.679 | 0.418 | 0.709 | 0.658 |
+
 ## A4 模态对比
 
 配置文件：
@@ -370,6 +397,35 @@ python scripts/aggregate_seeds.py --summary outputs/a4_modality_comparison_runs.
 ```bash
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml --continue-on-error
 ```
+
+当前结果记录（2026-04-29 用户汇报）：
+
+- 当前实现下，ToT 单模态最好。
+- ToT+ToA 没有提升，测试准确率和误差指标均低于 ToT 单模态。
+- ToA 单独效果低于 ToT，并且 ToA 对 30 deg 类别几乎失效。
+
+总体结果：
+
+| Modality | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 | Best Epoch |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ToT | 69.53% | 70.48% | 5.96 deg | 15 deg | 0.646 | 24 |
+| ToT + ToA | 64.04% | 65.90% | 6.92 deg | 30 deg | 0.553 | 8 |
+| ToA | 59.34% | 60.14% | 8.81 deg | 30 deg | 0.477 | 4 |
+
+相对 ToT：
+
+| Comparison | Test Acc Change | Test MAE Change | Macro-F1 Change |
+| --- | ---: | ---: | ---: |
+| ToT+ToA vs ToT | -4.57% | +0.95 deg | -0.093 |
+| ToA vs ToT | -10.34% | +2.85 deg | -0.169 |
+
+测试集每类 F1：
+
+| Modality | 15 deg | 30 deg | 45 deg | 60 deg |
+| --- | ---: | ---: | ---: | ---: |
+| ToT | 0.763 | 0.402 | 0.751 | 0.669 |
+| ToT + ToA | 0.733 | 0.178 | 0.730 | 0.572 |
+| ToA | 0.675 | 0.000 | - | - |
 
 ## 过渡或旧配置
 

@@ -7,32 +7,35 @@
 
 建议后续 agent 按下面顺序阅读：
 
-1. `PHYSICS_CONTEXT.md`  
+1. `RESEARCH_HANDOFF_5_5_PRO.md`
+   给研究型模型的总览交接：课题一句话、实验状态、数据主线、split 决策、A1-A4 设计、论文故事线和可协助任务。
+
+2. `PHYSICS_CONTEXT.md`
    先理解课题背景、物理目标、数据含义和建模假设。
 
-2. `CODE_CONTEXT.md`  
+3. `CODE_CONTEXT.md`
    再理解代码如何把物理任务转成深度学习分类/回归流程。
 
-3. `ARCHITECTURE.md`  
+4. `ARCHITECTURE.md`
    英文版训练架构细节，适合查 pipeline 和接口。
 
-4. `FILE_MAP.md`  
+5. `FILE_MAP.md`
    全仓库文件地图，适合定位脚本和模块。
 
-5. `REVIEW_NOTES.md`  
+6. `REVIEW_NOTES.md`
    已发现的 bug、风险和重构建议。
 
-6. `REFACTOR_DIRECTION.md`  
+7. `REFACTOR_DIRECTION.md`
    当前和用户确认过的重构取舍：`run_ablation.py` 的临时性质、实验记录体系、sweep 是否重构、指标优化原则等。
 
-7. `NEW_SYSTEM_GUIDE.md`  
+8. `NEW_SYSTEM_GUIDE.md`
    第一阶段新自动化实验系统的使用说明：如何写配置、如何处理本地/服务器路径、如何跑单实验/网格实验/汇总结果。
 
-8. `EXPERIMENT_GROUPS.md`  
+9. `EXPERIMENT_GROUPS.md`
    实验组功能说明：如何用 `experiment_group` 分组保存实验，如何按组或汇总全部结果。
 
-9. `SERVER_TRAINING.md`  
-   服务器持久化训练说明：如何用 `tmux/nohup` 防止 VSCode 断开导致训练中断，以及如何从 `last_checkpoint.pth` 恢复。
+10. `SERVER_TRAINING.md`
+    服务器持久化训练说明：如何用 `tmux/nohup` 防止 VSCode 断开导致训练中断，以及如何从 `last_checkpoint.pth` 恢复。
 
 ## 项目一句话概括
 
