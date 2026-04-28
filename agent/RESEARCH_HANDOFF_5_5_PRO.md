@@ -59,7 +59,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A3 主干模型对比已有当前结果记录，支持 `resnet18_no_maxpool` 作为当前最佳主干模型。
 - A4 模态对比已有当前结果记录，当前实现下 ToT 单模态最好，ToT+ToA 没有提升。
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
-- B1 Proton/C 第一轮训练超参搜索配置已准备；正式质子/C 数据集名称已切换为 `Proton_C_7`，固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`。
+- B1 Proton/C 第一轮训练超参搜索配置已准备；正式质子/C 数据集名称已切换为 `Proton_C_7`，固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`。当前正式 B1-1 使用 25 epoch，旧 20 epoch 结果只作为诊断记录。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -335,7 +335,7 @@ scripts/analyze_prediction_complementarity.py
 scripts/evaluate_oracle_complementarity.py
 ```
 
-该阶段不训练新模型，而是重新加载 checkpoint，在 validation/test 上做确定性推理。关键决策是：A4b-3a 的纯 ToT 多 seed oracle control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed基准组；A4b-3b 先使用 `a2_best_3seed` 的 seed42 ToT 与 `a4b_toa_transform_seed42` 的 `relative_minmax/no mask` candidate 做验证集/测试集复查。
+该阶段不训练新模型，而是重新加载 checkpoint，在 validation/test 上做确定性推理。关键决策是：A4b-3a 的纯 ToT 多 seed oracle control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed基准组；A4b-3b 先使用 `a2_best_3seed` 的 seed42 ToT 与 `a4b_toa_transform_seed42` 的 `relative_minmax/no mask` candidate 做验证集/测试集复查。由于 `a2_best_3seed` 的历史配置仍写着 `Alpha` 和 `/root/autodl-tmp/Alpha`，服务器重放时要传 `--data-root /root/autodl-tmp/Alpha_100`，并用 `Alpha_100_ToT` split 复制出旧名称 `Alpha_ToT` 作为兼容别名。
 
 ### B1 Proton/C 训练超参搜索
 
@@ -359,8 +359,10 @@ configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
 - Scheduler: `cosine`
 - `eta_min=1e-7`
 - `dropout=0.1`
-- `epochs=20`
+- `epochs=25`
 - `early_stopping_patience=5`
+
+备注：B1-1 初版使用 20 epoch，但部分组合停止时准确率仍在上升，因此训练预算调整为 25 epoch，输出组改为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`，避免与旧结果混合。
 
 B1-1 搜索：
 

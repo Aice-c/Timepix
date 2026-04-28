@@ -65,6 +65,8 @@ Current project mapping:
 - Use `outputs/experiments/a2_best_3seed` for the ToT seed-control runs. This is the current canonical `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` three-seed group.
 - Use `outputs/experiments/a4b_toa_transform_seed42` for the first relative ToT+ToA candidate replay. At present this is seed42 only, so A4b-3b is a seed42 validation/test diagnostic until the A4b transform grid is rerun for more seeds.
 - Do not use `a4_modality_comparison_seed42` as the formal ToT seed-control source; it only has one ToT seed and cannot answer the seed-diversity question.
+- Because `a2_best_3seed` was trained before the dataset rename, its run config still points to `/root/autodl-tmp/Alpha` and the default split name `Alpha_ToT_seed42_0.8_0.1_0.1.json`. When replaying it on the current server, pass `--data-root /root/autodl-tmp/Alpha_100` and create `Alpha_ToT...` as a compatibility copy of `Alpha_100_ToT...`; do not edit the historical run metadata.
+- Select `relative_minmax/no mask` first because it was the strongest A4b-2.5 complementarity candidate, not because it had the highest standalone accuracy. It reached 81.51% ToT-oracle test accuracy, +11.03 percentage points oracle gain, and improved 30 deg oracle accuracy from 29.66% to 55.17%.
 
 Decision rule:
 

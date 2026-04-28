@@ -274,12 +274,22 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 
 A4b-3a/b oracle 控制诊断会重新加载 checkpoint，在 validation/test 上做确定性推理，不训练新模型。A4b-3a 的 ToT-vs-ToT 多 seed control 使用 `a2_best_3seed`，因为它是当前已完成且与 A3/A4 主线一致的 ToT 三 seed 基准组：
 
+注意：`a2_best_3seed` 是历史 run，配置中仍记录 `dataset.name: Alpha` 和 `/root/autodl-tmp/Alpha`。如果服务器当前只有 `/root/autodl-tmp/Alpha_100`，先建立旧 split 名称的兼容别名，并在评估命令中传 `--data-root /root/autodl-tmp/Alpha_100`：
+
+```bash
+cd /root/Timepix
+cp -n outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json
+sha256sum outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
 ```bash
 python scripts/evaluate_oracle_complementarity.py \
   --mode tot-seed-control \
   --tot-group a2_best_3seed \
   --splits val,test \
   --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --output-json outputs/a4b_3a_tot_seed_control.json \
   --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
   --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
@@ -294,6 +304,8 @@ python scripts/evaluate_oracle_complementarity.py \
   --candidate-group a4b_toa_transform_seed42 \
   --splits val,test \
   --seeds 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --candidate-toa-transform relative_minmax \
   --candidate-add-hit-mask false \
   --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
@@ -308,7 +320,7 @@ python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_to
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
 ```
 
-B1-1 固定 `Proton_C_7 + ToT` 与 A1 得到的 ResNet18 stem/variant：`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`，只搜索 `learning_rate × batch_size`。`dropout=0.1` 是保守训练默认值，不作为 A1 结构结论描述。
+B1-1 固定 `Proton_C_7 + ToT` 与 A1 得到的 ResNet18 stem/variant：`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`，只搜索 `learning_rate × batch_size`。`dropout=0.1` 是保守训练默认值，不作为 A1 结构结论描述。当前版本使用 `epochs=25`、`early_stopping_patience=5`，输出组为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`，用于和早期 20 epoch 诊断结果分开。
 
 比较 FP32 与 CUDA AMP 混合精度：
 

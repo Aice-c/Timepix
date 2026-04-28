@@ -340,6 +340,17 @@ outputs/a4b_prediction_complementarity_seed42_by_class.csv
 
 A4b-3a/b 使用 checkpoint 重新在 validation/test 上做确定性推理，用于排查 oracle 提升是否只是 seed 差异，并复查互补性是否也存在于 validation。该脚本不会训练新模型。
 
+旧的 `a2_best_3seed` run 记录中 dataset 名称/路径仍是历史 `Alpha`、`/root/autodl-tmp/Alpha`，但它实际对应当前正式主线 `Alpha_100`。服务器重放 A4b-3a/b 时不要修改历史 run 文件；先准备 split 兼容别名，并在脚本命令中显式覆盖数据目录：
+
+```bash
+cd /root/Timepix
+test -d /root/autodl-tmp/Alpha_100
+test -f outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
+test -f outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+cp -n outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json
+sha256sum outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
 A4b-3a 的纯 ToT seed control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed 基准组：
 
 ```bash
@@ -348,12 +359,14 @@ python scripts/evaluate_oracle_complementarity.py \
   --tot-group a2_best_3seed \
   --splits val,test \
   --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --output-json outputs/a4b_3a_tot_seed_control.json \
   --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
   --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
 ```
 
-A4b-3b 先做 seed42 的 `ToT` vs `relative_minmax/no mask` 复查；ToT 侧同样优先来自 `a2_best_3seed`，candidate 侧来自 `a4b_toa_transform_seed42`：
+A4b-3b 先做 seed42 的 `ToT` vs `relative_minmax/no mask` 复查；ToT 侧同样优先来自 `a2_best_3seed`，candidate 侧来自 `a4b_toa_transform_seed42`。选择 `relative_minmax/no mask` 的依据是 A4b-2.5：它虽然不是 standalone Test Acc 最高的候选，但与 ToT 的 oracle Test Acc 最高、30 deg oracle 改善最明显：
 
 ```bash
 python scripts/evaluate_oracle_complementarity.py \
@@ -362,6 +375,8 @@ python scripts/evaluate_oracle_complementarity.py \
   --candidate-group a4b_toa_transform_seed42 \
   --splits val,test \
   --seeds 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --candidate-toa-transform relative_minmax \
   --candidate-add-hit-mask false \
   --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
@@ -381,7 +396,9 @@ model:
   conv1_padding: 0
 ```
 
-同时固定 `Proton_C_7`、`ToT`、CE、one-hot、无手工特征、`fusion_mode: none`、cosine scheduler、`eta_min=1e-7`、`weight_decay=1e-4`、`dropout=0.1`、`epochs=20` 和 `early_stopping_patience=5`。这里的 `dropout=0.1` 是沿用 A2 风格的保守训练默认值，不表述为 A1 结构参数。
+同时固定 `Proton_C_7`、`ToT`、CE、one-hot、无手工特征、`fusion_mode: none`、cosine scheduler、`eta_min=1e-7`、`weight_decay=1e-4`、`dropout=0.1`、`epochs=25` 和 `early_stopping_patience=5`。这里的 `dropout=0.1` 是沿用 A2 风格的保守训练默认值，不表述为 A1 结构参数。
+
+原 B1-1 使用 `epochs=20`，部分组合停止时准确率仍在上升，因此当前配置提升到 25 epoch。为了不混入旧结果，配置的 `experiment_group` 为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`。
 
 B1-1 只搜索：
 
@@ -402,7 +419,7 @@ grid:
 ```bash
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
-python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch --out outputs/b1_proton_c7_resnet18_tot_lr_batch_runs.csv
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_runs.csv
 ```
 
 如果 `batch_size=256` 显存不足，`--continue-on-error` 会继续后面的组合；后续 B1-2 将基于 B1-1 最佳 `learning_rate + batch_size` 搜索 `weight_decay`。

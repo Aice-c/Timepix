@@ -1,7 +1,7 @@
 base: proton_resnet18_tot.yaml
 
-experiment_name: b1_proton_c7_resnet18_tot_lr_batch
-experiment_group: b1_proton_c7_resnet18_tot_lr_batch
+experiment_name: b1_proton_c7_resnet18_tot_lr_batch_ep25
+experiment_group: b1_proton_c7_resnet18_tot_lr_batch_ep25
 
 dataset:
   config: ../datasets/proton_c_7.yaml
@@ -32,7 +32,7 @@ handcrafted_features:
   features: {}
 
 training:
-  epochs: 20
+  epochs: 25
   weight_decay: 0.0001
   scheduler: cosine
   eta_min: 0.0000001

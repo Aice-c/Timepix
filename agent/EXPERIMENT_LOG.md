@@ -741,6 +741,8 @@ python scripts/evaluate_oracle_complementarity.py \
   --tot-group a2_best_3seed \
   --splits val,test \
   --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --output-json outputs/a4b_3a_tot_seed_control.json \
   --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
   --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
@@ -755,6 +757,8 @@ python scripts/evaluate_oracle_complementarity.py \
   --candidate-group a4b_toa_transform_seed42 \
   --splits val,test \
   --seeds 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
   --candidate-toa-transform relative_minmax \
   --candidate-add-hit-mask false \
   --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
@@ -766,8 +770,37 @@ python scripts/evaluate_oracle_complementarity.py \
 
 - A4b-3a 的正式输入组改为 `a2_best_3seed`。该组比 `a4_modality_comparison_seed42` 更适合做 seed control，因为它包含 seed 42/43/44 的纯 ToT 结果。
 - A4b-3b 目前只对 seed42 做 `ToT` vs `relative_minmax/no mask` 复查；如果后续补跑 A4b ToA transform 三 seed，再扩展到 seed 42/43/44。
+- A4b-3b 优先选择 `relative_minmax/no mask`，不是因为它自身 Test Acc 最高，而是因为它在 A4b-2.5 互补性诊断中最值得进一步复查：与 ToT baseline 的 oracle Test Acc 达到 81.51%，oracle gain 为 +11.03%，并且 30 deg 类别 oracle accuracy 从 ToT 的 29.66% 提高到 55.17%。这说明它最能代表“整体弱于 ToT、但可能在 ToT 错误样本上提供补充”的候选。
 - A4b-3 的 `eval_mode=True` 只用于确定性推理和逐样本 oracle 对齐，不改变正常训练入口。
 - 本地 `timepix-local` conda 环境可以运行脚本 smoke test；但如果本地 `Data/Alpha_100` 与服务器训练数据/checkpoint 不完全一致，本地数值只作为脚本验证，正式结果应在 Linux 服务器同一数据与 checkpoint 环境下生成。
+
+数据集命名兼容备注：
+
+- `a2_best_3seed` 是早期历史 run，当时 `config.yaml` 中记录的 dataset 名称为 `Alpha`，路径为 `/root/autodl-tmp/Alpha`，但本质数据对应当前主线的 `Alpha_100`。
+- 服务器当前正式数据目录为 `/root/autodl-tmp/Alpha_100`，因此 A4b-3a/b 重放评估必须显式传入 `--data-root /root/autodl-tmp/Alpha_100`。
+- 旧 A2 run 没有显式 `split.path`，会按旧 dataset name 查找 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json`。为避免程序自动重新生成 split，应先把当前正式 split `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制为这个旧名称的兼容别名，并确认二者 hash 一致。
+- 不修改历史 run 的 `config.yaml` 或 `metadata.json`；兼容别名只服务于历史 checkpoint 的确定性重放。
+
+服务器准备命令：
+
+```bash
+cd /root/Timepix
+
+test -d /root/autodl-tmp/Alpha_100
+test -f outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
+test -f outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+cp -n \
+  outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
+  outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json
+
+sha256sum \
+  outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
+  outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json \
+  outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+如果上述三个 split hash 不一致，先不要继续运行 A4b-3b，因为 ToT 与 ToT+ToA 的逐样本 oracle 对齐会失去严格意义。
 
 ## 数据分析链路：数据集与近垂直分辨极限
 
@@ -872,7 +905,7 @@ configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
 - `eta_min=1e-7`
 - `dropout=0.1`
 - `weight_decay=1e-4`
-- `epochs=20`
+- `epochs=25`
 - `early_stopping_patience=5`
 - Primary metric: `val_accuracy`
 - Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
@@ -898,6 +931,8 @@ grid:
 
 - B1-1 固定的是 A1 结构结论中的 ResNet18 variant/stem：`resnet18_no_maxpool + conv1 2/1/0`。
 - A1 当时观察到 `dropout=0.3` 表现最好，但 A2 后续将 dropout 视为训练超参并搜索到 `dropout=0.1`。B1-1 暂固定 `dropout=0.1`，作为保守训练默认值，不把它表述为 A1 结构参数。
+- 原 B1-1 使用 `epochs=20`，运行中观察到部分组合在停止时准确率仍在上升，因此将训练预算调整为 `epochs=25`，`early_stopping_patience` 保持 5。
+- 为避免 20 epoch 历史结果与 25 epoch 正式结果混在同一汇总中，当前配置的 `experiment_name` 与 `experiment_group` 改为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`；旧 `b1_proton_c7_resnet18_tot_lr_batch` 结果仅作为被替换的诊断记录。
 - `batch_size=256` 保留在第一轮搜索中；服务器运行时建议使用 `--continue-on-error`，如果显存不足不会中断整组。
 - B1-2 将在 B1-1 选出最佳 `learning_rate + batch_size` 后，只搜索 `weight_decay = [0, 1e-5, 1e-4]`。
 
@@ -906,7 +941,7 @@ grid:
 ```bash
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
-python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch --out outputs/b1_proton_c7_resnet18_tot_lr_batch_runs.csv
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_runs.csv
 ```
 
 ## 常用汇总命令

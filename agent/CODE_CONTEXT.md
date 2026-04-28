@@ -359,11 +359,13 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 A4b-3a/b oracle 控制诊断入口：
 
 ```powershell
-python scripts/evaluate_oracle_complementarity.py --mode tot-seed-control --tot-group a2_best_3seed --splits val,test --seeds 42 43 44 --output-summary outputs/a4b_3a_tot_seed_control_summary.csv --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv --output-json outputs/a4b_3a_tot_seed_control.json
-python scripts/evaluate_oracle_complementarity.py --mode tot-vs-candidate --tot-group a2_best_3seed --candidate-group a4b_toa_transform_seed42 --splits val,test --seeds 42 --candidate-toa-transform relative_minmax --candidate-add-hit-mask false --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv --output-json outputs/a4b_3b_tot_vs_relative_minmax.json
+python scripts/evaluate_oracle_complementarity.py --mode tot-seed-control --tot-group a2_best_3seed --splits val,test --seeds 42 43 44 --data-root /root/autodl-tmp/Alpha_100 --num-workers 4 --output-summary outputs/a4b_3a_tot_seed_control_summary.csv --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv --output-json outputs/a4b_3a_tot_seed_control.json
+python scripts/evaluate_oracle_complementarity.py --mode tot-vs-candidate --tot-group a2_best_3seed --candidate-group a4b_toa_transform_seed42 --splits val,test --seeds 42 --data-root /root/autodl-tmp/Alpha_100 --num-workers 4 --candidate-toa-transform relative_minmax --candidate-add-hit-mask false --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv --output-json outputs/a4b_3b_tot_vs_relative_minmax.json
 ```
 
 该脚本重新加载 `best_model.pth` 和 run 配置做确定性推理。A4b-3a 的 ToT-vs-ToT seed control 使用 `a2_best_3seed`，因为这是当前唯一已完成、且与 A3/A4 主线一致的 ToT 三 seed 基准组；A4b-3b 暂用 seed42 的 `relative_minmax/no mask` candidate 做 validation/test 复查。
+
+服务器重放旧 `a2_best_3seed` 时必须传 `--data-root /root/autodl-tmp/Alpha_100`，因为历史 run 配置仍记录 `/root/autodl-tmp/Alpha`。同时应把 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制为旧默认名称 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json`，避免脚本自动生成新 split。
 
 B1 Proton/C 训练超参搜索入口：
 
@@ -372,7 +374,7 @@ python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_to
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
 ```
 
-B1-1 固定 `Proton_C_7 + ToT`、`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`、CE、one-hot、无手工特征和 cosine scheduler，只搜索 `training.learning_rate` 与 `training.batch_size`。后续 B1-2 再基于第一轮最佳组合搜索 `weight_decay`。
+B1-1 固定 `Proton_C_7 + ToT`、`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`、CE、one-hot、无手工特征和 cosine scheduler，只搜索 `training.learning_rate` 与 `training.batch_size`。当前 B1-1 使用 `epochs=25`、`early_stopping_patience=5`，输出组为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`，早期 20 epoch 结果不作为正式 B1-1 汇总。后续 B1-2 再基于第一轮最佳组合搜索 `weight_decay`。
 
 汇总某一组：
 
