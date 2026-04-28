@@ -43,7 +43,7 @@ configs/*.yaml
 
 主要配置目录：
 
-- `configs/datasets/`：描述数据集事实，例如 `Alpha` 有 ToT/ToA，`Proton_C` 只有 ToT。
+- `configs/datasets/`：描述数据集事实，例如 `Alpha_100` / `Alpha_50` 有 ToT/ToA，`Proton_C` 只有 ToT。
 - `configs/experiments/`：描述一次实验怎么跑。
 - `configs/search/`：描述 Optuna/TPE 超参数搜索空间。
 
@@ -56,14 +56,14 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml
 服务器路径不同，可以覆盖：
 
 ```powershell
-python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_100
 ```
 
 也可以用环境变量 `TIMEPIX_DATA_ROOT`，这样同一份配置可以在笔记本和服务器复用。
 
 ## 3. 数据集模态约束
 
-- `Alpha` 数据集可以使用 `['ToT']`、`['ToA']` 或 `['ToT', 'ToA']`。
+- `Alpha_100` 和 `Alpha_50` 数据集可以使用 `['ToT']`、`['ToA']` 或 `['ToT', 'ToA']`；当前正式实验配置统一选择 `Alpha_100`。
 - `Proton_C` 数据集只有 ToT，应使用 `['ToT']`。
 - 如果 `Proton_C` 数据误配为 `['ToT', 'ToA']`，新系统会在训练开始前报错。
 
@@ -139,8 +139,8 @@ model = build_model(cfg, input_channels, num_classes, task, handcrafted_dim)
 DenseNet121、EfficientNet-B0、ConvNeXt-Tiny 和 ViT-Tiny 在
 `timepix/models/torchvision_backbones.py` 中适配。它们会把输入 stem 改成
 当前模态通道数，输出投影到 `feature_dim`，再复用统一 `FeatureFusion` 和
-task head。`vit_tiny` 是面向 50x50 Timepix 矩阵的本地小型 ViT，默认
-`image_size=50`、`patch_size=10`，不提供预训练权重。
+task head。`vit_tiny` 是面向原生 Timepix 矩阵的本地小型 ViT，当前
+`Alpha_100` 主线使用 `image_size=100`、`patch_size=10`，不提供预训练权重。
 
 ## 6. 多模态实现方式
 
@@ -281,7 +281,7 @@ python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.y
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
-该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 与 `training.seed=[42,43,44]`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `patch_size=5`。
+该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 与 `training.seed=[42,43,44]`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `image_size=100`、`patch_size=10`。
 
 A4 模态对比入口：
 
@@ -290,7 +290,7 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.y
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
 ```
 
-该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它显式使用 paired split manifest `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`，并把 `[ToT, ToA]` 放在 grid 第一项以先生成双模态交集 split。
+该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它显式使用 paired split manifest `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。该文件应由历史 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制得到，因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，split key 又已去掉模态标记。
 
 汇总某一组：
 
@@ -322,7 +322,7 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
 3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
-4. 当前 A2 best base 已沉淀，后续优先用 `configs/experiments/a3_backbone_comparison.yaml` 和 `configs/experiments/a4_modality_comparison.yaml` 做三 seed 对比；如以后重新搜索 50x50 专用超参，再决定是否替换 base。
+4. 当前 A2 best base 已沉淀，后续优先用 `configs/experiments/a3_backbone_comparison.yaml` 和 `configs/experiments/a4_modality_comparison.yaml` 在 `Alpha_100` 上做三 seed 对比；如以后单独重启 `Alpha_50` 对照，再另建独立配置。
 5. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
 6. 逐步迁移/适配旧模型。
 7. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。

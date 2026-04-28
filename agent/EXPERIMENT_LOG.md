@@ -4,12 +4,15 @@
 
 ## 当前数据约定
 
-- 标准数据集名称：`Alpha`、`Proton_C`。
-- 现有配置中的数据集名仍使用 `Alpha`；split 文件名里的 `Alpha_100` 用于标识 A1/A2 历史 100x100 数据线。
+- 标准数据集名称：`Alpha_100`、`Alpha_50`、`Proton_C`。
+- 当前正式 Alpha 实验主线统一使用 `Alpha_100`；`Alpha_50` 曾短暂尝试，但效果不佳，不能支撑完整故事线，因此后续 A3/A4/A5/A6 默认回到 `Alpha_100`。
+- `configs/experiments/alpha_resnet18_tot.yaml` 指向 `configs/datasets/alpha_100.yaml`；`configs/datasets/alpha.yaml` 仅作为兼容别名保留，也指向 `Alpha_100`。
 - A1/A2 当时实际使用的 ToT split 已从本地 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json` 恢复，并确认与旧 `alpha_clean_ToT_seed42_0.8_0.1_0.1.json` 哈希一致。
 - 服务器上这条历史 split 的规范文件名为 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`；所有继承 A2 best base、且基于 `Alpha_100 + ToT` 的实验应显式复用它。
-- A2 best base 来自 100x100 数据集的超参搜索结果，目前后续实验先复用这组超参；当前不新增 `alpha50` 专用 A2 best base。
-- A4 的 ToT+ToA 双模态实验使用单独的 paired split：`outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。
+- A2 best base 来自 `Alpha_100` 数据集的超参搜索结果，后续实验复用这组超参；当前不新增 `Alpha_50` 专用 A2 best base。
+- `Alpha_100` 中 ToT 与 ToA 文件完全一一对应，split manifest 保存的是去掉 ToT/ToA 标记后的归一化 sample key。
+- A4 的 ToT+ToA 双模态实验使用单独文件名的 paired split：`outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`，但该文件应从历史 `Alpha_100_ToT` split 复制得到，不重新随机生成。
+- 默认 split 命名逻辑是 `dataset.name + modalities + split.seed + ratios`；如果显式提供 `split.path`，文件不存在时会按该路径创建。
 - 如果 Alpha 数据内容发生变化，例如删除异常样本，需要删除或更换对应 split manifest 后再重跑相关实验。
 
 ## 随机性与划分策略
@@ -35,7 +38,7 @@ configs/experiments/alpha_tot_a2_best_base.yaml
 
 固定设置：
 
-- Dataset: `Alpha`
+- Dataset: `Alpha_100`
 - Modality: `ToT`
 - Task: classification
 - Backbone: `resnet18_no_maxpool`
@@ -89,7 +92,7 @@ configs/experiments/a1_structure_adaptation.yaml
 
 固定设置：
 
-- Dataset: `Alpha`
+- Dataset: `Alpha_100`
 - Modality: `ToT`
 - Loss: `cross_entropy`
 - Label: `onehot`
@@ -156,7 +159,7 @@ configs/search/a2_alpha_resnet18_tot_training.yaml
 
 固定设置：
 
-- Dataset: `Alpha`
+- Dataset: `Alpha_100`
 - Modality: `ToT`
 - Backbone: `resnet18_no_maxpool`
 - Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
@@ -238,7 +241,7 @@ configs/experiments/a3_backbone_comparison.yaml
 固定设置：
 
 - Base: `configs/experiments/alpha_tot_a2_best_base.yaml`
-- Dataset: `Alpha`
+- Dataset: `Alpha_100`
 - Modality: `ToT`
 - Loss: `cross_entropy`
 - Label: `onehot`
@@ -265,13 +268,13 @@ vit_tiny
 
 - A3 初版使用单 seed，原因是当前算力不足。
 - A3 单 seed 结果出现明显排名波动，ResNet18 变差、shallow 模型升高，因此 A3 改为三 seed 验证。
-- ViT-Tiny 使用 `image_size=50`、`patch_size=5`。
+- ViT-Tiny 使用 `image_size=100`、`patch_size=10`，保持 `10x10=100` 个 patch token。
 - 不将 ViT resize 到 `224x224`，避免改变公平比较条件。
 - `model.dropout=0.1` 指统一 Timepix task head dropout。
 - Torchvision backbone 内部默认正则保持模型默认，不在 A3 中单独调参。
 - A3 早期观察显示 `resnet18_no_maxpool` 准确率最高。
 - ViT-Tiny 预期不会很好，因为样本量有限、激活像素稀疏，CNN 的局部归纳偏置更适合该数据。
-- A3 继承 A2 best base，因此 ToT 单模态比较显式复用恢复出的 `Alpha_100_ToT` 历史 split；如后续专门重跑 50x50 超参搜索，再决定是否替换 base。
+- A3 继承 A2 best base，因此 ToT 单模态比较显式复用恢复出的 `Alpha_100_ToT` 历史 split。
 
 服务器命令：
 
@@ -291,7 +294,7 @@ configs/experiments/a4_modality_comparison.yaml
 
 实验目的：
 
-- 验证 Alpha 数据集中 ToT 与 ToA 对极角识别的贡献。
+- 验证 `Alpha_100` 数据集中 ToT 与 ToA 对极角识别的贡献。
 - 比较 ToT、ToA、ToT+ToA。
 
 固定设置：
@@ -317,13 +320,21 @@ configs/experiments/a4_modality_comparison.yaml
 
 决策备注：
 
-- `[ToT, ToA]` 放在 grid 第一项，用双模态交集先生成 split。
-- ToT-only 和 ToA-only 复用同一份 split manifest，保证样本集合和划分一致。
+- `Alpha_100` 中 ToT 与 ToA 文件完全一一对应，ToT 单模态样本集合与 ToT+ToA 双模态样本集合一致。
+- A4 paired split 从历史 ToT split 复制得到，保证 A4 与 A1/A2/A3 的数据划分严格一致；不让程序重新随机生成 A4 split。
+- ToT-only、ToA-only 和 ToT+ToA 复用同一份 split 内容，保证样本集合和划分一致。
 - A4 与 A3 一样改为三 seed 验证，避免单次训练波动影响模态结论。
 - A4 split manifest:
 
 ```text
 outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+- 服务器上创建 A4 paired split 的命令：
+
+```bash
+cp outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
+   outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
 ```
 
 - ToA normalization 使用 `log1p: true`、`ignore_zero: true`。

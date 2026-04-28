@@ -117,13 +117,13 @@ class ConvNeXtTinyBackbone(nn.Module):
 
 
 class ViTTinyBackbone(nn.Module):
-    """Small ViT adapted to native 50x50 Timepix matrices."""
+    """Small ViT adapted to native Timepix matrices."""
 
     def __init__(
         self,
         input_channels: int,
         feature_dim: int = 256,
-        image_size: int = 50,
+        image_size: int = 100,
         patch_size: int = 10,
         pretrained: bool = False,
     ) -> None:
@@ -183,7 +183,7 @@ def build_vit_tiny(**kwargs) -> TimepixBackboneModel:
     input_channels = kwargs.pop("input_channels")
     feature_dim = kwargs.pop("feature_dim", 256)
     pretrained = kwargs.pop("pretrained", False)
-    image_size = kwargs.pop("image_size", 50)
+    image_size = kwargs.pop("image_size", 100)
     patch_size = kwargs.pop("patch_size", 10)
     backbone = ViTTinyBackbone(input_channels, feature_dim, image_size, patch_size, pretrained)
     return TimepixBackboneModel(backbone, backbone.feature_dim, **kwargs)

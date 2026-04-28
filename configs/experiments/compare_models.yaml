@@ -19,7 +19,7 @@ model:
   hidden_dim: 512
   dropout: 0.3
   fusion_mode: none
-  image_size: 50
+  image_size: 100
   patch_size: 10
 
 loss:

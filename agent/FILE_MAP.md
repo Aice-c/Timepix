@@ -7,7 +7,8 @@
 | `.github/` | GitHub metadata | Not inspected deeply. |
 | `.vscode/` | Editor settings | Not part of runtime. |
 | `.gitignore` | Ignore rules | Excludes local data, cache, and generated outputs. |
-| `Data/Alpha/` | Local alpha dataset | Angle-first layout with `ToA` and `ToT`. |
+| `Data/Alpha_100/` | Local Alpha_100 dataset | Current formal alpha dataset line; angle-first layout with `ToA` and `ToT`. |
+| `Data/Alpha_50/` | Local Alpha_50 dataset | Retained as a comparison/history dataset, not the current formal line. |
 | `Data/Alpha_Original/` | Local original alpha data | Likely raw or less processed angle folders. |
 | `Document/` | Project documents | Not part of training code. |
 | `Thesis/` | Thesis materials | Contains `images/`. |
@@ -58,7 +59,9 @@ prefer `configs/` + `scripts/` + `timepix/`.
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `configs/datasets/alpha.yaml` | Alpha dataset description | Declares Alpha supports `ToT` and `ToA`. |
+| `configs/datasets/alpha_100.yaml` | Alpha_100 dataset description | Current formal Alpha dataset config; 100x100, supports `ToT` and `ToA`. |
+| `configs/datasets/alpha_50.yaml` | Alpha_50 dataset description | Comparison/history Alpha dataset config; 50x50, supports `ToT` and `ToA`. |
+| `configs/datasets/alpha.yaml` | Legacy Alpha alias | Kept for compatibility and points to Alpha_100. |
 | `configs/datasets/proton_c.yaml` | Proton_C dataset description | Declares Proton_C supports only `ToT`. |
 | `configs/experiments/alpha_resnet18_tot.yaml` | Alpha ToT baseline | Single-modality baseline. |
 | `configs/experiments/alpha_resnet18_tot_toa.yaml` | Alpha ToT+ToA baseline | Multimodal alpha experiment. |

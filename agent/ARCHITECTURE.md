@@ -14,7 +14,8 @@ root/
 
 Dataset-specific modality constraint:
 
-- Alpha data has both `ToT` and `ToA`.
+- Alpha_100 and Alpha_50 data have both `ToT` and `ToA`; current formal
+  experiment configs use Alpha_100.
 - C/proton data has only `ToT`; do not configure `modalities = ["ToT", "ToA"]`
   for that dataset unless ToA data is actually added later.
 
@@ -141,8 +142,9 @@ DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny are adapted in
 `timepix.models.torchvision_backbones`. They replace the input stem for 1/2
 Timepix channels, project the backbone output to `model.feature_dim`, and then
 reuse the same `FeatureFusion` and task head as the ResNet models. `vit_tiny`
-is a local 50x50 adapter with default `model.patch_size=10`; pretrained weights
-are not provided for this adapter.
+is a local Timepix adapter; the current Alpha_100 configs use
+`model.image_size=100` and `model.patch_size=10`. Pretrained weights are not
+provided for this adapter.
 
 ## Losses and Metrics
 
@@ -200,12 +202,14 @@ training-hyperparameter search. The current A2-best settings are captured in
 `configs/experiments/alpha_tot_a2_best_base.yaml` for later ablations and model
 comparisons. `configs/experiments/a3_backbone_comparison.yaml` compares
 ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0,
-ConvNeXt-Tiny, and ViT-Tiny under the same Alpha ToT CE one-hot setting with a
+ConvNeXt-Tiny, and ViT-Tiny under the same Alpha_100 ToT CE one-hot setting with a
 fixed restored `Alpha_100_ToT` split and three training seeds.
 `configs/experiments/a4_modality_comparison.yaml` compares ToT, ToA, and
 ToT+ToA with three training seeds while explicitly reusing the paired
-`Alpha_100_ToT-ToA` split manifest generated from the dual-modality sample
-intersection.
+`Alpha_100_ToT-ToA` split manifest. For Alpha_100, ToT and ToA files are
+one-to-one and split keys are normalized without the modality token, so this
+paired manifest is copied from the restored `Alpha_100_ToT` split rather than
+generated independently.
 `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
 re-runs the current A2 best configuration with `training.seed` values 42/43/44
 while keeping the same restored `Alpha_100_ToT` split.

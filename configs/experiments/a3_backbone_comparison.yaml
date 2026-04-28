@@ -4,8 +4,8 @@ experiment_name: a3_backbone_alpha_tot
 experiment_group: a3_backbone_comparison
 
 model:
-  image_size: 50
-  patch_size: 5
+  image_size: 100
+  patch_size: 10
 
 grid:
   model.name:

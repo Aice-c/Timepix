@@ -33,15 +33,18 @@ configs/experiments/*.yaml
 
 ## 3. 数据集配置
 
-alpha 数据集：
+Alpha_100 数据集：
 
 ```yaml
-name: Alpha
+name: Alpha_100
 particle: alpha
-root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha
+root: ${TIMEPIX_DATA_ROOT:-Data}/Alpha_100
 available_modalities: [ToT, ToA]
 default_modalities: [ToT, ToA]
+sample_shape: [100, 100]
 ```
+
+`Alpha_50` 也有独立数据集配置，但当前正式实验主线统一使用 `Alpha_100`。
 
 C/质子数据集：
 
@@ -55,7 +58,7 @@ default_modalities: [ToT]
 
 这里最重要的是：
 
-- alpha 支持 `ToT`、`ToA`、`ToT+ToA`。
+- `Alpha_100` 和 `Alpha_50` 支持 `ToT`、`ToA`、`ToT+ToA`。
 - C/质子只支持 `ToT`。
 - 如果 C/质子误写 `ToA`，或配置里拼错常见字段，新系统会在训练开始前报错。
 
@@ -68,7 +71,7 @@ default_modalities: [ToT]
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha
+  --data-root /root/autodl-tmp/Alpha_100
 ```
 
 推荐方法二：环境变量。
@@ -176,7 +179,7 @@ convnext_tiny
 vit_tiny
 ```
 
-A3 配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
+A3 配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 使用原生 `100x100` 输入，A3 使用 `image_size: 100`、`patch_size: 10`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 A4 模态对比：
 
@@ -184,7 +187,7 @@ A4 模态对比：
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
 ```
 
-A4 继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征和 `fusion_mode: none`，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`，以及 `training.seed: [42, 43, 44]`。配置显式使用 `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`，先用双模态交集生成 split，再让单模态复用同一批样本划分。
+A4 继承 A2 best base，固定 `Alpha_100`、`resnet18_no_maxpool`、CE、one-hot、无手工特征和 `fusion_mode: none`，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`，以及 `training.seed: [42, 43, 44]`。配置显式使用 `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，且 split manifest 使用归一化 sample key，这个 paired split 应从历史 `Alpha_100_ToT` split 复制得到，从而让 A4 与 A1/A2/A3 使用严格一致的数据划分。
 
 比较 FP32 与 CUDA AMP 混合精度：
 
@@ -526,7 +529,7 @@ git push
 ```bash
 python scripts/train.py \
   --config configs/experiments/alpha_resnet18_tot.yaml \
-  --data-root /root/autodl-tmp/Alpha \
+  --data-root /root/autodl-tmp/Alpha_100 \
   --set training.epochs=2 \
   --set training.batch_size=32
 ```
@@ -554,7 +557,7 @@ training:
 ```bash
 cd ~/Timepix
 tmux new -s timepix
-python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_100
 ```
 
 断开 tmux：
