@@ -16,3 +16,7 @@ grid:
     - efficientnet_b0
     - convnext_tiny
     - vit_tiny
+  training.seed:
+    - 42
+    - 43
+    - 44

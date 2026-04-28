@@ -201,9 +201,10 @@ training-hyperparameter search. The current A2-best settings are captured in
 comparisons. `configs/experiments/a3_backbone_comparison.yaml` compares
 ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0,
 ConvNeXt-Tiny, and ViT-Tiny under the same Alpha ToT CE one-hot setting with a
-single fixed training seed. `configs/experiments/a4_modality_comparison.yaml`
-compares ToT, ToA, and ToT+ToA while reusing a paired split manifest generated
-from the dual-modality sample intersection. `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
+fixed split and three training seeds. `configs/experiments/a4_modality_comparison.yaml`
+compares ToT, ToA, and ToT+ToA with three training seeds while reusing a paired
+split manifest generated from the dual-modality sample intersection.
+`configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
 re-runs the current A2 best configuration with `training.seed` values 42/43/44
 while keeping `split.seed=42`.
 

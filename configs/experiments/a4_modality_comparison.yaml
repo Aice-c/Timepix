@@ -23,3 +23,7 @@ grid:
     - [ToT, ToA]
     - [ToT]
     - [ToA]
+  training.seed:
+    - 42
+    - 43
+    - 44

@@ -13,6 +13,7 @@
 | `Thesis/` | Thesis materials | Contains `images/`. |
 | `representation/` | Presentation/report artifacts | Not inspected deeply. |
 | `output/` | Root-level analysis outputs | Used by near-vertical feature analysis and PPT generation. |
+| `agent/` | Project handoff docs | Includes architecture notes, experiment guides, and the experiment log. |
 | `timepix/` | New experiment-driven training package | First-stage refactor target; old `Program/` is preserved. |
 | `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
 | `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`. |
@@ -29,6 +30,17 @@
 `Program/` is now legacy/reference code during the refactor. It is still useful
 for comparison and for functions not yet migrated, but new experiments should
 prefer `configs/` + `scripts/` + `timepix/`.
+
+## `agent/`
+
+| Path | Role | Notes |
+| --- | --- | --- |
+| `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of A1-A4 configs, results, and design decisions. |
+| `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
+| `agent/CODE_CONTEXT.md` | Code context | Practical overview for future code changes. |
+| `agent/ARCHITECTURE.md` | Architecture reference | English notes on data/model/training internals. |
+| `agent/EXPERIMENT_GROUPS.md` | Experiment grouping guide | Output grouping, metadata, summary commands. |
+| `agent/SERVER_TRAINING.md` | Server training guide | Linux server persistence, tmux, resume, AMP notes. |
 
 ## `timepix/`
 
@@ -56,8 +68,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/alpha_tot_a2_best_base.yaml` | A2 best base config | Fixed Alpha ToT CE one-hot setup with A2 best training hyperparameters. |
 | `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
-| `configs/experiments/a3_backbone_comparison.yaml` | A3 backbone comparison | Single-seed comparison of ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny from the A2 best base. |
-| `configs/experiments/a4_modality_comparison.yaml` | A4 modality comparison | Compares ToT, ToA, and ToT+ToA with ResNet18 no-maxpool and A2 best training hyperparameters. |
+| `configs/experiments/a3_backbone_comparison.yaml` | A3 backbone comparison | Three-seed comparison of ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny from the A2 best base. |
+| `configs/experiments/a4_modality_comparison.yaml` | A4 modality comparison | Three-seed comparison of ToT, ToA, and ToT+ToA with ResNet18 no-maxpool and A2 best training hyperparameters. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

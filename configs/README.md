@@ -2,6 +2,12 @@
 
 这个目录放新实验系统的配置文件。
 
+人工维护的实验日志见：
+
+```text
+agent/EXPERIMENT_LOG.md
+```
+
 ## 目录
 
 ```text
@@ -134,7 +140,7 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 
 ## 主干模型对比
 
-正式 A3 单 seed 主干对比使用 `configs/experiments/a3_backbone_comparison.yaml`。它继承 A2 best base，只切换 7 个模型主干：
+正式 A3 主干对比使用 `configs/experiments/a3_backbone_comparison.yaml`。它继承 A2 best base，对 7 个模型主干进行三 seed 验证：
 
 ```text
 shallow_cnn
@@ -146,16 +152,23 @@ convnext_tiny
 vit_tiny
 ```
 
-该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed: 42` 和单个 `training.seed: 42`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参和 `split.seed: 42`，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 ```bash
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
+跑完后建议计算三 seed 均值和标准差：
+
+```bash
+python scripts/summarize.py --group a3_backbone_comparison --out outputs/a3_backbone_comparison_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a3_backbone_comparison_runs.csv --out outputs/a3_backbone_comparison_mean_std.csv
+```
+
 ## A4 模态对比
 
-`configs/experiments/a4_modality_comparison.yaml` 用于比较 Alpha 数据集的 ToT、ToA 和 ToT+ToA。它继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征、`fusion_mode: none`、单 seed 和 A2 best 训练超参，只切换 `dataset.modalities`。
+`configs/experiments/a4_modality_comparison.yaml` 用于比较 Alpha 数据集的 ToT、ToA 和 ToT+ToA。它继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征、`fusion_mode: none` 和 A2 best 训练超参，只切换 `dataset.modalities` 和 `training.seed: [42, 43, 44]`。
 
 A4 使用同一个 paired split manifest：
 
@@ -169,6 +182,13 @@ grid 中先运行 `[ToT, ToA]`，用于按双模态交集生成 split；随后 T
 ```bash
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+```
+
+跑完后建议计算三 seed 均值和标准差：
+
+```bash
+python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_modality_comparison_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4_modality_comparison_runs.csv --out outputs/a4_modality_comparison_mean_std.csv
 ```
 
 ## 混合精度训练

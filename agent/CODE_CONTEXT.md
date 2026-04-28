@@ -281,7 +281,7 @@ python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.y
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
-该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed=42` 和单个 `training.seed=42`，只切换 `model.name`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `patch_size=5`。
+该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参和 `split.seed=42`，只切换 `model.name` 与 `training.seed=[42,43,44]`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `patch_size=5`。
 
 A4 模态对比入口：
 
@@ -290,7 +290,7 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.y
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
 ```
 
-该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities`。为了公平比较 ToT、ToA 和 ToT+ToA，它使用同一个 paired split manifest，并把 `[ToT, ToA]` 放在 grid 第一项以先生成双模态交集 split。
+该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它使用同一个 paired split manifest，并把 `[ToT, ToA]` 放在 grid 第一项以先生成双模态交集 split。
 
 汇总某一组：
 

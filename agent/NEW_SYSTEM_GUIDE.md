@@ -176,7 +176,7 @@ convnext_tiny
 vit_tiny
 ```
 
-A3 配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed: 42` 和单个 `training.seed: 42`，只切换 `model.name`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
+A3 配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参和 `split.seed: 42`，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 A4 模态对比：
 
@@ -184,7 +184,7 @@ A4 模态对比：
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
 ```
 
-A4 继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征、`fusion_mode: none` 和单 seed，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`。配置显式使用 `outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json`，先用双模态交集生成 split，再让单模态复用同一批样本划分。
+A4 继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征和 `fusion_mode: none`，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`，以及 `training.seed: [42, 43, 44]`。配置显式使用 `outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json`，先用双模态交集生成 split，再让单模态复用同一批样本划分。
 
 比较 FP32 与 CUDA AMP 混合精度：
 
