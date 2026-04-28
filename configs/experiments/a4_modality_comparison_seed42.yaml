@@ -1,0 +1,8 @@
+base: a4_modality_comparison.yaml
+
+experiment_name: a4_modality_alpha_seed42
+experiment_group: a4_modality_comparison_seed42
+
+grid:
+  training.seed:
+    - 42

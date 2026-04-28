@@ -231,6 +231,7 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 
 ```text
 configs/experiments/a3_backbone_comparison.yaml
+configs/experiments/a3_backbone_comparison_seed42.yaml
 ```
 
 实验目的：
@@ -251,6 +252,11 @@ configs/experiments/a3_backbone_comparison.yaml
 - Split: `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
 - Seed: `42`, `43`, `44`
 - `epochs=25`
+
+快速版：
+
+- `a3_backbone_comparison_seed42.yaml` 继承完整 A3，仅固定 `training.seed=42`。
+- 计划实验数为 7：7 个模型主干各跑一次。
 
 比较主干：
 
@@ -284,12 +290,19 @@ python scripts/summarize.py --group a3_backbone_comparison --out outputs/a3_back
 python scripts/aggregate_seeds.py --summary outputs/a3_backbone_comparison_runs.csv --out outputs/a3_backbone_comparison_mean_std.csv
 ```
 
+时间紧张时先跑 seed42 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml --continue-on-error
+```
+
 ## A4 模态对比
 
 配置文件：
 
 ```text
 configs/experiments/a4_modality_comparison.yaml
+configs/experiments/a4_modality_comparison_seed42.yaml
 ```
 
 实验目的：
@@ -309,6 +322,11 @@ configs/experiments/a4_modality_comparison.yaml
 - Training config: A2 best
 - Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
 - Seed: `42`, `43`, `44`
+
+快速版：
+
+- `a4_modality_comparison_seed42.yaml` 继承完整 A4，仅固定 `training.seed=42`。
+- 计划实验数为 3：ToT+ToA、ToT、ToA 各跑一次。
 
 比较模态：
 
@@ -345,6 +363,12 @@ cp outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --continue-on-error
 python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_modality_comparison_runs.csv
 python scripts/aggregate_seeds.py --summary outputs/a4_modality_comparison_runs.csv --out outputs/a4_modality_comparison_mean_std.csv
+```
+
+时间紧张时先跑 seed42 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml --continue-on-error
 ```
 
 ## 过渡或旧配置

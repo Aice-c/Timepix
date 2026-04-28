@@ -213,5 +213,9 @@ generated independently.
 `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
 re-runs the current A2 best configuration with `training.seed` values 42/43/44
 while keeping the same restored `Alpha_100_ToT` split.
+`configs/experiments/a3_backbone_comparison_seed42.yaml` and
+`configs/experiments/a4_modality_comparison_seed42.yaml` are time-saving
+shortcuts that inherit the corresponding full A3/A4 grids and retain only
+`training.seed=42`.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

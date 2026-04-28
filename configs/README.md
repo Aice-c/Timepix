@@ -168,6 +168,13 @@ python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.y
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
+时间紧张时，可以先运行固定 `training.seed=42` 的快速版。该配置继承完整 A3，只保留 7 个模型主干各跑一次：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml
+```
+
 跑完后建议计算三 seed 均值和标准差：
 
 ```bash
@@ -198,6 +205,13 @@ cp outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
 ```bash
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+```
+
+时间紧张时，可以先运行固定 `training.seed=42` 的快速版。该配置继承完整 A4，只保留 ToT+ToA、ToT、ToA 三个模态各跑一次：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml
 ```
 
 跑完后建议计算三 seed 均值和标准差：

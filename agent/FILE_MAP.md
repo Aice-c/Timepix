@@ -72,7 +72,9 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
 | `configs/experiments/a3_backbone_comparison.yaml` | A3 backbone comparison | Three-seed comparison of ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny from the A2 best base. |
+| `configs/experiments/a3_backbone_comparison_seed42.yaml` | A3 quick comparison | Single-seed-42 shortcut inheriting full A3; 7 backbone runs. |
 | `configs/experiments/a4_modality_comparison.yaml` | A4 modality comparison | Three-seed comparison of ToT, ToA, and ToT+ToA with ResNet18 no-maxpool and A2 best training hyperparameters. |
+| `configs/experiments/a4_modality_comparison_seed42.yaml` | A4 quick comparison | Single-seed-42 shortcut inheriting full A4; 3 modality runs. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

@@ -1,0 +1,8 @@
+base: a3_backbone_comparison.yaml
+
+experiment_name: a3_backbone_alpha_tot_seed42
+experiment_group: a3_backbone_comparison_seed42
+
+grid:
+  training.seed:
+    - 42

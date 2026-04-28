@@ -167,6 +167,12 @@ python scripts/run_grid.py --config configs/experiments/compare_losses.yaml
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
+时间紧张时先跑 A3 单 seed 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml
+```
+
 当前模型主干对比包含：
 
 ```text
@@ -185,6 +191,12 @@ A4 模态对比：
 
 ```bash
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+```
+
+时间紧张时先跑 A4 单 seed 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml
 ```
 
 A4 继承 A2 best base，固定 `Alpha_100`、`resnet18_no_maxpool`、CE、one-hot、无手工特征和 `fusion_mode: none`，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`，以及 `training.seed: [42, 43, 44]`。配置显式使用 `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，且 split manifest 使用归一化 sample key，这个 paired split 应从历史 `Alpha_100_ToT` split 复制得到，从而让 A4 与 A1/A2/A3 使用严格一致的数据划分。

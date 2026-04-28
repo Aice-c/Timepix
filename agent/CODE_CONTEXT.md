@@ -279,18 +279,22 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 ```powershell
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml
 ```
 
-该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 与 `training.seed=[42,43,44]`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `image_size=100`、`patch_size=10`。
+该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、A2 best 训练超参，并显式复用 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`，只切换 `model.name` 与 `training.seed=[42,43,44]`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `image_size=100`、`patch_size=10`。`a3_backbone_comparison_seed42.yaml` 继承完整 A3，只保留 `training.seed=42`，用于时间紧张时先跑 7 个主干的单 seed 结果。
 
 A4 模态对比入口：
 
 ```powershell
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --dry-run
 python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml
 ```
 
-该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它显式使用 paired split manifest `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。该文件应由历史 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制得到，因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，split key 又已去掉模态标记。
+该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它显式使用 paired split manifest `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。该文件应由历史 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制得到，因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，split key 又已去掉模态标记。`a4_modality_comparison_seed42.yaml` 继承完整 A4，只保留 `training.seed=42`，用于时间紧张时先跑 3 个模态的单 seed 结果。
 
 汇总某一组：
 
