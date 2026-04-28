@@ -1,0 +1,18 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a3_backbone_alpha_tot
+experiment_group: a3_backbone_comparison
+
+model:
+  image_size: 50
+  patch_size: 5
+
+grid:
+  model.name:
+    - shallow_cnn
+    - shallow_resnet
+    - resnet18_no_maxpool
+    - densenet121
+    - efficientnet_b0
+    - convnext_tiny
+    - vit_tiny

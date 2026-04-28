@@ -82,7 +82,7 @@ python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_t
 python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
-该配置使用 Optuna TPE，在固定 dataset、modality、model、loss、label、seed 的条件下搜索训练超参数：
+该配置使用 Optuna TPE，在固定 dataset、modality、model、loss、label 和数据划分 seed 的条件下搜索训练超参数：
 
 ```yaml
 search:
@@ -96,6 +96,14 @@ search:
 ```
 
 搜索目标只使用 validation 指标；test 指标保留在每个 trial 的输出中用于最终报告，不用于挑选超参数。搜索结果会写入 `outputs/hparam_search/`，并生成 `best_config.yaml`、`best_params.json`、`study_summary.json` 和 `trials.csv`。Optuna study 默认持久化到 `outputs/optuna/`，中断后可用同一个配置继续运行。
+
+A2 当前最佳超参已经整理为后续实验可继承的 base：
+
+```yaml
+base: configs/experiments/alpha_tot_a2_best_base.yaml
+```
+
+该 base 固定 Alpha、ToT、CE、one-hot、无手工特征、`resnet18_no_maxpool`、`split.seed: 42`、`training.seed: 42`、AMP，以及 A2 best 训练超参：`learning_rate=4.3878e-05`、`weight_decay=4.7324e-04`、`batch_size=32`、`eta_min=1.6433e-07`、`dropout=0.1`、`scheduler=cosine`、`epochs=25`。
 
 ## 多 seed 认证
 
@@ -126,7 +134,7 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 
 ## 主干模型对比
 
-`configs/experiments/compare_models.yaml` 用于对比 7 个模型主干：
+正式 A3 单 seed 主干对比使用 `configs/experiments/a3_backbone_comparison.yaml`。它继承 A2 best base，只切换 7 个模型主干：
 
 ```text
 shallow_cnn
@@ -138,11 +146,11 @@ convnext_tiny
 vit_tiny
 ```
 
-该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，默认 `image_size: 50`、`patch_size: 10`。
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed: 42` 和单个 `training.seed: 42`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 ```bash
-python scripts/run_grid.py --config configs/experiments/compare_models.yaml --dry-run
-python scripts/run_grid.py --config configs/experiments/compare_models.yaml
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
 ## 混合精度训练

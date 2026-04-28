@@ -161,7 +161,7 @@ python scripts/run_grid.py --config configs/experiments/compare_losses.yaml
 比较不同模型：
 
 ```bash
-python scripts/run_grid.py --config configs/experiments/compare_models.yaml
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
 当前模型主干对比包含：
@@ -176,7 +176,7 @@ convnext_tiny
 vit_tiny
 ```
 
-该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，默认 `image_size: 50`、`patch_size: 10`。
+A3 配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed: 42` 和单个 `training.seed: 42`，只切换 `model.name`。所有新主干都走统一 `FeatureFusion + task head`，因此仍支持手工特征融合、分类/回归任务和现有损失配置。`vit_tiny` 是项目内适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 比较 FP32 与 CUDA AMP 混合精度：
 
@@ -403,6 +403,14 @@ outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 ```
 
 服务器中断后，用同一个搜索配置再次运行即可接着已有 study 继续采样。搜索结束后，可以把 `best_config.yaml` 中的训练超参数整理回后续正式实验配置，作为消融和模型对比的固定训练预算。
+
+A2 当前最佳训练配置已经沉淀为：
+
+```text
+configs/experiments/alpha_tot_a2_best_base.yaml
+```
+
+后续消融和模型对比优先继承该 base。
 
 ## 13. 多 seed 认证
 

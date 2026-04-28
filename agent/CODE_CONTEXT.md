@@ -277,11 +277,11 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 主干模型对比入口：
 
 ```powershell
-python scripts/run_grid.py --config configs/experiments/compare_models.yaml --dry-run
-python scripts/run_grid.py --config configs/experiments/compare_models.yaml
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
-该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A1 最佳 ResNet18 stem 参数和 AMP，只切换 `model.name`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。
+该配置继承 `configs/experiments/alpha_tot_a2_best_base.yaml`，固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参、`split.seed=42` 和单个 `training.seed=42`，只切换 `model.name`，对比 `shallow_cnn`、`shallow_resnet`、`resnet18_no_maxpool`、`densenet121`、`efficientnet_b0`、`convnext_tiny` 和 `vit_tiny`。A3 的 ViT-Tiny 使用 `patch_size=5`。
 
 汇总某一组：
 
@@ -313,7 +313,7 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
 3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
-4. 用 `configs/search/a2_alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用 `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml` 做三 seed 认证。
+4. 用 `configs/search/a2_alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，沉淀到 `configs/experiments/alpha_tot_a2_best_base.yaml`，再用 `configs/experiments/a3_backbone_comparison.yaml` 做 A3 单 seed 主干对比。
 5. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
 6. 逐步迁移/适配旧模型。
 7. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。

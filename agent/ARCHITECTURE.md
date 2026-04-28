@@ -195,11 +195,13 @@ maxpool, conv1 kernel sizes 2/3/5, conv1 strides 1/2, and dropout 0/0.1/0.3.
 `configs/experiments/compare_mixed_precision.yaml` compares FP32 and CUDA AMP
 under the current A1 best structure: `resnet18_no_maxpool`,
 `conv1_kernel_size=2`, `conv1_stride=1`, and `dropout=0.3`.
-`configs/experiments/compare_models.yaml` compares ShallowCNN, ShallowResNet,
-ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny under the
-same Alpha ToT CE one-hot setting. `configs/search/a2_alpha_resnet18_tot_training.yaml`
-defines the A2 training-hyperparameter search before later ablations and model
-comparisons. `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
+`configs/search/a2_alpha_resnet18_tot_training.yaml` defines the A2
+training-hyperparameter search. The current A2-best settings are captured in
+`configs/experiments/alpha_tot_a2_best_base.yaml` for later ablations and model
+comparisons. `configs/experiments/a3_backbone_comparison.yaml` compares
+ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0,
+ConvNeXt-Tiny, and ViT-Tiny under the same Alpha ToT CE one-hot setting with a
+single fixed training seed. `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
 re-runs the current A2 best configuration with `training.seed` values 42/43/44
 while keeping `split.seed=42`.
 
