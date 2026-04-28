@@ -40,6 +40,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
 | `agent/A4B_IMPLEMENTATION_PLAN.md` | A4b implementation plan | Staged plan for ToA representation, late logit fusion, ToA scalar features, and later multimodal fusion models. |
 | `agent/DATA_ANALYSIS_HANDOFF_5_5_PRO.md` | Data analysis handoff | Thesis data-analysis context: raw frames, trajectory extraction, cleaning, final datasets, and near-vertical C/proton distinguishability. |
+| `agent/DATA_ANALYSIS_GUIDE.md` | Data analysis script guide | Documents the new `timepix/analysis/` subsystem, output layout, server commands, and thesis wording boundaries. |
 | `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
 | `agent/CODE_CONTEXT.md` | Code context | Practical overview for future code changes. |
 | `agent/ARCHITECTURE.md` | Architecture reference | English notes on data/model/training internals. |
@@ -53,6 +54,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
 | `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
+| `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
 | `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, and ViT-Tiny. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
@@ -96,6 +98,9 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
 | `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
+| `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report. |
+| `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes C/proton near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
+| `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
 | `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields. |
 

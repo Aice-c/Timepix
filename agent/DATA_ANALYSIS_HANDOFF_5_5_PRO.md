@@ -2,6 +2,16 @@
 
 这份文档用于让研究/论文型模型理解当前 Timepix 课题的数据来源、预处理流程、两个数据集的关系，以及后续论文中应如何设计数据分析章节。
 
+脚本实现与输出组织见：
+
+```text
+agent/DATA_ANALYSIS_GUIDE.md
+timepix/analysis/
+scripts/analyze_datasets.py
+scripts/analyze_resolution_limit.py
+scripts/make_analysis_report.py
+```
+
 ## 1. 研究任务概述
 
 本课题使用 Timepix3 探测器采集到的像素响应矩阵，识别带电粒子的入射极角。输入是单个粒子事件轨迹在探测器像素平面上的二维矩阵，主要模态为：

@@ -675,6 +675,70 @@ python scripts/evaluate_logit_fusion.py \
 - Test set 上个别非零 alpha 的小幅提升只能作为现象记录，不能用于选择模型或宣称 ToA 稳定提升。
 - A4b-1 与 A4b-2 合起来说明：ToA 可能包含局部补充信息，尤其可能与 30 deg 类别有关，但当前 raw/relative early fusion 与 late logit fusion 都不足以支撑“ToA 带来可靠总体提升”的结论。
 
+## 数据分析链路：数据集与近垂直分辨极限
+
+新增目的：
+
+- 为本科论文生成两层数据分析结果：第一层解释 `Alpha_100` 与 `Proton_C` 数据集的来源、样本分布、事件级特征和代表性样本；第二层分析 C/质子近垂直角度 `80, 82, 84, 86, 88, 90` 在当前 `ToT` 单模态表示下的可分性限制。
+- 该链路只做离线分析，不修改训练主链路，不改变现有 A1-A4/A4b 训练配置。
+
+新增代码：
+
+```text
+timepix/analysis/
+scripts/analyze_datasets.py
+scripts/analyze_resolution_limit.py
+scripts/make_analysis_report.py
+agent/DATA_ANALYSIS_GUIDE.md
+```
+
+输出约定：
+
+```text
+outputs/data_analysis/
+outputs/resolution_limit/
+outputs/analysis_report.md
+```
+
+核心决策：
+
+- `Proton_C` 当前只按 `ToT` 单模态分析，不实现或假设 C/质子 `ToA`。
+- 代表性样本由固定 seed 和自动距离规则选择，避免人工挑选样本。
+- 统计检验必须同时报告效应量，包括 KS statistic、Wasserstein distance、Cliff's delta、median difference 和 IQR overlap ratio。
+- 近垂直结论使用限定性表述：在当前探测器设置、事件提取方法、ToT 单模态矩阵表示和已测试模型/特征族条件下，近垂直 `80-90 deg`、`2 deg` 间隔数据没有表现出足够可分性；不写成“深度学习绝对无法区分”。
+- Windows 本地环境中 UMAP/numba 和 sklearn 默认 `lbfgs` 后端可能不稳定，因此 UMAP 在 Windows 默认跳过，LogisticRegression 基线使用更稳的 `liblinear`；Linux 服务器上仍会尝试 UMAP。
+
+服务器命令：
+
+```bash
+python scripts/analyze_datasets.py \
+  --data-root Data \
+  --output-root outputs/data_analysis \
+  --datasets Alpha_100 Proton_C \
+  --sample-cap-plot 5000 \
+  --seed 42
+
+python scripts/analyze_resolution_limit.py \
+  --data-root Data \
+  --dataset Proton_C \
+  --angles 80 82 84 86 88 90 \
+  --modality ToT \
+  --output-root outputs/resolution_limit \
+  --sample-cap-plot 5000 \
+  --sample-cap-ml 10000 \
+  --seeds 42 43 44 45 46
+
+python scripts/make_analysis_report.py \
+  --data-analysis-root outputs/data_analysis \
+  --resolution-root outputs/resolution_limit \
+  --out outputs/analysis_report.md
+```
+
+本地验证：
+
+- 使用 `D:\Program\Anaconda\envs\timepix\python.exe` 完成 `compileall`、三个脚本 `--help`、空数据 smoke test、合成小数据的 dataset/resolution/report 全流程测试。
+- 本地没有完整 `Data/Alpha_100` 和 `Data/Proton_C`，因此未在真实数据上生成最终论文表图；真实运行应放到服务器或数据完整的环境。
+
 ## 过渡或旧配置
 
 - `configs/experiments/compare_models.yaml`: 早期主干对比配置。正式 A3 优先使用 `a3_backbone_comparison.yaml`。
