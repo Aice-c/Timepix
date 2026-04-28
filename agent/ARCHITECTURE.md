@@ -65,7 +65,8 @@ config, and resume metadata. This supports
 `timepix.data.splits.stratified_split`:
 
 - Perform per-class stratified splits.
-- Use `random.Random(seed)`.
+- Use `random.Random(seed)`, where the config-level seed is `split.seed` when
+  present and falls back to `training.seed` for older configs.
 - Three-way split requires ratios summing to 1.0.
 
 `TimepixDataset`:
@@ -174,7 +175,10 @@ under `outputs/grid_manifests/`.
 `scripts/summarize.py` rebuilds summary CSV files from experiment outputs,
 including model hyperparameters such as conv1 kernel/stride/padding and
 dropout, early-stopping state, training hyperparameters, mixed-precision state,
-fit/test/total timing, and git metadata.
+split seed/hash, fit/test/total timing, and git metadata.
+
+`scripts/aggregate_seeds.py` aggregates a summary CSV into `mean`/`std` rows for
+repeated-seed certification.
 
 `scripts/search_hparams.py` runs Optuna hyperparameter search from
 `configs/search/*.yaml`. It consumes the top-level `search` section, samples
@@ -195,6 +199,8 @@ under the current A1 best structure: `resnet18_no_maxpool`,
 ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny under the
 same Alpha ToT CE one-hot setting. `configs/search/a2_alpha_resnet18_tot_training.yaml`
 defines the A2 training-hyperparameter search before later ablations and model
-comparisons.
+comparisons. `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
+re-runs the current A2 best configuration with `training.seed` values 42/43/44
+while keeping `split.seed=42`.
 
 Legacy scripts under `Program/` are preserved as references during the refactor.

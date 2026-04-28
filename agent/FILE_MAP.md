@@ -15,7 +15,7 @@
 | `output/` | Root-level analysis outputs | Used by near-vertical feature analysis and PPT generation. |
 | `timepix/` | New experiment-driven training package | First-stage refactor target; old `Program/` is preserved. |
 | `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
-| `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`. |
+| `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`. |
 | `requirements.txt` | Refactored runtime dependencies | Minimal new-system dependencies including Optuna. |
 | `generate_presentation.py` | Builds analysis PPT | Uses handcrafted feature CSV/plots for near-vertical analysis. |
 | `generate_ppt.py` | Builds a PPT deck | General presentation generation helper. |
@@ -58,6 +58,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
+| `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml` | Grid config | Re-runs the current A2 best Alpha ToT ResNet18 training setup with three training seeds and fixed `split.seed`. |
 | `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
 | `configs/search/a2_alpha_resnet18_tot_training.yaml` | A2 Optuna search config | Searches training hyperparameters after fixing the A1 ResNet18 structure. |
 
@@ -69,6 +70,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
+| `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields. |
 
 ## Legacy `Program/` Files
 

@@ -1,0 +1,52 @@
+base: alpha_resnet18_tot.yaml
+
+experiment_name: a2_best_alpha_resnet18_tot_3seed
+experiment_group: a2_best_3seed
+
+dataset:
+  modalities: [ToT]
+
+task:
+  type: classification
+  primary_metric: val_accuracy
+
+model:
+  name: resnet18_no_maxpool
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: none
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}
+
+training:
+  epochs: 25
+  batch_size: 32
+  learning_rate: 0.00004387845930730345
+  weight_decay: 0.000473241915897366
+  scheduler: cosine
+  eta_min: 0.00000016433426810872132
+  early_stopping_patience: 8
+  mixed_precision: true
+  mixed_precision_dtype: float16
+
+split:
+  seed: 42
+  reuse_split: true
+
+grid:
+  training.seed:
+    - 42
+    - 43
+    - 44

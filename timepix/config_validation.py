@@ -73,7 +73,7 @@ SECTION_KEYS = {
         "mixed_precision",
         "mixed_precision_dtype",
     },
-    "split": {"train", "val", "test", "reuse_split", "path"},
+    "split": {"train", "val", "test", "reuse_split", "path", "seed"},
     "data": {"crop_size", "dtype"},
     "augmentation": {"rotation_90"},
     "handcrafted_features": {"enabled", "standardize", "features"},
@@ -217,7 +217,7 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     for key in ("epochs", "batch_size"):
         if key in training_cfg:
             _check_positive_int(training_cfg[key], f"training.{key}", errors)
-    for key in ("num_workers", "early_stopping_patience"):
+    for key in ("num_workers", "early_stopping_patience", "seed"):
         if key in training_cfg:
             _check_positive_int(training_cfg[key], f"training.{key}", errors, allow_zero=True)
     for key in ("learning_rate", "weight_decay", "eta_min", "dropout"):
@@ -232,6 +232,10 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
         errors.append(f"training.mixed_precision_dtype must be one of {sorted(SUPPORTED_MIXED_PRECISION_DTYPES)}")
 
     split_cfg = _require_mapping(cfg.get("split", {}), "split", errors) or {}
+    if "seed" in split_cfg:
+        _check_positive_int(split_cfg["seed"], "split.seed", errors, allow_zero=True)
+    if "reuse_split" in split_cfg:
+        _check_bool(split_cfg["reuse_split"], "split.reuse_split", errors)
     if {"train", "val", "test"} <= set(split_cfg):
         try:
             ratios = [float(split_cfg[name]) for name in ("train", "val", "test")]

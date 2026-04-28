@@ -78,7 +78,7 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 - 把角度文件夹排序后映射为连续类别标签。
 - 根据启用模态配对同一个事件的文件；alpha 可配对 ToT/ToA，C/质子通常只有 ToT。
 - 按类别分层划分训练、验证、测试集。
-- 保存或复用 split manifest，保证不同实验划分一致。
+- 保存或复用 split manifest，保证不同实验划分一致；`split.seed` 控制划分，`training.seed` 控制训练随机性。
 - 读取 `.txt` 矩阵为 numpy 数组。
 - 按 `data.dtype` 控制读取精度，默认 `float32`。
 - 转成 PyTorch tensor。
@@ -229,6 +229,7 @@ gated   拼接后做 feature-wise gate，再分类
 - `scripts/run_grid.py`：跑一组网格对比实验。
 - `scripts/search_hparams.py`：在代表性实验设置上做 Optuna/TPE 训练超参数搜索。
 - `scripts/summarize.py`：汇总全部实验或某个实验组。
+- `scripts/aggregate_seeds.py`：把多 seed summary 聚合成 mean/std。
 
 实验可以通过 `experiment_group` 分组保存，例如：
 
@@ -253,7 +254,7 @@ python scripts/summarize.py --all
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
-汇总 CSV 会包含结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`，也会包含早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
+汇总 CSV 会包含结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`，也会包含 `seed`、`split_seed`、`split_manifest_hash`、早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
 
 训练超参数搜索入口，A2 使用：
 
@@ -263,6 +264,15 @@ python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_t
 ```
 
 搜索配置继承一个普通实验配置，`search.parameters` 用 dotted key 指向要采样的字段，例如 `training.learning_rate`、`training.weight_decay`、`training.batch_size`、`training.eta_min` 和 `model.dropout`。每个 trial 都调用同一个 `run_experiment`，因此 checkpoint、AMP、早停、metadata 和汇总字段都保持一致。搜索目标应使用 validation 指标，test 指标只用于最终报告。
+
+多 seed 认证入口，固定 `split.seed`，只切换 `training.seed`：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
+```
 
 主干模型对比入口：
 
@@ -303,7 +313,7 @@ python scripts/summarize.py --root outputs/experiments/baseline --out outputs/ba
 1. 在服务器上用 `--set training.epochs=2` 跑通一个最小实验。
 2. 根据服务器反馈修正数据路径、batch size、num_workers。
 3. 用 `configs/experiments/compare_mixed_precision.yaml` 对比 FP32 与 AMP，如果指标损失可接受，再把正式实验切到 `training.mixed_precision: true`。
-4. 用 `configs/search/a2_alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用于后续消融和模型对比。
+4. 用 `configs/search/a2_alpha_resnet18_tot_training.yaml` 搜索一组固定训练超参数，再用 `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml` 做三 seed 认证。
 5. 如果 txt 读取明显拖慢训练，增加 `.npy` 缓存或离线转换流程。
 6. 逐步迁移/适配旧模型。
 7. 把旧图表生成脚本改成读取新 `metadata.json` 和 `experiment_summary.csv`。

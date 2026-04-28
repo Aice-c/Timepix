@@ -58,6 +58,12 @@ outputs/experiments/a1_structure_adaptation/
 outputs/experiments/compare_models/
 ```
 
+A2 最优配置三 seed 认证会保存到：
+
+```text
+outputs/experiments/a2_best_3seed/
+```
+
 ## metadata
 
 每个实验的 `metadata.json` 会记录：
@@ -106,6 +112,8 @@ early_stopped
 git_commit
 mixed_precision
 mixed_precision_enabled
+split_seed
+split_manifest_hash
 fit_seconds
 ```
 
@@ -141,6 +149,13 @@ outputs/experiments/a2_hparam_search_training/
 
 ```text
 outputs/hparam_search/
+```
+
+三 seed 认证跑完后，可以先汇总实验组，再计算平均值和标准差：
+
+```bash
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
 ```
 
 ## 按路径汇总

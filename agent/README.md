@@ -84,7 +84,9 @@ python -m compileall -q timepix scripts
 python scripts\search_hparams.py --config configs\search\a2_alpha_resnet18_tot_training.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\compare_mixed_precision.yaml --dry-run
 python scripts\run_grid.py --config configs\experiments\a1_structure_adaptation.yaml --dry-run
+python scripts\run_grid.py --config configs\experiments\a2_best_alpha_resnet18_tot_3seed.yaml --dry-run
 python scripts\summarize.py --root outputs\experiments\__missing__ --out outputs\__tmp_summary_amp.csv
+python scripts\aggregate_seeds.py --summary outputs\__tmp_summary_amp.csv --out outputs\__tmp_seed_aggregate.csv
 ```
 
 未能运行：

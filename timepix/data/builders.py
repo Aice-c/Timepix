@@ -26,10 +26,11 @@ def _validate_modalities(dataset_cfg: dict[str, Any], modalities: list[str]) -> 
 def _default_split_path(cfg: dict[str, Any], modalities: list[str]) -> Path:
     dataset = cfg["dataset"]
     split = cfg.get("split", {})
-    seed = cfg.get("training", {}).get("seed", 42)
+    training_seed = cfg.get("training", {}).get("seed", 42)
+    split_seed = split.get("seed", training_seed)
     ratios = f"{split.get('train', 0.8)}_{split.get('val', 0.1)}_{split.get('test', 0.1)}"
     mod = "-".join(modalities)
-    name = f"{dataset.get('name', 'dataset')}_{mod}_seed{seed}_{ratios}.json"
+    name = f"{dataset.get('name', 'dataset')}_{mod}_seed{split_seed}_{ratios}.json"
     return PROJECT_ROOT / "outputs" / "splits" / name
 
 
@@ -53,7 +54,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     records, label_map = collect_samples(data_root, modalities)
 
     split_cfg = cfg.get("split", {})
-    seed = int(cfg.get("training", {}).get("seed", 42))
+    training_seed = int(cfg.get("training", {}).get("seed", 42))
+    split_seed = int(split_cfg.get("seed", training_seed))
     reuse_split = bool(split_cfg.get("reuse_split", True))
     split_path = split_cfg.get("path")
     split_path = resolve_project_path(split_path) if split_path else _default_split_path(cfg, modalities)
@@ -66,7 +68,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
             float(split_cfg.get("train", 0.8)),
             float(split_cfg.get("val", 0.1)),
             float(split_cfg.get("test", 0.1)),
-            seed,
+            split_seed,
         )
         if reuse_split:
             save_split_manifest(split_path, records, train_idx, val_idx, test_idx)
@@ -155,6 +157,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "modalities": modalities,
         "label_map": label_map,
         "num_classes": len(label_map),
+        "training_seed": training_seed,
+        "split_seed": split_seed,
         "split_path": str(split_path),
         "split_counts": {
             "train": len(train_records),

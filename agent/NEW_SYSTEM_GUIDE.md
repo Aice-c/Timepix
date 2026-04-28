@@ -288,7 +288,7 @@ python scripts/summarize.py \
   --out outputs/baseline_summary.csv
 ```
 
-汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`、早停状态、训练超参数、混合精度状态、训练/测试耗时、git commit 和主要验证/测试指标，A1 结构对比、AMP 对比或主干模型对比可以直接按这些列筛选。
+汇总表中包含 `experiment_group`、模型名、`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`、`seed`、`split_seed`、`split_manifest_hash`、早停状态、训练超参数、混合精度状态、训练/测试耗时、git commit 和主要验证/测试指标，A1 结构对比、AMP 对比、主干模型对比或多 seed 对比可以直接按这些列筛选。
 
 ## 9. 每个实验会保存什么
 
@@ -366,7 +366,7 @@ python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_t
 python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
 ```
 
-搜索配置继承 `configs/experiments/alpha_resnet18_tot.yaml`，固定 Dataset、Modality、Model、Loss、Label 和 Seed，只搜索训练相关超参数：
+搜索配置继承 `configs/experiments/alpha_resnet18_tot.yaml`，固定 Dataset、Modality、Model、Loss、Label 和数据划分 seed，只搜索训练相关超参数：
 
 ```yaml
 search:
@@ -404,7 +404,38 @@ outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 
 服务器中断后，用同一个搜索配置再次运行即可接着已有 study 继续采样。搜索结束后，可以把 `best_config.yaml` 中的训练超参数整理回后续正式实验配置，作为消融和模型对比的固定训练预算。
 
-## 13. 当前第一阶段已经实现的内容
+## 13. 多 seed 认证
+
+`split.seed` 和 `training.seed` 已经拆开：
+
+```yaml
+split:
+  seed: 42
+  reuse_split: true
+
+grid:
+  training.seed: [42, 43, 44]
+```
+
+`split.seed` 控制 train/val/test 分层划分；`training.seed` 控制模型初始化、DataLoader shuffle 和训练随机性。旧配置如果不写 `split.seed`，仍会沿用 `training.seed`，保持兼容。
+
+A2 当前最优训练超参的三 seed 认证入口：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml
+```
+
+结果汇总和 mean/std 聚合：
+
+```bash
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
+```
+
+报告时建议写 `mean ± std`，不要从三个 seed 中挑最高值作为正式结果。
+
+## 14. 当前第一阶段已经实现的内容
 
 已实现：
 
@@ -412,7 +443,7 @@ outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 - 数据集模态校验。
 - ToT/ToA 文件配对。
 - train/val/test 分层划分。
-- split manifest 复用。
+- split manifest 复用，且支持独立 `split.seed`。
 - 配置化读取精度，默认 `float32`。
 - ToT/ToA 标准化。
 - 90 度旋转增强。
@@ -421,12 +452,12 @@ outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 - `resnet18`、`resnet18_no_maxpool`、`resnet18_maxpool`、`resnet18_original`、`shallow_resnet`、`shallow_cnn`、`densenet121`、`efficientnet_b0`、`convnext_tiny`、`vit_tiny` 新接口模型。
 - CrossEntropy 和 EMD 损失。
 - accuracy、角度 MAE、P90 Error、macro-F1、混淆矩阵。
-- 单实验运行、网格实验运行、结果汇总。
+- 单实验运行、网格实验运行、结果汇总和多 seed mean/std 聚合。
 - 实验组目录、metadata 实验组记录、按组/全部汇总。
 - CUDA AMP 混合精度训练开关、GradScaler checkpoint 恢复、FP32/AMP 对比配置。
 - Optuna/TPE 训练超参数搜索入口、搜索配置、trial CSV 和 best config 导出。
 
-## 14. P90 Error 指标
+## 15. P90 Error 指标
 
 新系统会在 `metrics.json`、`metadata.json` 和 `training_log.csv` 中记录 `p90_error`。
 
@@ -447,7 +478,7 @@ outputs/optuna/hparam_alpha_resnet18_tot_a2.db
 
 这个指标比平均误差更能反映“较差的那一部分样本”的表现，适合和 accuracy、MAE、混淆矩阵一起用于论文分析。
 
-## 15. 当前限制
+## 16. 当前限制
 
 本地当前 Python 环境缺少 `torch`，所以这次只做了语法检查，没有在本机实际训练。
 
@@ -486,7 +517,7 @@ python scripts/train.py \
 
 确认能跑通后，再开始跑正式对比实验。
 
-## 16. 进度条和持久化训练
+## 17. 进度条和持久化训练
 
 训练时终端会显示每个 epoch 的 train/val batch 进度条，并在每个 epoch 结束后打印：
 

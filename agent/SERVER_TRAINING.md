@@ -132,3 +132,21 @@ python scripts/search_hparams.py \
 ```
 
 每个 trial 都会保存普通实验输出，Optuna study 默认写入 `outputs/optuna/` 的 SQLite 文件。VSCode 或 tmux 中断后，用同一条命令重新运行即可继续已有 study。
+
+## 三 seed 认证
+
+A2 最优训练超参可以用固定 `split.seed`、切换 `training.seed` 的 grid 认证：
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml \
+  --skip-existing \
+  --continue-on-error
+```
+
+跑完后汇总并聚合：
+
+```bash
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
+```

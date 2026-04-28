@@ -60,7 +60,7 @@ python scripts/summarize.py --group baseline
 python scripts/summarize.py --all
 ```
 
-汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP 或主干模型对比结果。
+汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `seed`、`split_seed`、`split_manifest_hash`、`mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP、主干模型或多 seed 对比结果。
 
 长网格实验可以使用：
 
@@ -96,6 +96,33 @@ search:
 ```
 
 搜索目标只使用 validation 指标；test 指标保留在每个 trial 的输出中用于最终报告，不用于挑选超参数。搜索结果会写入 `outputs/hparam_search/`，并生成 `best_config.yaml`、`best_params.json`、`study_summary.json` 和 `trials.csv`。Optuna study 默认持久化到 `outputs/optuna/`，中断后可用同一个配置继续运行。
+
+## 多 seed 认证
+
+`split.seed` 控制 train/val/test 的分层划分；`training.seed` 控制模型初始化、DataLoader shuffle 和训练随机性。旧配置如果没有写 `split.seed`，会继续沿用 `training.seed` 生成划分；新对比实验建议显式固定：
+
+```yaml
+split:
+  seed: 42
+  reuse_split: true
+
+grid:
+  training.seed: [42, 43, 44]
+```
+
+A2 最优训练超参的 3 seed 认证配置：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml
+```
+
+跑完后先汇总该实验组，再计算平均值和标准差：
+
+```bash
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
+```
 
 ## 主干模型对比
 

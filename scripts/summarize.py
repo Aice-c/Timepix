@@ -42,6 +42,9 @@ SUMMARY_FIELDS = [
     "max_epochs",
     "early_stopped",
     "seed",
+    "split_seed",
+    "split_path",
+    "split_manifest_hash",
     "learning_rate",
     "batch_size",
     "scheduler",
@@ -107,6 +110,7 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     mixed_precision = metadata.get("mixed_precision", {})
     timing = metadata.get("timing", {})
     git = metadata.get("git", {})
+    data_info = metadata.get("data_info", {})
     return {
         "experiment_group": _infer_group(metadata, metadata_path, root, recursive),
         "experiment_name": metadata.get("experiment_name"),
@@ -132,6 +136,9 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "max_epochs": metrics.get("max_epochs"),
         "early_stopped": metrics.get("early_stopped"),
         "seed": training.get("seed"),
+        "split_seed": data_info.get("split_seed"),
+        "split_path": data_info.get("split_path"),
+        "split_manifest_hash": metadata.get("split_manifest_hash"),
         "learning_rate": training.get("learning_rate"),
         "batch_size": training.get("batch_size"),
         "scheduler": training.get("scheduler"),
