@@ -1,0 +1,3 @@
+# Compatibility wrapper. New experiments should use
+# b1_proton_c7_resnet18_tot_lr_batch.yaml.
+base: b1_proton_c7_resnet18_tot_lr_batch.yaml

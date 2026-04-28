@@ -59,6 +59,8 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A3 主干模型对比已有当前结果记录，支持 `resnet18_no_maxpool` 作为当前最佳主干模型。
 - A4 模态对比已有当前结果记录，当前实现下 ToT 单模态最好，ToT+ToA 没有提升。
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
+- B1 Proton/C 第一轮训练超参搜索配置已准备；正式质子/C 数据集名称已切换为 `Proton_C_7`，固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`。
+- 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
 
 ## 数据集主线
@@ -76,14 +78,15 @@ Alpha_100
 ```text
 configs/datasets/alpha_100.yaml
 configs/datasets/alpha_50.yaml
-configs/datasets/proton_c.yaml
+configs/datasets/proton_c_7.yaml
 ```
 
 其中：
 
 - `Alpha_100`：正式 alpha 主线，100x100，支持 ToT 和 ToA。
 - `Alpha_50`：保留为对照/历史配置，不作为当前正式主线。
-- `Proton_C`：C/质子数据集，目前只有 ToT。
+- `Proton_C_7`：C/质子 7 分类数据集，目前只有 ToT；后续 Proton/C 训练只使用该数据集。
+- `Proton_C`：C/质子全量数据集，目前只用于论文数据分析和近垂直分辨极限分析，不作为训练配置入口。
 
 ## Split 决策
 
@@ -323,6 +326,40 @@ scripts/analyze_prediction_complementarity.py
 
 30 deg 类别中，ToA 单模态对 ToT 错误没有补救能力；但 `relative_minmax, no mask` 可将 oracle accuracy 从 ToT 的 29.66% 提高到 55.17%。这说明 ToA 相关输入存在可挖掘的类别局部互补信息，关键在于设计选择性融合机制，而不是简单拼接或固定权重融合。
 
+### B1 Proton/C 训练超参搜索
+
+目的：在质子/C 数据集上固定 alpha A1 得到的 ResNet18 结构适配方式，仅搜索训练过程超参，为后续质子/C 消融实验确定默认训练配置。
+
+配置：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
+```
+
+固定：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Backbone: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss: `cross_entropy`
+- Label: `onehot`
+- Handcrafted: disabled
+- Scheduler: `cosine`
+- `eta_min=1e-7`
+- `dropout=0.1`
+- `epochs=20`
+- `early_stopping_patience=5`
+
+B1-1 搜索：
+
+```text
+learning_rate = [1e-4, 3e-4, 1e-3]
+batch_size    = [64, 128, 256]
+```
+
+备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。
+
 ## 当前可讲的论文故事线
 
 建议主线：
@@ -332,7 +369,7 @@ scripts/analyze_prediction_complementarity.py
 3. 再搜索训练超参数，固定统一训练预算，避免后续消融和模型对比混入调参因素。
 4. 在统一训练设置下比较多种 CNN/现代视觉主干和 ViT-Tiny；当前 A3 记录支持 `resnet18_no_maxpool` 作为主干。
 5. 比较 ToT、ToA、ToT+ToA；当前 A4 记录显示 ToT 单模态最好，ToT+ToA 没有提升。A4b 进一步说明，相对 ToA 表达和 late logit fusion 仍不足以稳定超过 ToT，但 oracle 互补性分析支持继续探索选择性融合。
-6. 后续可以继续讨论手工物理特征、损失函数、标签编码、C/质子数据泛化或跨粒子比较。
+6. 后续开始 Proton/C 数据集主线，先用 B1 搜索训练默认配置，再讨论质子/C 消融、近垂直角度可分性和跨粒子比较。
 
 ## 5.5 Pro 可以重点协助的任务
 

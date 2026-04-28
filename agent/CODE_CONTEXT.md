@@ -43,7 +43,7 @@ configs/*.yaml
 
 主要配置目录：
 
-- `configs/datasets/`：描述数据集事实，例如 `Alpha_100` / `Alpha_50` 有 ToT/ToA，`Proton_C` 只有 ToT。
+- `configs/datasets/`：描述数据集事实，例如 `Alpha_100` / `Alpha_50` 有 ToT/ToA，`Proton_C_7` 只有 ToT。
 - `configs/experiments/`：描述一次实验怎么跑。
 - `configs/search/`：描述 Optuna/TPE 超参数搜索空间。
 
@@ -64,8 +64,10 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 ## 3. 数据集模态约束
 
 - `Alpha_100` 和 `Alpha_50` 数据集可以使用 `['ToT']`、`['ToA']` 或 `['ToT', 'ToA']`；当前正式实验配置统一选择 `Alpha_100`。
-- `Proton_C` 数据集只有 ToT，应使用 `['ToT']`。
-- 如果 `Proton_C` 数据误配为 `['ToT', 'ToA']`，新系统会在训练开始前报错。
+- `Proton_C_7` 数据集只有 ToT，应使用 `['ToT']`。
+- 如果 `Proton_C_7` 数据误配为 `['ToT', 'ToA']`，新系统会在训练开始前报错。
+- `configs/datasets/proton_c.yaml` 仅作为旧入口兼容，内容也指向 `Proton_C_7`；新训练配置优先使用 `proton_c_7.yaml`。
+- 独立的数据分析链路例外：`scripts/analyze_datasets.py` 和 `scripts/analyze_resolution_limit.py` 默认使用全量 `Proton_C`，不使用训练用的 `Proton_C_7`。
 
 ## 4. 数据加载
 
@@ -339,6 +341,15 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 ```
 
 该脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。默认匹配 A4 seed42 的 ToT/ToA 单模态结果，以及 A4b-1 seed42 的 relative ToT+ToA 候选，输出 oracle accuracy、oracle MAE、ToT 错误时其他预测是否正确/误差更小，以及每个类别的 correct-overlap。
+
+B1 Proton/C 训练超参搜索入口：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
+```
+
+B1-1 固定 `Proton_C_7 + ToT`、`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`、CE、one-hot、无手工特征和 cosine scheduler，只搜索 `training.learning_rate` 与 `training.batch_size`。后续 B1-2 再基于第一轮最佳组合搜索 `weight_decay`。
 
 汇总某一组：
 

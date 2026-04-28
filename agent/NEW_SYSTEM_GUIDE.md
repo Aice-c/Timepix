@@ -46,12 +46,12 @@ sample_shape: [100, 100]
 
 `Alpha_50` 也有独立数据集配置，但当前正式实验主线统一使用 `Alpha_100`。
 
-C/质子数据集：
+C/质子 7 分类数据集：
 
 ```yaml
-name: Proton_C
+name: Proton_C_7
 particle: proton
-root: ${TIMEPIX_DATA_ROOT:-Data}/Proton_C
+root: ${TIMEPIX_DATA_ROOT:-Data}/Proton_C_7
 available_modalities: [ToT]
 default_modalities: [ToT]
 ```
@@ -59,7 +59,7 @@ default_modalities: [ToT]
 这里最重要的是：
 
 - `Alpha_100` 和 `Alpha_50` 支持 `ToT`、`ToA`、`ToT+ToA`。
-- C/质子只支持 `ToT`。
+- 当前正式 C/质子训练只使用 `Proton_C_7`，且只支持 `ToT`。
 - 如果 C/质子误写 `ToA`，或配置里拼错常见字段，新系统会在训练开始前报错。
 
 ## 4. 本地和服务器路径如何处理
@@ -240,6 +240,15 @@ python scripts/analyze_prediction_complementarity.py --seed 42
 ```
 
 这个脚本只读取已有 `predictions.csv`，不训练、不加载 checkpoint。它会统计 ToT 正确/错误与 ToA 或 relative ToT+ToA 正确/错误的重叠关系，并给出 oracle accuracy 与 oracle MAE，用来判断 ToA 是否存在值得继续挖掘的互补信息。
+
+B1 Proton/C 训练超参搜索：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
+```
+
+B1-1 固定 `Proton_C_7 + ToT` 与 A1 得到的 ResNet18 stem/variant：`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`，只搜索 `learning_rate × batch_size`。`dropout=0.1` 是保守训练默认值，不作为 A1 结构结论描述。
 
 比较 FP32 与 CUDA AMP 混合精度：
 

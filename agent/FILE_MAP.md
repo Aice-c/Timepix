@@ -67,12 +67,15 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/datasets/alpha_100.yaml` | Alpha_100 dataset description | Current formal Alpha dataset config; 100x100, supports `ToT` and `ToA`. |
 | `configs/datasets/alpha_50.yaml` | Alpha_50 dataset description | Comparison/history Alpha dataset config; 50x50, supports `ToT` and `ToA`. |
 | `configs/datasets/alpha.yaml` | Legacy Alpha alias | Kept for compatibility and points to Alpha_100. |
-| `configs/datasets/proton_c.yaml` | Proton_C dataset description | Declares Proton_C supports only `ToT`. |
+| `configs/datasets/proton_c_7.yaml` | Proton_C_7 dataset description | Current formal Proton/C 7-class dataset; supports only `ToT`. |
+| `configs/datasets/proton_c.yaml` | Legacy Proton/C dataset alias | Compatibility entry; points to `Proton_C_7` and should not be used for new training configs. |
 | `configs/experiments/alpha_resnet18_tot.yaml` | Alpha ToT baseline | Single-modality baseline. |
 | `configs/experiments/alpha_resnet18_tot_toa.yaml` | Alpha ToT+ToA baseline | Multimodal alpha experiment. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml` | Handcrafted concat experiment | Uses ToT `total_energy`. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_gated.yaml` | Handcrafted gated experiment | Uses gated feature fusion. |
 | `configs/experiments/proton_resnet18_tot.yaml` | C/proton ToT baseline | ToT-only by dataset constraint. |
+| `configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` | B1-1 Proton_C_7 search | First Proton/C 7-class training search over learning rate and batch size with fixed A1 ResNet18 stem. |
+| `configs/experiments/b1_proton_resnet18_tot_lr_batch.yaml` | Legacy B1-1 wrapper | Compatibility wrapper that inherits the `Proton_C_7` B1-1 config. |
 | `configs/experiments/alpha_tot_a2_best_base.yaml` | A2 best base config | Fixed Alpha ToT CE one-hot setup with A2 best training hyperparameters. |
 | `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |
 | `configs/experiments/a1_structure_adaptation.yaml` | A1 ResNet18 structure grid | Alpha ToT, CE, no handcrafted features; compares maxpool, conv1 kernel/stride, and dropout. |
@@ -98,8 +101,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
 | `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
-| `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report. |
-| `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes C/proton near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
+| `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report; defaults to full `Proton_C`, not training-only `Proton_C_7`. |
+| `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
 | `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields. |

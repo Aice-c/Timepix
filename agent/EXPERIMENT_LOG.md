@@ -4,7 +4,11 @@
 
 ## 当前数据约定
 
-- 标准数据集名称：`Alpha_100`、`Alpha_50`、`Proton_C`。
+- 标准训练数据集名称：`Alpha_100`、`Alpha_50`、`Proton_C_7`。
+- 标准数据分析数据集名称：`Alpha_100`、全量 `Proton_C`。
+- `Proton_C_7` 是服务器上的正式质子/C 7 分类训练数据集名称，后续所有 Proton/C 训练只使用该数据集。
+- `Proton_C` 保留为全量质子/C 数据集名称，只用于论文数据分析和近垂直分辨极限分析。
+- `configs/datasets/proton_c.yaml` 仅作为旧入口兼容，内容也指向 `Proton_C_7`；新配置统一使用 `configs/datasets/proton_c_7.yaml`。
 - 当前正式 Alpha 实验主线统一使用 `Alpha_100`；`Alpha_50` 曾短暂尝试，但效果不佳，不能支撑完整故事线，因此后续 A3/A4/A5/A6 默认回到 `Alpha_100`。
 - `configs/experiments/alpha_resnet18_tot.yaml` 指向 `configs/datasets/alpha_100.yaml`；`configs/datasets/alpha.yaml` 仅作为兼容别名保留，也指向 `Alpha_100`。
 - A1/A2 当时实际使用的 ToT split 已从本地 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json` 恢复，并确认与旧 `alpha_clean_ToT_seed42_0.8_0.1_0.1.json` 哈希一致。
@@ -679,7 +683,7 @@ python scripts/evaluate_logit_fusion.py \
 
 新增目的：
 
-- 为本科论文生成两层数据分析结果：第一层解释 `Alpha_100` 与 `Proton_C` 数据集的来源、样本分布、事件级特征和代表性样本；第二层分析 C/质子近垂直角度 `80, 82, 84, 86, 88, 90` 在当前 `ToT` 单模态表示下的可分性限制。
+- 为本科论文生成两层数据分析结果：第一层解释 `Alpha_100` 与全量 `Proton_C` 数据集的来源、样本分布、事件级特征和代表性样本；第二层分析 C/质子近垂直角度 `80, 82, 84, 86, 88, 90` 在当前 `ToT` 单模态表示下的可分性限制。
 - 该链路只做离线分析，不修改训练主链路，不改变现有 A1-A4/A4b 训练配置。
 
 新增代码：
@@ -702,7 +706,8 @@ outputs/analysis_report.md
 
 核心决策：
 
-- `Proton_C` 当前只按 `ToT` 单模态分析，不实现或假设 C/质子 `ToA`。
+- 全量 `Proton_C` 当前只按 `ToT` 单模态分析，不实现或假设 C/质子 `ToA`。
+- `Proton_C_7` 只用于训练实验主线；不要把数据分析默认数据集从 `Proton_C` 改成 `Proton_C_7`。
 - 代表性样本由固定 seed 和自动距离规则选择，避免人工挑选样本。
 - 统计检验必须同时报告效应量，包括 KS statistic、Wasserstein distance、Cliff's delta、median difference 和 IQR overlap ratio。
 - 近垂直结论使用限定性表述：在当前探测器设置、事件提取方法、ToT 单模态矩阵表示和已测试模型/特征族条件下，近垂直 `80-90 deg`、`2 deg` 间隔数据没有表现出足够可分性；不写成“深度学习绝对无法区分”。
@@ -744,6 +749,73 @@ python scripts/make_analysis_report.py \
 - `configs/experiments/compare_models.yaml`: 早期主干对比配置。正式 A3 优先使用 `a3_backbone_comparison.yaml`。
 - `configs/search/alpha_resnet18_tot_training.yaml`: 旧超参搜索配置。正式 A2 优先使用 `a2_alpha_resnet18_tot_training.yaml`。
 - `configs/experiments/alpha_resnet18_tot.yaml`: baseline 模板。A2 后的新实验通常应继承 `alpha_tot_a2_best_base.yaml`。
+
+## B1 Proton/C 训练超参搜索
+
+### B1-1 learning rate × batch size
+
+配置文件：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
+```
+
+实验目的：
+
+- 在 `Proton_C_7` 数据集上固定 alpha A1 得到的 ResNet18 stem/variant，先对训练过程中的 `learning_rate` 和 `batch_size` 做小范围搜索。
+- 为后续质子/C 消融实验沉淀默认训练配置。
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Task: classification
+- Backbone: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss: `cross_entropy`
+- Label: `onehot`
+- Handcrafted: disabled
+- Fusion: `none`
+- Scheduler: `cosine`
+- `eta_min=1e-7`
+- `dropout=0.1`
+- `weight_decay=1e-4`
+- `epochs=20`
+- `early_stopping_patience=5`
+- Primary metric: `val_accuracy`
+- Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
+- AMP: enabled
+
+网格：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0001
+    - 0.0003
+    - 0.001
+  training.batch_size:
+    - 64
+    - 128
+    - 256
+```
+
+共 9 组实验。
+
+决策备注：
+
+- B1-1 固定的是 A1 结构结论中的 ResNet18 variant/stem：`resnet18_no_maxpool + conv1 2/1/0`。
+- A1 当时观察到 `dropout=0.3` 表现最好，但 A2 后续将 dropout 视为训练超参并搜索到 `dropout=0.1`。B1-1 暂固定 `dropout=0.1`，作为保守训练默认值，不把它表述为 A1 结构参数。
+- `batch_size=256` 保留在第一轮搜索中；服务器运行时建议使用 `--continue-on-error`，如果显存不足不会中断整组。
+- B1-2 将在 B1-1 选出最佳 `learning_rate + batch_size` 后，只搜索 `weight_decay = [0, 1e-5, 1e-4]`。
+
+服务器命令：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch --out outputs/b1_proton_c7_resnet18_tot_lr_batch_runs.csv
+```
 
 ## 常用汇总命令
 

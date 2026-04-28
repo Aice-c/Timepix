@@ -37,7 +37,9 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 - 当前正式 Alpha 主线使用 `Alpha_100`，配置文件为 `configs/datasets/alpha_100.yaml`，输入尺寸为 `100x100`。
 - `Alpha_50` 保留为对照/历史数据集配置，不用于当前正式 A3/A4 后续实验主线。
 - `Alpha_100` 和 `Alpha_50` 均支持 `ToT` 和 `ToA`。
-- `Proton_C` 数据集只支持 `ToT`。
+- 当前正式 Proton/C 主线使用 `Proton_C_7`，配置文件为 `configs/datasets/proton_c_7.yaml`，代表 7 分类质子/C 数据集；只支持 `ToT`。
+- `configs/datasets/proton_c.yaml` 仅作为兼容入口保留，也指向 `Proton_C_7`，后续训练配置不要再写旧名 `Proton_C`。
+- 独立论文数据分析链路不属于训练主线：`scripts/analyze_datasets.py` 和 `scripts/analyze_resolution_limit.py` 默认分析全量 `Proton_C`，用于和训练用的 `Proton_C_7` 区分。
 - 常见配置字段会在训练或 grid dry-run 前校验，拼错字段会直接报错。
 
 ## 实验组
@@ -310,6 +312,44 @@ outputs/a4b_prediction_complementarity_seed42_by_class.csv
 ```
 
 这个脚本回答：ToA 或 relative ToT+ToA 是否能在 ToT 出错时预测正确、是否有更小角度误差，以及 oracle fusion 的 accuracy/MAE 上限。
+
+## B1 Proton/C 训练超参搜索
+
+`configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` 是质子/C 7 分类数据集的第一轮训练超参搜索。它固定 alpha A1 得到的 ResNet18 stem/variant：
+
+```yaml
+model:
+  name: resnet18_no_maxpool
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+```
+
+同时固定 `Proton_C_7`、`ToT`、CE、one-hot、无手工特征、`fusion_mode: none`、cosine scheduler、`eta_min=1e-7`、`weight_decay=1e-4`、`dropout=0.1`、`epochs=20` 和 `early_stopping_patience=5`。这里的 `dropout=0.1` 是沿用 A2 风格的保守训练默认值，不表述为 A1 结构参数。
+
+B1-1 只搜索：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0001
+    - 0.0003
+    - 0.001
+  training.batch_size:
+    - 64
+    - 128
+    - 256
+```
+
+运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch --out outputs/b1_proton_c7_resnet18_tot_lr_batch_runs.csv
+```
+
+如果 `batch_size=256` 显存不足，`--continue-on-error` 会继续后面的组合；后续 B1-2 将基于 B1-1 最佳 `learning_rate + batch_size` 搜索 `weight_decay`。
 
 ## 混合精度训练
 

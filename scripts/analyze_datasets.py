@@ -140,7 +140,8 @@ def main() -> int:
     alpha_counts = class_counts(index_df, "Alpha_100")
     _write_counts(layout, alpha_counts, "class_counts_alpha100", figures, tables, "Alpha_100 class counts")
 
-    proton_counts_all = class_counts(index_df, "Proton_C", ["ToT"])
+    proton_dataset = "Proton_C"
+    proton_counts_all = class_counts(index_df, proton_dataset, ["ToT"])
     _write_counts(layout, proton_counts_all, "class_counts_proton_c_all", figures, tables, "Proton_C all angle counts")
     _write_counts(
         layout,
@@ -161,7 +162,7 @@ def main() -> int:
 
     alpha_tot = all_features[(all_features["dataset"] == "Alpha_100") & (all_features["modality"] == "ToT")]
     alpha_toa = all_features[(all_features["dataset"] == "Alpha_100") & (all_features["modality"] == "ToA")]
-    proton_tot = all_features[(all_features["dataset"] == "Proton_C") & (all_features["modality"] == "ToT")]
+    proton_tot = all_features[(all_features["dataset"] == proton_dataset) & (all_features["modality"] == "ToT")]
     proton_10_70 = _filter_angles(proton_tot, [10, 20, 30, 45, 50, 60, 70])
     proton_80_90 = _filter_angles(proton_tot, [80, 82, 84, 86, 88, 90])
 
