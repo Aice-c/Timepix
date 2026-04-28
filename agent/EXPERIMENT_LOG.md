@@ -509,6 +509,62 @@ python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_tran
 python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
 ```
 
+## A4b 阶段 2：Late Logit Fusion 评估
+
+脚本：
+
+```text
+scripts/evaluate_logit_fusion.py
+```
+
+实验目的：
+
+- 直接使用 A4 已训练完成的 ToT 与 ToA 单模态 checkpoint，评估 decision-level late fusion 是否能让弱 ToA 以较小权重补充 ToT。
+- 不重新训练模型，不使用 test set 选择融合权重。
+
+融合公式：
+
+```text
+logits = (1 - alpha_toa) * logits_tot + alpha_toa * logits_toa
+```
+
+默认搜索：
+
+```text
+alpha_toa = 0, 0.05, 0.10, 0.20, 0.30, 0.50
+```
+
+选择规则：
+
+- 只在 validation set 上选择 `alpha_toa`。
+- 主规则：最大 validation accuracy。
+- 平局时依次使用更低 validation MAE、更高 validation macro-F1。
+- 选定 `alpha_toa` 后再报告 test accuracy、test MAE、test P90、test macro-F1。
+
+决策备注：
+
+- 该阶段优先作为评估脚本实现，而不是新增训练模型；这样可以复用 A4 结果，快速判断 ToA 在 decision level 是否有补充信息。
+- 脚本支持自动扫描实验组中同一 `training.seed` 的 `[ToT]` 与 `[ToA]` run，也支持手动传入两个 run 目录。
+- 默认扫描 `a4_modality_comparison_seed42`，适配当前已经拉取到本地/服务器的 A4 seed42 结果；完整三 seed A4 完成后可改用 `--group a4_modality_comparison`。
+
+服务器命令：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison_seed42 \
+  --output-csv outputs/a4b_late_logit_fusion_seed42.csv \
+  --output-json outputs/a4b_late_logit_fusion_seed42.json
+```
+
+如果 A4 三 seed 结果存在：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison \
+  --output-csv outputs/a4b_late_logit_fusion_runs.csv \
+  --output-json outputs/a4b_late_logit_fusion_runs.json
+```
+
 ## 过渡或旧配置
 
 - `configs/experiments/compare_models.yaml`: 早期主干对比配置。正式 A3 优先使用 `a3_backbone_comparison.yaml`。

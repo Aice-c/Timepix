@@ -216,6 +216,23 @@ python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml -
 
 A4b 仍固定 `Alpha_100`、同一 paired split、`resnet18_no_maxpool` 和 A2 best 训练超参；第一阶段只改 ToA 输入表达，不新增 dual-stream、GMU、FiLM 或 MMTM。
 
+A4b 第二阶段可以直接评估 A4 已训练完成的 ToT 与 ToA 单模态 checkpoint：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison_seed42 \
+  --output-csv outputs/a4b_late_logit_fusion_seed42.csv \
+  --output-json outputs/a4b_late_logit_fusion_seed42.json
+```
+
+该脚本做的是 late logit fusion：
+
+```text
+logits = (1 - alpha_toa) * logits_tot + alpha_toa * logits_toa
+```
+
+`alpha_toa` 只在 validation set 上选择，test set 只用于最终报告。完整 A4 三 seed 结果存在时，把 `--group` 改为 `a4_modality_comparison`。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash

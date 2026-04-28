@@ -271,6 +271,30 @@ python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_tran
 python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
 ```
 
+A4b 第二阶段使用 A4 已训练好的 ToT 与 ToA 单模态 checkpoint 做 late logit fusion，不重新训练模型。脚本只用 validation set 选择 `alpha_toa`，再报告 test 指标：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison_seed42 \
+  --output-csv outputs/a4b_late_logit_fusion_seed42.csv \
+  --output-json outputs/a4b_late_logit_fusion_seed42.json
+```
+
+默认融合权重为：
+
+```text
+alpha_toa = 0, 0.05, 0.10, 0.20, 0.30, 0.50
+```
+
+如果完整 A4 三 seed 结果已经存在，可以改用：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison \
+  --output-csv outputs/a4b_late_logit_fusion_runs.csv \
+  --output-json outputs/a4b_late_logit_fusion_runs.json
+```
+
 ## 混合精度训练
 
 训练配置中可以显式开关 CUDA AMP：

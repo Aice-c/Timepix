@@ -324,6 +324,14 @@ python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml
 
 第一阶段 A4b 固定 A4 的模型、split 和 A2 best 训练超参，只切换 `data.toa_transform` 与 `data.add_hit_mask`。`relative_*` 变换与 normalizer 共用同一套 ToA transform helper，确保归一化统计和实际输入一致。
 
+A4b late logit fusion 评估入口：
+
+```powershell
+python scripts/evaluate_logit_fusion.py --group a4_modality_comparison_seed42
+```
+
+脚本会扫描实验组，自动匹配同一 `training.seed` 下的 `[ToT]` 和 `[ToA]` 单模态 run，加载各自 `best_model.pth`，在 validation set 上搜索 `alpha_toa`，再用选定的 alpha 报告 test 指标。它也支持通过 `--tot-run` 和 `--toa-run` 手动传入两个 run 目录。
+
 汇总某一组：
 
 ```powershell

@@ -55,9 +55,22 @@ configs/experiments/a4b_toa_transform_seed42.yaml
 
 ## Later Phases
 
-Phase 2 should add a validation-only late logit fusion evaluator using existing
-ToT and ToA checkpoints. It should select the fusion weight on validation data
-only, then report the selected setting on test.
+Phase 2 adds a validation-only late logit fusion evaluator using existing ToT
+and ToA checkpoints:
+
+```text
+scripts/evaluate_logit_fusion.py
+```
+
+It computes:
+
+```text
+logits = (1 - alpha_toa) * logits_tot + alpha_toa * logits_toa
+```
+
+and selects `alpha_toa` on validation data only. The selected alpha is then
+reported on test. This phase does not train a new model and is intended to
+quickly check whether ToA has decision-level complementary information.
 
 Phase 3 can add ToA scalar physical features such as `toa_span`, `toa_std`,
 `toa_valid_count`, and `toa_p90_minus_p10`. This likely requires separating

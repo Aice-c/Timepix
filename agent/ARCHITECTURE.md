@@ -198,6 +198,12 @@ metadata.
 `scripts/aggregate_seeds.py` aggregates a summary CSV into `mean`/`std` rows for
 repeated-seed certification.
 
+`scripts/evaluate_logit_fusion.py` evaluates A4b decision-level fusion from
+trained single-modality checkpoints. It discovers matching ToT and ToA runs by
+`training.seed`, computes `(1 - alpha_toa) * logits_tot + alpha_toa *
+logits_toa`, selects `alpha_toa` on validation metrics only, and reports the
+selected setting on test.
+
 `scripts/search_hparams.py` runs Optuna hyperparameter search from
 `configs/search/*.yaml`. It consumes the top-level `search` section, samples
 dotted config paths such as `training.learning_rate`, applies them to the same
