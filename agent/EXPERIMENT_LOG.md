@@ -712,6 +712,8 @@ outputs/analysis_report.md
 - 统计检验必须同时报告效应量，包括 KS statistic、Wasserstein distance、Cliff's delta、median difference 和 IQR overlap ratio。
 - 近垂直结论使用限定性表述：在当前探测器设置、事件提取方法、ToT 单模态矩阵表示和已测试模型/特征族条件下，近垂直 `80-90 deg`、`2 deg` 间隔数据没有表现出足够可分性；不写成“深度学习绝对无法区分”。
 - Windows 本地环境中 UMAP/numba 和 sklearn 默认 `lbfgs` 后端可能不稳定，因此 UMAP 在 Windows 默认跳过，LogisticRegression 基线使用更稳的 `liblinear`；Linux 服务器上仍会尝试 UMAP。
+- 服务器运行近垂直分析时如出现 `Skipped UMAP: No module named 'umap'`，说明缺少 `umap-learn`；已新增 `requirements-analysis.txt`，可用 `pip install -r requirements-analysis.txt` 安装完整分析依赖，或仅执行 `pip install umap-learn` 补齐 UMAP。
+- 绘图风格已调整为论文友好的 Matplotlib 默认参数：300 dpi PNG、PDF 字体嵌入、统一字号、色盲友好配色，并在保存后关闭 figure 以降低批量绘图内存占用。
 
 服务器命令：
 

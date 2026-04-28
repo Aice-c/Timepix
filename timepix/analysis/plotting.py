@@ -12,6 +12,16 @@ from .io import read_matrix
 
 PNG_DPI = 300
 CORE_FEATURES = ["active_count", "active_sum", "bbox_aspect_ratio", "rms_radius", "energy_entropy"]
+ACADEMIC_COLORS = [
+    "#0072B2",
+    "#D55E00",
+    "#009E73",
+    "#CC79A7",
+    "#E69F00",
+    "#56B4E9",
+    "#F0E442",
+    "#000000",
+]
 
 
 def _plt():
@@ -19,17 +29,46 @@ def _plt():
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from cycler import cycler
+
+    plt.rcParams.update(
+        {
+            "figure.dpi": PNG_DPI,
+            "savefig.dpi": PNG_DPI,
+            "font.family": "DejaVu Sans",
+            "font.size": 9,
+            "axes.titlesize": 10,
+            "axes.labelsize": 9,
+            "xtick.labelsize": 8,
+            "ytick.labelsize": 8,
+            "legend.fontsize": 8,
+            "figure.titlesize": 11,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.grid": False,
+            "grid.alpha": 0.22,
+            "grid.linewidth": 0.6,
+            "lines.linewidth": 1.5,
+            "patch.linewidth": 0.8,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "axes.prop_cycle": cycler(color=ACADEMIC_COLORS),
+        }
+    )
 
     return plt
 
 
 def save_figure(fig, path_without_suffix: str | Path, *, dpi: int = PNG_DPI) -> tuple[Path, Path]:
+    import matplotlib.pyplot as plt
+
     path = Path(path_without_suffix)
     path.parent.mkdir(parents=True, exist_ok=True)
     png = path.with_suffix(".png")
     pdf = path.with_suffix(".pdf")
     fig.savefig(png, dpi=dpi, bbox_inches="tight")
     fig.savefig(pdf, bbox_inches="tight")
+    plt.close(fig)
     return png, pdf
 
 

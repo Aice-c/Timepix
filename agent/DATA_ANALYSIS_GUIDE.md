@@ -34,7 +34,26 @@ timepix/analysis/
 scripts/analyze_datasets.py
 scripts/analyze_resolution_limit.py
 scripts/make_analysis_report.py
+requirements-analysis.txt
 ```
+
+服务器分析环境建议安装：
+
+```bash
+pip install -r requirements-analysis.txt
+```
+
+如果只想补齐当前缺失的 UMAP 图依赖，可以只安装：
+
+```bash
+pip install umap-learn
+```
+
+说明：
+
+- 近垂直分析日志里的 `Skipped UMAP: No module named 'umap'` 表示缺少 `umap-learn`。
+- `Skipped t-SNE: pass --tsne to enable the optional slow embedding.` 不是缺依赖，而是脚本默认跳过较慢的 t-SNE；需要时加 `--tsne`。
+- 绘图采用 Matplotlib 后端，默认保存 300 dpi PNG 和可编辑/可放大的 PDF，并设置论文友好的字号、色盲友好配色和可嵌入字体。
 
 ## 3. 数据集分析
 

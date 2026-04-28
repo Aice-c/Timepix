@@ -1,0 +1,14 @@
+# Timepix thesis/data-analysis dependencies
+#
+# Install on the Linux server with:
+#   pip install -r requirements-analysis.txt
+#
+# This file is intentionally separate from requirements.txt so analysis-only
+# packages do not affect the training/runtime environment more than necessary.
+
+numpy>=1.26
+pandas>=2.0
+matplotlib>=3.8
+scipy>=1.11
+scikit-learn>=1.4
+umap-learn>=0.5.6
