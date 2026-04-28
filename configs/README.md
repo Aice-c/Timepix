@@ -109,7 +109,14 @@ A2 当前最佳超参已经整理为后续实验可继承的 base：
 base: configs/experiments/alpha_tot_a2_best_base.yaml
 ```
 
-该 base 固定 Alpha、ToT、CE、one-hot、无手工特征、`resnet18_no_maxpool`、`split.seed: 42`、`training.seed: 42`、AMP，以及 A2 best 训练超参：`learning_rate=4.3878e-05`、`weight_decay=4.7324e-04`、`batch_size=32`、`eta_min=1.6433e-07`、`dropout=0.1`、`scheduler=cosine`、`epochs=25`。
+该 base 固定 Alpha、ToT、CE、one-hot、无手工特征、`resnet18_no_maxpool`、`split.seed: 42`、`training.seed: 42`、AMP，以及 A2 best 训练超参：`learning_rate=4.3878e-05`、`weight_decay=4.7324e-04`、`batch_size=32`、`eta_min=1.6433e-07`、`dropout=0.1`、`scheduler=cosine`、`epochs=25`。A2 best 来自 `Alpha_100 + ToT` 历史实验，因此 base 显式复用恢复出的历史 split：
+
+```yaml
+split:
+  path: outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
+```
+
+如果以后专门在 50x50 Alpha 上重新搜索超参，再决定是否替换该 base；当前不新增 `alpha50` 专用 A2 best base。
 
 ## 多 seed 认证
 
@@ -152,7 +159,7 @@ convnext_tiny
 vit_tiny
 ```
 
-该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参和 `split.seed: 42`，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
+该配置固定 Alpha、ToT、CE、one-hot、无手工特征、A2 best 训练超参和恢复出的 `Alpha_100_ToT` 历史 split，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。`vit_tiny` 是适配 50x50 Timepix 矩阵的小型 ViT，A3 使用 `image_size: 50`、`patch_size: 5`。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
 
 ```bash
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
@@ -174,7 +181,7 @@ A4 使用同一个 paired split manifest：
 
 ```yaml
 split:
-  path: outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
 ```
 
 grid 中先运行 `[ToT, ToA]`，用于按双模态交集生成 split；随后 ToT 和 ToA 单模态复用同一批样本划分，保证三组结果可比。

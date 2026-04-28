@@ -5,9 +5,12 @@
 ## 当前数据约定
 
 - 标准数据集名称：`Alpha`、`Proton_C`。
-- 当前正式 Alpha 输入尺寸：`50x50`。
-- 旧 Alpha 数据实际是 `100x100`，但有效激活区域小于 `50x50`。A1/A2 的旧结果暂时保留作参考；最终论文结果如时间允许应以 `50x50` 重跑版本为准。
-- 如果 Alpha 数据内容发生变化，例如删除异常样本，需要删除对应 split manifest 后再重跑相关实验。
+- 现有配置中的数据集名仍使用 `Alpha`；split 文件名里的 `Alpha_100` 用于标识 A1/A2 历史 100x100 数据线。
+- A1/A2 当时实际使用的 ToT split 已从本地 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json` 恢复，并确认与旧 `alpha_clean_ToT_seed42_0.8_0.1_0.1.json` 哈希一致。
+- 服务器上这条历史 split 的规范文件名为 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`；所有继承 A2 best base、且基于 `Alpha_100 + ToT` 的实验应显式复用它。
+- A2 best base 来自 100x100 数据集的超参搜索结果，目前后续实验先复用这组超参；当前不新增 `alpha50` 专用 A2 best base。
+- A4 的 ToT+ToA 双模态实验使用单独的 paired split：`outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。
+- 如果 Alpha 数据内容发生变化，例如删除异常样本，需要删除或更换对应 split manifest 后再重跑相关实验。
 
 ## 随机性与划分策略
 
@@ -43,6 +46,7 @@ configs/experiments/alpha_tot_a2_best_base.yaml
 - Fusion: `none`
 - AMP: enabled, `float16`
 - `split.seed=42`
+- `split.path=outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
 - `training.seed=42`
 - `epochs=25`
 
@@ -202,6 +206,7 @@ configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml
 ```text
 training.seed = 42, 43, 44
 split.seed    = 42
+split.path    = outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
 ```
 
 服务器命令：
@@ -215,7 +220,7 @@ python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out
 决策备注：
 
 - 增加该实验是因为单次训练结果存在随机波动。
-- A3 曾因算力不足改为单 seed；后来 50x50 新数据上的单 seed 排名出现波动，因此 A3 改回三 seed 验证。
+- A3 曾因算力不足改为单 seed；后来单 seed 排名出现波动，因此 A3 改回三 seed 验证。
 
 ## A3 主干模型对比
 
@@ -240,6 +245,7 @@ configs/experiments/a3_backbone_comparison.yaml
 - Handcrafted: disabled
 - Fusion: `none`
 - Training config: A2 best
+- Split: `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
 - Seed: `42`, `43`, `44`
 - `epochs=25`
 
@@ -258,14 +264,14 @@ vit_tiny
 决策备注：
 
 - A3 初版使用单 seed，原因是当前算力不足。
-- 50x50 新数据上的 A3 单 seed 结果出现明显排名波动，ResNet18 变差、shallow 模型升高，因此 A3 改为三 seed 验证。
+- A3 单 seed 结果出现明显排名波动，ResNet18 变差、shallow 模型升高，因此 A3 改为三 seed 验证。
 - ViT-Tiny 使用 `image_size=50`、`patch_size=5`。
 - 不将 ViT resize 到 `224x224`，避免改变公平比较条件。
 - `model.dropout=0.1` 指统一 Timepix task head dropout。
 - Torchvision backbone 内部默认正则保持模型默认，不在 A3 中单独调参。
 - A3 早期观察显示 `resnet18_no_maxpool` 准确率最高。
 - ViT-Tiny 预期不会很好，因为样本量有限、激活像素稀疏，CNN 的局部归纳偏置更适合该数据。
-- 旧 A3 尝试发现 Alpha 数据实际为 `100x100`；已将 Alpha 替换为 `50x50` 后重新运行。
+- A3 继承 A2 best base，因此 ToT 单模态比较显式复用恢复出的 `Alpha_100_ToT` 历史 split；如后续专门重跑 50x50 超参搜索，再决定是否替换 base。
 
 服务器命令：
 
@@ -298,6 +304,7 @@ configs/experiments/a4_modality_comparison.yaml
 - Handcrafted: disabled
 - Fusion: `none`
 - Training config: A2 best
+- Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
 - Seed: `42`, `43`, `44`
 
 比较模态：
@@ -316,7 +323,7 @@ configs/experiments/a4_modality_comparison.yaml
 - A4 split manifest:
 
 ```text
-outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json
+outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
 ```
 
 - ToA normalization 使用 `log1p: true`、`ignore_zero: true`。
