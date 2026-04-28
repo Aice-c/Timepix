@@ -13,7 +13,8 @@ from torch.utils.data import Dataset
 
 from .features import HandcraftedFeatureExtractor, HandcraftedFeatureScaler
 from .io import load_matrix
-from .normalization import Normalizer
+from .normalization import Normalizer, center_crop_array
+from .transforms import apply_modality_transform, make_hit_mask, normalize_toa_transform
 
 
 @dataclass(frozen=True)
@@ -123,6 +124,8 @@ class TimepixDataset(Dataset):
         task: str = "classification",
         max_angle: float = 90.0,
         data_dtype: str = "float32",
+        toa_transform: str | None = None,
+        add_hit_mask: bool = False,
     ) -> None:
         self.records = records
         self.label_map = dict(label_map)
@@ -136,6 +139,8 @@ class TimepixDataset(Dataset):
         self.task = task
         self.max_angle = max_angle
         self.data_dtype = data_dtype
+        self.toa_transform = normalize_toa_transform(toa_transform)
+        self.add_hit_mask = bool(add_hit_mask)
         self._expanded: list[tuple[SampleRecord, int]] = []
         for record in self.records:
             for rotation in self.augmentor.rotations(training):
@@ -154,14 +159,23 @@ class TimepixDataset(Dataset):
             modality: load_matrix(record.modalities[modality], self.data_dtype)
             for modality in self.modalities
         }
+        cropped_arrays = {
+            modality: center_crop_array(arrays[modality], self.crop_size)
+            for modality in self.modalities
+        }
 
         channels = []
         for modality in self.modalities:
-            tensor = torch.as_tensor(arrays[modality], dtype=torch.float32).unsqueeze(0)
-            tensor = self._center_crop(tensor)
+            array = apply_modality_transform(modality, cropped_arrays[modality], self.toa_transform)
+            tensor = torch.as_tensor(array, dtype=torch.float32).unsqueeze(0)
             tensor = self.augmentor.apply(tensor, rotation)
             if self.normalizer is not None:
                 tensor = self.normalizer.apply(tensor, modality)
+            channels.append(tensor)
+        if self.add_hit_mask:
+            hit_mask = make_hit_mask(cropped_arrays)
+            tensor = torch.as_tensor(hit_mask, dtype=torch.float32).unsqueeze(0)
+            tensor = self.augmentor.apply(tensor, rotation)
             channels.append(tensor)
         image = torch.cat(channels, dim=0)
 

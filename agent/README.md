@@ -13,28 +13,31 @@
 2. `PHYSICS_CONTEXT.md`
    先理解课题背景、物理目标、数据含义和建模假设。
 
-3. `CODE_CONTEXT.md`
+3. `A4B_IMPLEMENTATION_PLAN.md`
+   A4b ToA 表达方式与后续融合策略的分阶段实现计划。
+
+4. `CODE_CONTEXT.md`
    再理解代码如何把物理任务转成深度学习分类/回归流程。
 
-4. `ARCHITECTURE.md`
+5. `ARCHITECTURE.md`
    英文版训练架构细节，适合查 pipeline 和接口。
 
-5. `FILE_MAP.md`
+6. `FILE_MAP.md`
    全仓库文件地图，适合定位脚本和模块。
 
-6. `REVIEW_NOTES.md`
+7. `REVIEW_NOTES.md`
    已发现的 bug、风险和重构建议。
 
-7. `REFACTOR_DIRECTION.md`
+8. `REFACTOR_DIRECTION.md`
    当前和用户确认过的重构取舍：`run_ablation.py` 的临时性质、实验记录体系、sweep 是否重构、指标优化原则等。
 
-8. `NEW_SYSTEM_GUIDE.md`
+9. `NEW_SYSTEM_GUIDE.md`
    第一阶段新自动化实验系统的使用说明：如何写配置、如何处理本地/服务器路径、如何跑单实验/网格实验/汇总结果。
 
-9. `EXPERIMENT_GROUPS.md`
+10. `EXPERIMENT_GROUPS.md`
    实验组功能说明：如何用 `experiment_group` 分组保存实验，如何按组或汇总全部结果。
 
-10. `SERVER_TRAINING.md`
+11. `SERVER_TRAINING.md`
     服务器持久化训练说明：如何用 `tmux/nohup` 防止 VSCode 断开导致训练中断，以及如何从 `last_checkpoint.pth` 恢复。
 
 ## 项目一句话概括
@@ -65,7 +68,7 @@ configs/*.yaml
   -> outputs/experiments
 ```
 
-旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。新训练链路支持 YAML 配置、进度条、checkpoint 恢复、网格实验、Optuna/TPE 超参数搜索、结果汇总和可选 CUDA AMP 混合精度。
+旧 `Program/` 目录暂时保留为 legacy 参考，不在第一阶段重构中删除。新训练链路支持 YAML 配置、进度条、checkpoint 恢复、网格实验、Optuna/TPE 超参数搜索、结果汇总、A4b ToA 输入表达切换和可选 CUDA AMP 混合精度。
 
 ## 当前本地状态
 

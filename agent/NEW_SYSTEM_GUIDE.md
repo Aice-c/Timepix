@@ -201,6 +201,21 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_s
 
 A4 继承 A2 best base，固定 `Alpha_100`、`resnet18_no_maxpool`、CE、one-hot、无手工特征和 `fusion_mode: none`，只切换 `dataset.modalities`：`[ToT, ToA]`、`[ToT]`、`[ToA]`，以及 `training.seed: [42, 43, 44]`。配置显式使用 `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，且 split manifest 使用归一化 sample key，这个 paired split 应从历史 `Alpha_100_ToT` split 复制得到，从而让 A4 与 A1/A2/A3 使用严格一致的数据划分。
 
+A4b ToA 表达方式对比：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --continue-on-error
+```
+
+`a4b_toa_transform_seed42.yaml` 先用单 seed 对比 `relative_minmax`、`relative_centered`、`relative_rank` 三种 ToA 相对时间表达，以及是否追加 `hit_mask`。完整三 seed 版本为：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml --continue-on-error
+```
+
+A4b 仍固定 `Alpha_100`、同一 paired split、`resnet18_no_maxpool` 和 A2 best 训练超参；第一阶段只改 ToA 输入表达，不新增 dual-stream、GMU、FiLM 或 MMTM。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash
@@ -344,6 +359,16 @@ data:
   crop_size: 0
   dtype: float32
 ```
+
+A4b 新增 ToA 输入表达控制：
+
+```yaml
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+```
+
+`toa_transform` 支持 `none`、`raw_log1p`、`relative_minmax`、`relative_centered` 和 `relative_rank`。`add_hit_mask: true` 会在图像输入末尾追加一个命中掩码通道，因此 ToT+ToA 输入会从 2 通道变成 3 通道。新系统会在 `metadata.json` / summary CSV 中记录 `input_channels`、`toa_transform` 和 `add_hit_mask`。
 
 建议默认使用 `float32`。
 

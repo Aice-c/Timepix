@@ -73,13 +73,19 @@ config, and resume metadata. This supports
 `TimepixDataset`:
 
 - Loads text matrices through `np.loadtxt`.
-- Converts them to tensors with `torch.as_tensor(...).unsqueeze(0)`.
 - Optionally center-crops.
+- Optionally applies sample-wise ToA transforms configured by `data.toa_transform`.
 - Optionally rotates training samples by `0`, `90`, `180`, and `270` degrees.
 - Optionally normalizes per modality.
+- Optionally appends a binary hit mask channel when `data.add_hit_mask: true`.
+- Converts image arrays to tensors with `torch.as_tensor(...).unsqueeze(0)`.
 - Optionally appends handcrafted features.
 - Returns either `(sample_tensor, label)` or
   `(sample_tensor, label, handcrafted_features)`.
+
+`data_info.input_channels` records the real image channel count after optional
+channels such as the hit mask are added. Model construction uses this field
+rather than `len(dataset.modalities)`.
 
 ## Normalization
 
@@ -89,6 +95,14 @@ Per-modality z-score normalization is configured in experiment YAML under
 - `enabled`: whether to normalize this modality.
 - `log1p`: apply `log1p(max(x, 0))` before statistics and application.
 - `ignore_zero`: ignore zeros when computing statistics.
+
+A4b ToA preprocessing is configured separately under `data.toa_transform`.
+Supported values are `none`, `raw_log1p`, `relative_minmax`,
+`relative_centered`, and `relative_rank`. The same transform helper is used in
+both `TimepixDataset` and `compute_normalizer`, so the training inputs and the
+training-split normalization statistics stay aligned. For relative ToA
+transforms, experiment configs should normally set `normalization.ToA.log1p`
+to `false`.
 
 Handcrafted feature standardization is configured under
 `handcrafted_features.standardize`.
@@ -176,8 +190,10 @@ under `outputs/grid_manifests/`.
 
 `scripts/summarize.py` rebuilds summary CSV files from experiment outputs,
 including model hyperparameters such as conv1 kernel/stride/padding and
-dropout, early-stopping state, training hyperparameters, mixed-precision state,
-split seed/hash, fit/test/total timing, and git metadata.
+dropout, A4b data fields such as `input_channels`, `toa_transform`, and
+`add_hit_mask`, early-stopping state, training hyperparameters,
+mixed-precision state, split seed/hash, fit/test/total timing, and git
+metadata.
 
 `scripts/aggregate_seeds.py` aggregates a summary CSV into `mean`/`std` rows for
 repeated-seed certification.
@@ -210,6 +226,10 @@ ToT+ToA with three training seeds while explicitly reusing the paired
 one-to-one and split keys are normalized without the modality token, so this
 paired manifest is copied from the restored `Alpha_100_ToT` split rather than
 generated independently.
+`configs/experiments/a4b_toa_transform.yaml` keeps the same A4/A2-best setup
+and compares sample-wise ToA transforms plus optional hit-mask input channels.
+`configs/experiments/a4b_toa_transform_seed42.yaml` is the time-saving single
+seed version for first-pass screening.
 `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml`
 re-runs the current A2 best configuration with `training.seed` values 42/43/44
 while keeping the same restored `Alpha_100_ToT` split.

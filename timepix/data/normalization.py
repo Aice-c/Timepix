@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from .io import load_matrix
+from .transforms import apply_modality_transform, normalize_toa_transform
 
 
 @dataclass
@@ -54,6 +55,7 @@ def compute_normalizer(
     normalization_config: Mapping[str, Mapping],
     crop_size: int,
     data_dtype: str = "float32",
+    toa_transform: str | None = None,
 ) -> Normalizer | None:
     sums: dict[str, float] = {}
     sumsqs: dict[str, float] = {}
@@ -68,6 +70,7 @@ def compute_normalizer(
     ]
     if not enabled:
         return None
+    toa_transform = normalize_toa_transform(toa_transform)
 
     for modality in enabled:
         sums[modality] = 0.0
@@ -81,6 +84,7 @@ def compute_normalizer(
             cfg = normalization_config.get(modality, {})
             array = load_matrix(record.modalities[modality], data_dtype).astype(np.float64, copy=False)
             array = center_crop_array(array, crop_size)
+            array = apply_modality_transform(modality, array, toa_transform).astype(np.float64, copy=False)
             if cfg.get("log1p", False):
                 array = np.log1p(np.maximum(array, 0.0))
             if cfg.get("ignore_zero", False):

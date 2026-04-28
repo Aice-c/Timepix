@@ -1,0 +1,8 @@
+base: a4b_toa_transform.yaml
+
+experiment_name: a4b_toa_transform_alpha_seed42
+experiment_group: a4b_toa_transform_seed42
+
+grid:
+  training.seed:
+    - 42

@@ -24,6 +24,9 @@ SUMMARY_FIELDS = [
     "dataset",
     "particle",
     "modalities",
+    "input_channels",
+    "toa_transform",
+    "add_hit_mask",
     "task",
     "model",
     "fusion_mode",
@@ -107,6 +110,7 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     model = metadata.get("model", {})
     loss = metadata.get("loss", {})
     training = metadata.get("training", {})
+    data = metadata.get("data", {})
     mixed_precision = metadata.get("mixed_precision", {})
     timing = metadata.get("timing", {})
     git = metadata.get("git", {})
@@ -118,6 +122,9 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "dataset": dataset.get("name"),
         "particle": dataset.get("particle"),
         "modalities": "+".join(dataset.get("modalities", [])),
+        "input_channels": data_info.get("input_channels"),
+        "toa_transform": data_info.get("toa_transform", data.get("toa_transform", "none")),
+        "add_hit_mask": data_info.get("add_hit_mask", data.get("add_hit_mask", False)),
         "task": metadata.get("task"),
         "model": model.get("name"),
         "fusion_mode": model.get("fusion_mode"),

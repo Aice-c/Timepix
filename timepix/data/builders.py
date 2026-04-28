@@ -13,6 +13,7 @@ from .dataset import TimepixDataset, collect_samples
 from .features import HandcraftedFeatureExtractor, compute_feature_scaler, parse_feature_config
 from .normalization import compute_normalizer
 from .splits import load_split_manifest, save_split_manifest, stratified_split
+from .transforms import normalize_toa_transform
 
 
 def _validate_modalities(dataset_cfg: dict[str, Any], modalities: list[str]) -> None:
@@ -80,12 +81,15 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     data_cfg = cfg.get("data", {})
     crop_size = int(data_cfg.get("crop_size", 0) or 0)
     data_dtype = data_cfg.get("dtype", "float32")
+    toa_transform = normalize_toa_transform(data_cfg.get("toa_transform", "none"))
+    add_hit_mask = bool(data_cfg.get("add_hit_mask", False))
     normalizer = compute_normalizer(
         train_records,
         modalities,
         cfg.get("normalization", {}),
         crop_size=crop_size,
         data_dtype=data_dtype,
+        toa_transform=toa_transform,
     )
 
     feature_names = parse_feature_config(cfg.get("handcrafted_features", {}), modalities)
@@ -111,6 +115,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         task=task,
         max_angle=max_angle,
         data_dtype=data_dtype,
+        toa_transform=toa_transform,
+        add_hit_mask=add_hit_mask,
     )
     val_dataset = TimepixDataset(
         val_records,
@@ -125,6 +131,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         task=task,
         max_angle=max_angle,
         data_dtype=data_dtype,
+        toa_transform=toa_transform,
+        add_hit_mask=add_hit_mask,
     )
     test_dataset = TimepixDataset(
         test_records,
@@ -139,6 +147,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         task=task,
         max_angle=max_angle,
         data_dtype=data_dtype,
+        toa_transform=toa_transform,
+        add_hit_mask=add_hit_mask,
     )
 
     training_cfg = cfg.get("training", {})
@@ -173,5 +183,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "handcrafted_dim": feature_extractor.dim,
         "handcrafted_features": feature_extractor.enabled_features,
         "data_dtype": data_dtype,
+        "toa_transform": toa_transform,
+        "add_hit_mask": add_hit_mask,
+        "input_channels": len(modalities) + int(add_hit_mask),
     }
     return loaders, info

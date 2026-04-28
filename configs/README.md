@@ -68,7 +68,7 @@ python scripts/summarize.py --group baseline
 python scripts/summarize.py --all
 ```
 
-汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `seed`、`split_seed`、`split_manifest_hash`、`mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP、主干模型或多 seed 对比结果。
+汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `input_channels`、`toa_transform`、`add_hit_mask`、`seed`、`split_seed`、`split_manifest_hash`、`mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP、主干模型、多 seed 对比或 A4b ToA 表达方式结果。
 
 长网格实验可以使用：
 
@@ -219,6 +219,56 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_s
 ```bash
 python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_modality_comparison_runs.csv
 python scripts/aggregate_seeds.py --summary outputs/a4_modality_comparison_runs.csv --out outputs/a4_modality_comparison_mean_std.csv
+```
+
+## A4b ToA 表达方式对比
+
+`configs/experiments/a4b_toa_transform.yaml` 用于在 A4 之后检查 ToA 的输入表达是否影响 early fusion 效果。该配置仍继承 A2 best base，固定 `Alpha_100`、`resnet18_no_maxpool`、A2 best 训练超参、CE、one-hot、无手工特征和同一份 paired split，只切换 ToA 变换方式与是否加入 hit mask。
+
+新增数据配置字段：
+
+```yaml
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+```
+
+`toa_transform` 支持：
+
+```text
+none
+raw_log1p
+relative_minmax
+relative_centered
+relative_rank
+```
+
+`add_hit_mask: true` 会在图像输入末尾追加一个命中掩码通道，输入从 `[ToT, transformed_ToA]` 变为 `[ToT, transformed_ToA, hit_mask]`。模型输入通道数由 dataloader 记录的 `data_info.input_channels` 决定，因此可以参与 grid 对比。
+
+A4b 第一阶段配置不重复 A4 的 raw/log1p baseline；A4 已经提供 ToT、ToA 和 ToT+ToA raw/log1p 结果。对 relative ToA 变换，配置中关闭 `normalization.ToA.log1p`：
+
+```yaml
+normalization:
+  ToA:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+```
+
+时间紧张时先运行 seed42 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform_seed42 --out outputs/a4b_toa_transform_seed42_runs.csv
+```
+
+如果 seed42 值得继续，再运行三 seed 版本：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_transform_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
 ```
 
 ## 混合精度训练

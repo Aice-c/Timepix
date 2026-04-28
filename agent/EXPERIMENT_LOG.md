@@ -427,6 +427,88 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_s
 | ToT + ToA | 0.733 | 0.178 | 0.730 | 0.572 |
 | ToA | 0.675 | 0.000 | - | - |
 
+## A4b ToA 表达方式对比
+
+配置文件：
+
+```text
+configs/experiments/a4b_toa_transform.yaml
+configs/experiments/a4b_toa_transform_seed42.yaml
+```
+
+实验目的：
+
+- 在 A4 已确认 raw/log1p ToA early channel concat 不如 ToT 单模态的基础上，先检查 ToA 表达方式是否是主要问题。
+- 不引入 dual-stream、GMU、FiLM 或 MMTM 等新模型结构，保持第一阶段只改数据表达，便于控制变量。
+
+固定设置：
+
+- Base: `configs/experiments/alpha_tot_a2_best_base.yaml`
+- Dataset: `Alpha_100`
+- Modalities: `[ToT, ToA]`
+- Backbone: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss: `cross_entropy`
+- Label: `onehot`
+- Handcrafted: disabled
+- Fusion: `none`
+- Training config: A2 best
+- Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- ToA normalization: `enabled: true`, `log1p: false`, `ignore_zero: true`
+
+新增代码支持：
+
+- `data.toa_transform`
+  - `none`
+  - `raw_log1p`
+  - `relative_minmax`
+  - `relative_centered`
+  - `relative_rank`
+- `data.add_hit_mask`
+  - `false`: 输入通道为 `[ToT, transformed_ToA]`
+  - `true`: 输入通道为 `[ToT, transformed_ToA, hit_mask]`
+
+第一阶段网格：
+
+```yaml
+grid:
+  data.toa_transform:
+    - relative_minmax
+    - relative_centered
+    - relative_rank
+  data.add_hit_mask:
+    - false
+    - true
+  training.seed:
+    - 42
+    - 43
+    - 44
+```
+
+决策备注：
+
+- A4b 第一阶段不重复 A4 的 raw/log1p baseline；A4 已经提供 ToT、ToA、ToT+ToA raw/log1p 结果。
+- 对 relative ToA 变换，配置中显式关闭 `normalization.ToA.log1p`，避免对相对时间再次做 log transform。
+- `compute_normalizer` 与 `TimepixDataset` 共用同一套 ToA transform，保证训练输入和归一化统计一致。
+- `add_hit_mask: true` 会让 `data_info.input_channels` 比 `dataset.modalities` 多 1，runner 已改为使用 `input_channels` 构建模型。
+- `model.fusion_mode` 继续表示图像特征与手工特征融合；A4b 第一阶段不新增多模态模型融合语义。
+
+服务器命令：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform_seed42 --out outputs/a4b_toa_transform_seed42_runs.csv
+```
+
+若 seed42 结果值得继续，再运行三 seed 版本：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_transform_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
+```
+
 ## 过渡或旧配置
 
 - `configs/experiments/compare_models.yaml`: 早期主干对比配置。正式 A3 优先使用 `a3_backbone_comparison.yaml`。

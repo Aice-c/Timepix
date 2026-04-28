@@ -81,6 +81,8 @@ python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --d
 - 保存或复用 split manifest，保证不同实验划分一致；`split.seed` 控制划分，`training.seed` 控制训练随机性。
 - 读取 `.txt` 矩阵为 numpy 数组。
 - 按 `data.dtype` 控制读取精度，默认 `float32`。
+- 可选按 `data.toa_transform` 对 ToA 做样本内相对时间变换。
+- 可选按 `data.add_hit_mask` 在图像末尾追加命中掩码通道。
 - 转成 PyTorch tensor。
 - 可选中心裁剪。
 - 可选 90 度旋转增强。
@@ -157,6 +159,21 @@ modalities = ['ToT', 'ToA']
 ```text
 sample_tensor.shape = [2, H, W]
 ```
+
+如果同时设置：
+
+```yaml
+data:
+  add_hit_mask: true
+```
+
+则输入会追加命中掩码通道：
+
+```text
+sample_tensor.shape = [3, H, W]
+```
+
+runner 不再用 `len(dataset.modalities)` 推断模型输入通道，而是使用 dataloader 写入的 `data_info.input_channels`。
 
 如果使用 C/质子数据集，应配置为：
 
@@ -254,7 +271,7 @@ python scripts/summarize.py --all
 
 无参数运行 `python scripts/summarize.py` 也会汇总全部实验组。
 
-汇总 CSV 会包含结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`，也会包含 `seed`、`split_seed`、`split_manifest_hash`、早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
+汇总 CSV 会包含结构超参数列：`conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size`、`patch_size`，也会包含 `input_channels`、`toa_transform`、`add_hit_mask`、`seed`、`split_seed`、`split_manifest_hash`、早停状态、训练超参数、混合精度状态、训练耗时和 git commit。
 
 训练超参数搜索入口，A2 使用：
 
@@ -295,6 +312,17 @@ python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_s
 ```
 
 该配置继承 A2 best base，固定 `resnet18_no_maxpool` 和训练超参，只切换 `dataset.modalities` 与 `training.seed=[42,43,44]`。为了公平比较 ToT、ToA 和 ToT+ToA，它显式使用 paired split manifest `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。该文件应由历史 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制得到，因为 `Alpha_100` 的 ToT/ToA 文件完全一一对应，split key 又已去掉模态标记。`a4_modality_comparison_seed42.yaml` 继承完整 A4，只保留 `training.seed=42`，用于时间紧张时先跑 3 个模态的单 seed 结果。
+
+A4b ToA 表达方式对比入口：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml
+```
+
+第一阶段 A4b 固定 A4 的模型、split 和 A2 best 训练超参，只切换 `data.toa_transform` 与 `data.add_hit_mask`。`relative_*` 变换与 normalizer 共用同一套 ToA transform helper，确保归一化统计和实际输入一致。
 
 汇总某一组：
 

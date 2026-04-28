@@ -328,7 +328,7 @@ def run_experiment(
     autocast_factory, grad_scaler, mixed_precision_info = _mixed_precision_setup(training_cfg, device)
     model = build_model(
         cfg,
-        input_channels=len(data_info["modalities"]),
+        input_channels=int(data_info.get("input_channels", len(data_info["modalities"]))),
         num_classes=num_classes,
         task=task,
         handcrafted_dim=int(data_info["handcrafted_dim"]),
@@ -538,6 +538,7 @@ def run_experiment(
         "experiment_dir": str(exp_dir),
         "config_path": cfg.get("_config_path"),
         "dataset": cfg.get("dataset", {}),
+        "data": cfg.get("data", {}),
         "data_info": data_info,
         "task": task,
         "model": cfg.get("model", {}),

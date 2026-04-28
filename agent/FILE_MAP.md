@@ -38,6 +38,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | --- | --- | --- |
 | `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of A1-A4 configs, results, and design decisions. |
 | `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
+| `agent/A4B_IMPLEMENTATION_PLAN.md` | A4b implementation plan | Staged plan for ToA representation, late logit fusion, ToA scalar features, and later multimodal fusion models. |
 | `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
 | `agent/CODE_CONTEXT.md` | Code context | Practical overview for future code changes. |
 | `agent/ARCHITECTURE.md` | Architecture reference | English notes on data/model/training internals. |
@@ -76,6 +77,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a3_backbone_comparison_seed42.yaml` | A3 quick comparison | Single-seed-42 shortcut inheriting full A3; 7 backbone runs. |
 | `configs/experiments/a4_modality_comparison.yaml` | A4 modality comparison | Three-seed comparison of ToT, ToA, and ToT+ToA with ResNet18 no-maxpool and A2 best training hyperparameters. |
 | `configs/experiments/a4_modality_comparison_seed42.yaml` | A4 quick comparison | Single-seed-42 shortcut inheriting full A4; 3 modality runs. |
+| `configs/experiments/a4b_toa_transform.yaml` | A4b ToA transform comparison | Three-seed grid over relative ToA transforms and optional hit-mask channel. |
+| `configs/experiments/a4b_toa_transform_seed42.yaml` | A4b quick comparison | Single-seed-42 shortcut inheriting full A4b transform grid; 6 runs. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

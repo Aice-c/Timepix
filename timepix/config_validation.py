@@ -74,7 +74,7 @@ SECTION_KEYS = {
         "mixed_precision_dtype",
     },
     "split": {"train", "val", "test", "reuse_split", "path", "seed"},
-    "data": {"crop_size", "dtype"},
+    "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask"},
     "augmentation": {"rotation_90"},
     "handcrafted_features": {"enabled", "standardize", "features"},
     "output": {"root"},
@@ -100,6 +100,7 @@ SUPPORTED_LABEL_ENCODINGS = {"onehot", "gaussian"}
 SUPPORTED_SCHEDULERS = {"none", "cosine"}
 SUPPORTED_FUSION_MODES = {"none", "concat", "gated"}
 SUPPORTED_DATA_DTYPES = {"float16", "float32", "float64"}
+SUPPORTED_TOA_TRANSFORMS = {"none", "raw_log1p", "relative_minmax", "relative_centered", "relative_rank"}
 SUPPORTED_MIXED_PRECISION_DTYPES = {"float16", "fp16", "bfloat16", "bf16"}
 NORMALIZATION_KEYS = {"enabled", "log1p", "ignore_zero"}
 
@@ -248,6 +249,10 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     data_cfg = _require_mapping(cfg.get("data", {}), "data", errors) or {}
     if data_cfg.get("dtype", "float32") not in SUPPORTED_DATA_DTYPES:
         errors.append(f"data.dtype must be one of {sorted(SUPPORTED_DATA_DTYPES)}")
+    if str(data_cfg.get("toa_transform", "none")).lower() not in SUPPORTED_TOA_TRANSFORMS:
+        errors.append(f"data.toa_transform must be one of {sorted(SUPPORTED_TOA_TRANSFORMS)}")
+    if "add_hit_mask" in data_cfg:
+        _check_bool(data_cfg["add_hit_mask"], "data.add_hit_mask", errors)
 
     normalization_cfg = cfg.get("normalization", {})
     if normalization_cfg:
@@ -256,6 +261,13 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
             section_cfg = _require_mapping(modality_cfg, f"normalization.{modality}", errors)
             if section_cfg is not None:
                 _check_unknown_keys(section_cfg, NORMALIZATION_KEYS, f"normalization.{modality}", errors)
+        toa_norm_cfg = norm_map.get("ToA", {})
+        if (
+            isinstance(toa_norm_cfg, Mapping)
+            and str(data_cfg.get("toa_transform", "none")).lower() != "none"
+            and bool(toa_norm_cfg.get("log1p", False))
+        ):
+            errors.append("normalization.ToA.log1p must be false when data.toa_transform is not 'none'")
 
     if errors:
         formatted = "\n  - ".join(errors)
