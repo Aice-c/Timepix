@@ -153,6 +153,24 @@ python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.y
 python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
 ```
 
+## A4 模态对比
+
+`configs/experiments/a4_modality_comparison.yaml` 用于比较 Alpha 数据集的 ToT、ToA 和 ToT+ToA。它继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征、`fusion_mode: none`、单 seed 和 A2 best 训练超参，只切换 `dataset.modalities`。
+
+A4 使用同一个 paired split manifest：
+
+```yaml
+split:
+  path: outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json
+```
+
+grid 中先运行 `[ToT, ToA]`，用于按双模态交集生成 split；随后 ToT 和 ToA 单模态复用同一批样本划分，保证三组结果可比。
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+```
+
 ## 混合精度训练
 
 训练配置中可以显式开关 CUDA AMP：

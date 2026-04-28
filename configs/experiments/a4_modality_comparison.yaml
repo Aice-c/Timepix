@@ -1,0 +1,25 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a4_modality_alpha
+experiment_group: a4_modality_comparison
+
+normalization:
+  ToT:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+  ToA:
+    enabled: true
+    log1p: true
+    ignore_zero: true
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_ToT-ToA_seed42_0.8_0.1_0.1_50x50.json
+
+grid:
+  dataset.modalities:
+    - [ToT, ToA]
+    - [ToT]
+    - [ToA]

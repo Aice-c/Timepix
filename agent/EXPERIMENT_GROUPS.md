@@ -58,6 +58,12 @@ outputs/experiments/a1_structure_adaptation/
 outputs/experiments/a3_backbone_comparison/
 ```
 
+A4 模态对比会保存到：
+
+```text
+outputs/experiments/a4_modality_comparison/
+```
+
 A2 最优配置三 seed 认证会保存到：
 
 ```text
