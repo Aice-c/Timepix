@@ -89,7 +89,7 @@ Alpha 主线阶段：
 | `A3` | 主干模型对比 | 已完成 | 比较 ShallowCNN、ShallowResNet、ResNet18、DenseNet121、EfficientNet-B0、ConvNeXt-Tiny、ViT-Tiny；支持 `resnet18_no_maxpool` 作为当前主干。 |
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
-| `A4c` | End-to-end full bimodal fusion | 第一批已实现，A4c-4 已适配 | 研究完整端到端双模态模型是否能超过 A4b-5 的 frozen-expert gate；定位为 A4b 主线后的补充验证，不替代 A4b-5 当前主结果。 |
+| `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
 | `A5` | 物理/手工特征融合 | 待定 | 建议用于 ToT image + ToT/ToA scalar physical features，不继续塞进 A4b。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
@@ -113,10 +113,10 @@ A4c 计划命名：
 
 | 编号 | 名称 | 阶段目的 | 当前安排 |
 | --- | --- | --- | --- |
-| `A4c-1` | `dual_stream_concat_aux` | 完整双流 feature fusion baseline | 第一批实现与运行。 |
-| `A4c-2` | `dual_stream_gmu_aux` | feature-level sample-wise gated fusion | 第一批实现与运行，重点模型之一。 |
-| `A4c-3` | `toa_conditioned_film` | ToA 作为辅助条件调制 ToT 特征 | 第一批实现与运行，重点模型之一。 |
-| `A4c-4` | `warm_started_expert_gate` | A4b-5 frozen expert gate 的端到端 warm-start 版本 | 已实现第二批最小受控版；从 metadata 自动按 seed 查找 ToT primary 与 `relative_minmax/no mask` candidate checkpoint，对比 `freeze_experts=true/false`。 |
+| `A4c-1` | `dual_stream_concat_aux` | 完整双流 feature fusion baseline | 已完成三 seed；Test Acc/MAE 在 A4c 第一阶段最好。 |
+| `A4c-2` | `dual_stream_gmu_aux` | feature-level sample-wise gated fusion | 已完成三 seed；Macro-F1 最好，gate 诊断支持 ToA 作为辅助模态。 |
+| `A4c-3` | `toa_conditioned_film` | ToA 作为辅助条件调制 ToT 特征 | 已完成三 seed；结果正向但弱于 concat/GMU。 |
+| `A4c-4` | `warm_started_expert_gate` | A4b-5 frozen expert gate 的端到端 warm-start 版本 | 已完成三 seed × 两种 freeze 设置；`freeze_experts=true` 有效但不超过 A4b-5/A4c-1/2，`freeze_experts=false` 不稳定。 |
 | `A4c-5` | `mmtm_lite` | 中间层跨模态通道重标定 | 选做；仅在 A4c-1/2/3/4 后仍有时间和算力时考虑。 |
 
 A4c 固定决策：
@@ -139,7 +139,7 @@ A4c 自由度收敛决策：
 - `A4c-4` 单独作为 warm-start expert gate，加载 ToT baseline 和 candidate checkpoint；当前最小受控实现比较 `freeze_experts=true/false`，暂不加入更复杂的多阶段 schedule。
 - `A4c-1/2` 使用 auxiliary heads，建议初始权重为 `tot_aux=0.3`、`toa_aux=0.1`；`A4c-3` 中 ToA 是条件调制，不强制 ToA auxiliary head。
 - `A4c-2` 的 gate bias 初始化偏向 ToT；`A4c-3` 的 FiLM 最后一层 zero-init，使初始调制接近 identity。
-- `A4c-5 mmtm_lite` 暂缓，避免完整双模态部分膨胀成新大网格。
+- `A4c-5 mmtm_lite` 暂缓，避免完整双模态部分膨胀成新大网格；A4c-4 已完成后，是否推进 MMTM 需要结合剩余时间和论文主线再决定。
 
 Proton/C 主线阶段：
 
@@ -164,7 +164,7 @@ Proton/C 主线阶段：
 
 1. A4b 已形成完整闭环：A4/A4b-1/A4b-3/A4b-4/A4b-5/A4b-6。
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
-3. A4c 第一批 `A4c-1/2/3` 已实现；第二批 `A4c-4 warm_started_expert_gate` 已适配；`A4c-5 mmtm_lite` 仍为选做，等待 A4c-4 结果后再决定。
+3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
 4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
 5. A5/A6 等 A4c 和 B1 有初步结果后再展开。
 
@@ -2261,7 +2261,71 @@ python scripts\run_grid.py --config configs\experiments\a4c_end_to_end_bimodal_f
   - `dual_stream_gmu_aux` 可输出 `gate_tot`、`gate_toa` diagnostics；
   - `toa_conditioned_film` 可输出 `film_gamma_abs`、`film_beta_abs` diagnostics。
 
-### A4c-4 warm-started expert gate 实现
+### A4c 第一阶段结果记录
+
+记录日期：2026-04-29。
+
+用户汇报：A4c 第一阶段对应 `A4c-1/2/3`，不包括第二阶段 `A4c-4 warm_started_expert_gate`。当前完成 9 个 run，即 3 个模型 × 3 个 seed。
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- Inputs: `ToT + relative_minmax ToA, no mask`
+- Model family: `resnet18_no_maxpool` style stem
+- Training config: A2 best
+- Loss/label: `cross_entropy` + `onehot`
+- Seeds: `42/43/44`
+
+A4c 三 seed 汇总：
+
+| 模型 | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dual_stream_concat_aux` | 69.90±1.34% | **72.10±1.35%** | **5.631±0.333** | 15.000±0.000 | 0.686±0.017 |
+| `dual_stream_gmu_aux` | 70.20±0.67% | 71.94±0.51% | 5.721±0.009 | 15.000±0.000 | **0.691±0.009** |
+| `toa_conditioned_film` | **70.43±0.95%** | 71.60±1.21% | 5.775±0.236 | 15.000±0.000 | 0.678±0.021 |
+
+逐 seed 数据：
+
+| 模型 | Seed | Best/Stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| concat | 42 | 4/12 | 69.33% | 72.27% | 5.502 | 0.685 |
+| concat | 43 | 5/13 | 71.43% | **73.36%** | **5.383** | 0.703 |
+| concat | 44 | 6/14 | 68.93% | 70.68% | 6.009 | 0.669 |
+| GMU | 42 | 5/13 | 69.63% | 71.37% | 5.726 | 0.680 |
+| GMU | 43 | 3/11 | 70.03% | 72.07% | 5.726 | 0.697 |
+| GMU | 44 | 6/14 | 70.93% | 72.37% | 5.711 | 0.696 |
+| FiLM | 42 | 8/16 | 69.53% | 70.28% | 5.979 | 0.663 |
+| FiLM | 43 | 9/17 | 71.43% | 71.87% | 5.830 | 0.669 |
+| FiLM | 44 | 5/13 | 70.33% | 72.66% | 5.517 | 0.703 |
+
+与已有主结果对比：
+
+| 方法 | Val Acc | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| ToT primary / A2-best | 69.03±0.46% | 70.44±0.15% | 5.949±0.068 | 0.636±0.009 |
+| Candidate ToT+relative-ToA | 68.03±1.08% | 68.75±1.52% | 6.546±0.313 | 0.626±0.016 |
+| A4b-4e rule selector | 70.70±0.47% | 71.44±0.57% | 5.835±0.121 | 0.645±0.013 |
+| A4b-5 gated late fusion | 71.40±0.59% | **72.17±1.72%** | 5.661±0.320 | 0.662±0.027 |
+| A4b-6 residual fusion | **71.76±0.72%** | 71.44±1.01% | 5.800±0.077 | 0.656±0.010 |
+| A4c concat | 69.90±1.34% | 72.10±1.35% | **5.631±0.333** | 0.686±0.017 |
+| A4c GMU | 70.20±0.67% | 71.94±0.51% | 5.721±0.009 | **0.691±0.009** |
+| A4c FiLM | 70.43±0.95% | 71.60±1.21% | 5.775±0.236 | 0.678±0.021 |
+
+阶段性判断：
+
+- A4c 第一阶段不是失败结果。它没有在 Test Acc 上明确超过 A4b-5，但已经达到同一水平：A4b-5 为 `72.17±1.72%`，A4c concat 为 `72.10±1.35%`，考虑标准差后基本不可区分。
+- A4c 更突出的价值是 Macro-F1：三个 A4c 模型均明显高于 ToT primary 和 A4b-5，其中 `dual_stream_gmu_aux` 达到 `0.691±0.009`。
+- 这说明端到端双模态模型的主要贡献可能不是刷新总体 accuracy，而是改善类别均衡性和错误结构。
+- 按每类表现，ToT primary 对 `30 deg` 类别 recall 约 `25.3%`；A4c GMU 将 `30 deg` recall 提高到 `57.0±6.9%`，代价是 `15 deg` recall 从约 `83.2%` 降到 `70.7%`。
+- GMU gate 诊断合理：test 上平均约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA 分支，说明模型没有被 ToA 带偏，而是将 ToA 作为辅助模态使用。
+
+论文口径：
+
+- A4c 第一阶段可表述为：端到端双模态融合没有显著刷新最高 accuracy，但提升了 Macro-F1 和 `30 deg` 困难类别识别能力，说明 ToA 的价值更体现在类别互补和误差结构修正上。
+- A4c 内部如果按 Test Acc/MAE 选代表模型，可选 `dual_stream_concat_aux`；如果按机制解释、Macro-F1 和 gate 诊断，优先讲 `dual_stream_gmu_aux`。
+- 下一步曾计划运行 `A4c-4 warm_started_expert_gate`，因为它结合 A4b-5 的 frozen expert 稳定性与 A4c 的端到端训练思想；该实验现已完成，结果见下一节。
+
+### A4c-4 warm-started expert gate 实现与结果
 
 记录日期：2026-04-29。
 
@@ -2273,11 +2337,12 @@ python scripts\run_grid.py --config configs\experiments\a4c_end_to_end_bimodal_f
 
 关键决策：
 
-- A4c-5 `mmtm_lite` 继续保持选做，等待 A4c-4 结果后再决定是否推进。
+- A4c-5 `mmtm_lite` 继续保持选做；A4c-4 已完成后，是否推进 MMTM 需要结合剩余时间和论文主线再决定。
 - A4c-4 只比较两个受控变体：`freeze_experts=true` 与 `freeze_experts=false`。
 - `freeze_experts=true`：冻结 primary/candidate，只训练 gate，定位为最保守的 warm-start gate。
 - `freeze_experts=false`：加载 checkpoint 后允许 primary/candidate 与 gate 一起 fine-tune，检验端到端微调是否有效。
 - gate 初始化偏向 primary：`init_bias_to_candidate=-2.0`，使初始 `gate_candidate≈0.12`，避免一开始破坏 ToT 主模态。
+- 这里的 `gate_candidate` 表示 candidate expert 的融合权重，不是单独 ToA 通道权重；candidate expert 的输入是 `ToT + relative_minmax ToA, no mask`。
 - checkpoint 不写死时间戳路径；runner 根据 `outputs/experiments/<group>/*/metadata.json` 自动按 `training.seed`、`modalities`、`model.name`、`toa_transform` 和 `add_hit_mask` 找到对应 `best_model.pth`。
 - 服务器持久化方式统一使用 `tmux`，不再优先写 `nohup` 命令。
 
@@ -2397,3 +2462,48 @@ python scripts\run_grid.py --config configs\experiments\a4c_warm_started_expert_
 - 使用本地 `timepix-local` 环境验证 seed42/seed43/seed44 checkpoint 自动搜索与加载通过。
 - 使用 synthetic `2 x 100 x 100` batch 验证 forward/backward 通过。
 - `freeze_experts=true` 时 primary/candidate 保持 `eval()` 且不产生梯度，只有 gate 可训练。
+
+结果记录（用户汇报）：
+
+- A4c-4 已完成 6 个 run，均有 `metrics.json`、`predictions.csv`、`confusion_matrix.csv`。
+- 实验设置为 `warm_started_expert_gate`：加载 ToT primary expert 和 `ToT + relative_minmax ToA` candidate expert。
+- 对比两种策略：
+  - `freeze_experts=true`：冻结两个 expert，只训练 gate。
+  - `freeze_experts=false`：加载 expert 后继续端到端微调 expert + gate。
+
+A4c-4 单次结果：
+
+| Freeze | Seed | Best/Stop | Val Acc | Test Acc | Test MAE | Test F1 | Candidate Gate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| true | 42 | 9/17 | 69.73% | 69.78% | 6.262 | 0.660 | 86.11% |
+| true | 43 | 9/17 | 71.63% | 73.46% | 5.606 | 0.675 | 71.20% |
+| true | 44 | 4/12 | 70.13% | 72.27% | 5.845 | 0.645 | 38.00% |
+| false | 42 | 1/9 | 67.23% | 67.69% | 6.740 | 0.591 | 68.61% |
+| false | 43 | 2/10 | 69.73% | 70.38% | 5.964 | 0.650 | 56.75% |
+| false | 44 | 3/11 | 69.43% | 72.37% | 5.666 | 0.687 | 44.24% |
+
+A4c-4 三 seed 汇总：
+
+| 设置 | Val Acc | Test Acc | Test MAE | Test F1 | Candidate Gate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `freeze_experts=true` | 70.50±1.00% | 71.84±1.88% | 5.905±0.332 | 0.660±0.015 | 65.11±24.63% |
+| `freeze_experts=false` | 68.80±1.36% | 70.15±2.34% | 6.123±0.554 | 0.643±0.049 | 56.53±12.19% |
+
+和主线结果对比：
+
+| 方法 | Test Acc | Test MAE | Test F1 |
+| --- | ---: | ---: | ---: |
+| ToT primary / A2-best | 70.44±0.15% | 5.949±0.068 | 0.636±0.009 |
+| Candidate expert | 68.75±1.52% | 6.546±0.313 | 0.626±0.016 |
+| A4b-5 gated late fusion | 72.17±1.72% | 5.661±0.320 | 0.662±0.027 |
+| A4c concat | 72.10±1.35% | 5.631±0.333 | 0.686±0.017 |
+| A4c GMU | 71.94±0.51% | 5.721±0.009 | 0.691±0.009 |
+| A4c-4 `freeze=true` | 71.84±1.88% | 5.905±0.332 | 0.660±0.015 |
+| A4c-4 `freeze=false` | 70.15±2.34% | 6.123±0.554 | 0.643±0.049 |
+
+阶段性判断：
+
+- `freeze_experts=true` 比 ToT primary 有一定提升，但没有超过 A4b-5 gated late fusion，也没有超过 A4c 第一阶段的 concat/GMU。
+- `freeze_experts=false` 明显不稳定，平均结果接近或低于 ToT primary，说明端到端微调已训练 expert 容易破坏原有决策边界。
+- `freeze=true` 的 `candidate gate` 均值较高且方差很大，说明 gate 倾向使用 candidate expert，但不同 seed 的使用比例不稳定；它不能解释为“模型大量使用 ToA 通道”，因为 candidate expert 本身是 ToT+relative-ToA 模型。
+- A4c-4 的论文定位应作为 warm-start expert gate 对照：它支持“冻结强 expert 后做受控融合比端到端微调更稳”，但当前不是 A4c/A4b 的最佳结果。

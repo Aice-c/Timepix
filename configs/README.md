@@ -962,6 +962,16 @@ python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion --out outputs/
 python scripts/aggregate_seeds.py --summary outputs/a4c_end_to_end_bimodal_fusion_runs.csv --out outputs/a4c_end_to_end_bimodal_fusion_mean_std.csv
 ```
 
+A4c 第一阶段三 seed 结果已经完成：
+
+| 模型 | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dual_stream_concat_aux` | 69.90±1.34% | **72.10±1.35%** | **5.631±0.333** | 15.000±0.000 | 0.686±0.017 |
+| `dual_stream_gmu_aux` | 70.20±0.67% | 71.94±0.51% | 5.721±0.009 | 15.000±0.000 | **0.691±0.009** |
+| `toa_conditioned_film` | **70.43±0.95%** | 71.60±1.21% | 5.775±0.236 | 15.000±0.000 | 0.678±0.021 |
+
+阶段结论：A4c 第一阶段没有显著刷新 A4b-5 的最高 Test Acc，但已经达到同一水平；更重要的是三个 A4c 模型均明显提升 Macro-F1，其中 `dual_stream_gmu_aux` 的类别均衡性最好。GMU gate 约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA，支持 “ToT 为主模态，relative ToA 为辅助模态” 的解释。A4c 内部若按 Test Acc/MAE 选代表模型可看 `dual_stream_concat_aux`，若按机制解释和 Macro-F1 选代表模型优先看 `dual_stream_gmu_aux`。
+
 `resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
 
 `resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：
@@ -1027,6 +1037,8 @@ Candidate expert: ToT + relative_minmax ToA, no mask ResNet18 no-maxpool
 
 runner 会根据 `outputs/experiments/*/metadata.json` 自动按 `training.seed` 查找 checkpoint，因此配置中不需要写死时间戳目录。该配置比较 `freeze_experts=true` 与 `freeze_experts=false` 两个受控变体。
 
+注意：A4c-4 里的 `gate_candidate` 是 candidate expert 的权重，不是单独 ToA 通道权重。candidate expert 的输入是 `ToT + relative_minmax ToA, no mask`。
+
 seed42 快速验证：
 
 ```bash
@@ -1045,6 +1057,15 @@ python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_
 python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv
 python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
 ```
+
+A4c-4 三 seed 结果已经完成：
+
+| 设置 | Val Acc | Test Acc | Test MAE | Test F1 | Candidate Gate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `freeze_experts=true` | 70.50±1.00% | 71.84±1.88% | 5.905±0.332 | 0.660±0.015 | 65.11±24.63% |
+| `freeze_experts=false` | 68.80±1.36% | 70.15±2.34% | 6.123±0.554 | 0.643±0.049 | 56.53±12.19% |
+
+阶段结论：`freeze_experts=true` 优于 ToT primary，但不超过 A4b-5 gated late fusion，也不超过 A4c 第一阶段的 concat/GMU。`freeze_experts=false` 不稳定，说明加载已有 expert 后继续端到端微调容易破坏原有决策边界。A4c-4 适合作为 warm-start expert gate 对照，而不是当前最佳融合方案。
 
 服务器 `tmux` 持久化运行：
 
