@@ -102,6 +102,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4_modality_comparison_seed42.yaml` | A4 quick comparison | Single-seed-42 shortcut inheriting full A4; 3 modality runs. |
 | `configs/experiments/a4b_toa_transform.yaml` | A4b ToA transform comparison | Three-seed grid over relative ToA transforms and optional hit-mask channel. |
 | `configs/experiments/a4b_toa_transform_seed42.yaml` | A4b quick comparison | Single-seed-42 shortcut inheriting full A4b transform grid; 6 runs. |
+| `configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml` | A4b-4e key candidate config | Trains only the `relative_minmax/no mask` ToT+ToA candidate for seeds 43 and 44. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
@@ -117,6 +118,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/run_grid.py` | Run grid experiments | Uses a YAML `grid` mapping; supports dry-run, skip-existing, continue-on-error, and manifest CSVs. |
 | `scripts/extend_runs.py` | Extend existing runs | Batch-resumes existing runs from `last_checkpoint.pth` to a larger epoch budget, optionally copying them into a new experiment group first. |
 | `scripts/search_hparams.py` | Run Optuna search | Uses `configs/search/*.yaml`; writes trials, best params, and best config. |
+| `scripts/aggregate_selector_fusion.py` | Aggregate selector fusion | Aggregates A4b selector summary CSVs across seeds, keeping primary/candidate/oracle and validation-selected selector rows. |
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
 | `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
 | `scripts/evaluate_oracle_complementarity.py` | Evaluate oracle complementarity | Reloads checkpoints and recomputes deterministic train/val/test logits for A4b-3a/b ToT-vs-ToT and ToT-vs-candidate oracle controls. |

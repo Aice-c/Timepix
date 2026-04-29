@@ -619,6 +619,76 @@ python scripts/analyze_selector_switches.py \
   --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
 ```
 
+## A4b-4e three-seed selector confirmation
+
+A4b-4e checks whether the A4b-4a rule-selector result is stable across seeds.
+It does not rerun the whole A4b transform grid. It trains only the key
+candidate `ToT + relative_minmax ToA, no mask` for seeds 43 and 44, then reuses
+seed42 from `a4b_toa_transform_seed42`.
+
+Candidate config:
+
+```text
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+```
+
+Training:
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --dry-run
+
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --continue-on-error
+```
+
+Oracle across three seeds:
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4e_oracle_3seed.json \
+  --output-summary outputs/a4b_4e_oracle_3seed_summary.csv \
+  --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
+```
+
+Rule selector across three seeds:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_selector_fusion.py \
+    --selector-mode rule \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_4e_rule_selector_seed${seed}.json" \
+    --output-summary "outputs/a4b_4e_rule_selector_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_4e_rule_selector_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_4e_rule_selector_seed42_summary.csv \
+    outputs/a4b_4e_rule_selector_seed43_summary.csv \
+    outputs/a4b_4e_rule_selector_seed44_summary.csv \
+  --out outputs/a4b_4e_rule_selector_mean_std.csv
+```
+
 `resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
 
 `resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：

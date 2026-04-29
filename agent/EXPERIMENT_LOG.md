@@ -1278,3 +1278,95 @@ Local verification:
 - `python scripts\extend_runs.py --help`
 - `python -m py_compile scripts\extend_runs.py`
 - `D:\Program\Anaconda\envs\timepix-local\python.exe scripts\extend_runs.py ... --dry-run` on local B1 outputs.
+
+## A4b-4e three-seed selector confirmation
+
+Date: 2026-04-29.
+
+Purpose:
+- A4b-4a produced a small positive seed42 result, but the gain is only about +0.50% test accuracy.
+- To use it as more than a diagnostic, we need a three-seed confirmation.
+- The expensive part is the candidate expert; ToT seed42/43/44 already exist in `a2_best_3seed`.
+
+Decision:
+- Do not retrain the seed42 candidate. Reuse the existing `a4b_toa_transform_seed42` run for `relative_minmax/no mask`.
+- Train only the key candidate `ToT + relative_minmax ToA, no mask` for seeds 43 and 44.
+- Then evaluate oracle complementarity and A4b-4a rule selector for seeds 42/43/44.
+
+New files:
+
+```text
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+scripts/aggregate_selector_fusion.py
+```
+
+Candidate training:
+
+```bash
+cd /root/Timepix
+
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --dry-run
+
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --continue-on-error
+
+python scripts/summarize.py \
+  --group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --out outputs/a4b_4e_relative_minmax_no_mask_seed43_44_runs.csv
+```
+
+Three-seed oracle confirmation:
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4e_oracle_3seed.json \
+  --output-summary outputs/a4b_4e_oracle_3seed_summary.csv \
+  --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
+```
+
+Three-seed rule-selector confirmation:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_selector_fusion.py \
+    --selector-mode rule \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_4e_rule_selector_seed${seed}.json" \
+    --output-summary "outputs/a4b_4e_rule_selector_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_4e_rule_selector_seed${seed}_by_class.csv"
+done
+```
+
+Aggregate selector result:
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_4e_rule_selector_seed42_summary.csv \
+    outputs/a4b_4e_rule_selector_seed43_summary.csv \
+    outputs/a4b_4e_rule_selector_seed44_summary.csv \
+  --out outputs/a4b_4e_rule_selector_mean_std.csv
+```
+
+Interpretation:
+- If the validation-selected rule selector improves mean test accuracy, MAE, and macro-F1 over `primary_only`, A4b-4a can be reported as a small but stable selector baseline.
+- If the mean improvement disappears or variance is high, A4b-4a remains a seed42 diagnostic; the stronger conclusion is still the oracle-level complementarity, not a reliable deployed fusion gain.

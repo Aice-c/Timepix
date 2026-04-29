@@ -218,3 +218,20 @@ entropy_adv_0p03
 The script reloads the same frozen experts as A4b-4, applies the fixed rule
 without selecting any new threshold on test, and writes JSON plus summary,
 per-class, per-sample, and score-distribution CSV files.
+
+A4b-4e implementation:
+
+```text
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+scripts/aggregate_selector_fusion.py
+```
+
+This phase does not retrain seed42. It combines:
+
+- seed42 candidate from `a4b_toa_transform_seed42`
+- seed43/44 candidates from `a4b_4e_relative_minmax_no_mask_seed43_44`
+- ToT seeds 42/43/44 from `a2_best_3seed`
+
+`aggregate_selector_fusion.py` keeps `primary_only`, `candidate_only`,
+`oracle`, and the validation-selected rule row from each
+`evaluate_selector_fusion.py` summary, then writes mean/std metrics.

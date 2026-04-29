@@ -842,3 +842,57 @@ python scripts/analyze_selector_switches.py \
   --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
   --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
 ```
+
+## A4b-4e Three-Seed Selector Confirmation
+
+Train only the missing key candidate seeds:
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --continue-on-error
+```
+
+Then combine the existing seed42 candidate group with the new seed43/44 group
+for oracle and selector evaluation:
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4e_oracle_3seed.json \
+  --output-summary outputs/a4b_4e_oracle_3seed_summary.csv \
+  --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
+```
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_selector_fusion.py \
+    --selector-mode rule \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_4e_rule_selector_seed${seed}.json" \
+    --output-summary "outputs/a4b_4e_rule_selector_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_4e_rule_selector_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_4e_rule_selector_seed42_summary.csv \
+    outputs/a4b_4e_rule_selector_seed43_summary.csv \
+    outputs/a4b_4e_rule_selector_seed44_summary.csv \
+  --out outputs/a4b_4e_rule_selector_mean_std.csv
+```

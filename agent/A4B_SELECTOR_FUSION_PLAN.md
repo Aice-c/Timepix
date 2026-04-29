@@ -254,7 +254,7 @@ This is the active A4b numbering after the A4b-4 results.
 | A4b-4b | Train-logit selector | Done | Exploratory result because train logits may be overconfident. |
 | A4b-4c | Validation-CV selector | Done | More rigorous learned selector; does not beat ToT. |
 | A4b-4d | Switch diagnostics | Next | Explain which selected samples are beneficial, harmful, neutral, or missed. No training. |
-| A4b-4e | Three-seed selector confirmation | Optional next | If A4b-4a is used as a formal positive method, rerun the key candidate for seeds 43/44 and report mean/std. |
+| A4b-4e | Three-seed selector confirmation | Implemented config | Rerun only the key candidate for seeds 43/44 and report mean/std with the existing seed42 candidate. |
 | A4b-5 | Entropy soft gate | Planned | Convert A4b-4a hard switch into validation-selected sample-wise soft interpolation. |
 | A4b-6 | Constrained residual interpolation | Planned | Keep ToT primary and move logits only partly toward the candidate. |
 | A4b-7 | ToA-only relative controls | Later | Isolate whether relative ToA itself carries independent angle information. |
@@ -328,6 +328,94 @@ python scripts/analyze_selector_switches.py \
   --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
   --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
 ```
+
+## A4b-4e: Three-Seed Selector Confirmation
+
+Goal: determine whether the A4b-4a rule-selector gain is stable across seeds.
+
+Training requirement:
+
+- ToT experts: already available in `a2_best_3seed` for seeds 42, 43, and 44.
+- Candidate seed42: already available in `a4b_toa_transform_seed42`.
+- Candidate seed43/44: train only `ToT + relative_minmax ToA, no mask`.
+
+Candidate config:
+
+```text
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+```
+
+Training command:
+
+```bash
+cd /root/Timepix
+
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --continue-on-error
+```
+
+Candidate summary:
+
+```bash
+python scripts/summarize.py \
+  --group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --out outputs/a4b_4e_relative_minmax_no_mask_seed43_44_runs.csv
+```
+
+Oracle confirmation across three seeds:
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4e_oracle_3seed.json \
+  --output-summary outputs/a4b_4e_oracle_3seed_summary.csv \
+  --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
+```
+
+Rule selector confirmation, one command per seed:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_selector_fusion.py \
+    --selector-mode rule \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_4e_rule_selector_seed${seed}.json" \
+    --output-summary "outputs/a4b_4e_rule_selector_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_4e_rule_selector_seed${seed}_by_class.csv"
+done
+```
+
+Aggregate selector summaries:
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_4e_rule_selector_seed42_summary.csv \
+    outputs/a4b_4e_rule_selector_seed43_summary.csv \
+    outputs/a4b_4e_rule_selector_seed44_summary.csv \
+  --out outputs/a4b_4e_rule_selector_mean_std.csv
+```
+
+Interpretation rule:
+
+- If validation-selected rule selector improves mean test accuracy/MAE/macro-F1 over `primary_only` with acceptable std, A4b-4a can be reported as a small but stable selector baseline.
+- If the mean gain disappears or has high variance, report A4b-4a as a seed42 diagnostic and keep the oracle complementarity as the stronger scientific evidence.
 
 ## A4b-5: Entropy Soft Gate
 
