@@ -463,6 +463,24 @@ python scripts/extend_runs.py \
 这类结果需要标注为 `from20` 续跑：它节省算力，但由于前 20 epoch 已按旧
 cosine schedule 训练，不完全等价于从头使用 `T_max=25` 的正式重跑。
 
+B2 Proton_C_7 ToT-only 手工特征验证：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_lowcorr_seed42 --out outputs/b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv
+```
+
+B2a 是 seed42 `concat` 低成本验证；B2b 镜像相同 ToT-only 特征组，只把融合方式改为 `gated`：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out outputs/b2_proton_c7_handcrafted_gated_seed42_runs.csv
+```
+
+B2a/B2b 都只做 seed42 诊断，暂不使用 `aggregate_seeds.py`。只有当某个设置明确优于 B1-best seed42，或改善中高角度类别 F1/MAE 时，才进入可选 B2c 三 seed 认证。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash

@@ -119,8 +119,9 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder for future explicit `concat`/`gated` comparison on one selected feature group; not the official current A5c run. |
 | `configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml` | A5c handcrafted-only template | Placeholder `handcrafted_mlp` diagnostic config for selected A5 feature groups. |
 | `configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` | A5d template | Placeholder final 3-seed verification config for the best A5 handcrafted setting. |
-| `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups. |
-| `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2 handcrafted transfer template | Proton_C_7 ToT-only transfer of Alpha-selected ToT-only handcrafted features using B1-best patience-8 training settings. |
+| `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Completed seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups; geometry gives only a tiny positive result, while adding `ToT_density` hurts. |
+| `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
+| `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

@@ -1,5 +1,6 @@
-# TEMPLATE ONLY. Use after B2a seed42 low-cost validation shows a useful signal.
-# Fill handcrafted_features.features with the B2a-selected ToT-only feature group.
+# TEMPLATE ONLY. Use only if B2a/B2b seed42 low-cost validation shows a useful signal.
+# In the current numbering this optional 3-seed confirmation is B2c.
+# Fill handcrafted_features.features with the selected ToT-only feature group.
 experiment_name: b2_proton_c7_handcrafted_best_3seed
 experiment_group: b2_proton_c7_handcrafted_best_3seed
 
@@ -21,7 +22,7 @@ model:
   feature_dim: 256
   hidden_dim: 512
   dropout: 0.1
-  # Keep concat unless B2a/A5c explicitly motivates gated.
+  # Set concat or gated according to the B2a/B2b selected setting.
   fusion_mode: concat
 
 loss:

@@ -511,6 +511,7 @@ B2 配置决策：
 - B2 固定 B1-best patience=8 训练配置。
 - 因为 A5b 没有在 Alpha 上证明 handcrafted concat 有稳定收益，B2 先只做 seed42 低成本验证，不直接三 seed。
 - Proton_C_7 无 ToA，因此 B2 只允许 `source_modalities: [ToT]`，不允许任何 ToA 特征。
+- 为与 A5 保持一致，B2 也增加一个 seed42 `gated` 诊断组：`B2a` 回答 `concat` 是否有用，`B2b` 回答同一批 Proton ToT-only 标量用 `gated` 是否更稳；可选三 seed 认证顺延为 `B2c`。
 
 B2a 正式配置：
 
@@ -531,13 +532,34 @@ B2a-2 tot_lowcorr:
   ToT_density
 ```
 
-B2b 三 seed 模板：
+B2b gated 诊断配置：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml
+```
+
+B2b 特征组与 B2a 完全一致，只把 `fusion_mode` 从 `concat` 改为 `gated`：
+
+```text
+B2b-1 geometry_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+
+B2b-2 tot_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+```
+
+说明：B2b-2 仅作诊断，因为 B2a 中加入 `ToT_density` 已明显变差；保留它是为了确认 `gated` 是否能抑制该特征带来的负面影响。
+
+B2c 三 seed 模板：
 
 ```text
 configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
 ```
 
-只有当 B2a 明显优于 B1-best seed42，或改善 `45°/50°/60°/70°` per-class F1 / MAE 时，才填充 B2b 模板并运行三 seed。
+只有当 B2a/B2b 明显优于 B1-best seed42，或改善 `45°/50°/60°/70°` per-class F1 / MAE 时，才填充 B2c 模板并运行三 seed。
 
 B2a 服务器 `tmux` 持久化运行：
 
@@ -554,6 +576,75 @@ python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted
 python scripts/summarize.py --group b2_proton_c7_handcrafted_lowcorr_seed42 --out outputs/b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv
 ```
 
+B2b 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b2_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out outputs/b2_proton_c7_handcrafted_gated_seed42_runs.csv
+```
+
+说明：B2b 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。如果进入 B2c 三 seed 认证，再补充 `aggregate_seeds.py` 命令。
+
+本地配置检查：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --dry-run
+```
+
+检查结果：通过，计划 2 个 run，分别对应 `geometry_lowcorr_gated` 和 `tot_lowcorr_gated`。
+
+B2a seed42 结果记录：
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- image input: `ToT only`
+- scalar feature source: `ToT only`
+- model: `resnet18_no_maxpool`
+- fusion: `concat`
+- training config: B1-best patience=8
+- seed: `42`
+
+结果表：
+
+| 方法 | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Macro-F1 |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | none | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| B2a-1 `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 24/25 | 否 | 94.28% | 94.26% | 0.545 | 0.0 | 0.959 |
+| B2a-2 `tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 8/16 | 是 | 91.43% | 91.63% | 0.807 | 0.0 | 0.939 |
+
+相对 B1-best seed42：
+
+| 方法 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| B2a-1 `geometry_lowcorr` | +0.40 pp | +0.17 pp | -0.017 | +0.001 |
+| B2a-2 `tot_lowcorr` | -2.45 pp | -2.46 pp | +0.246 | -0.019 |
+
+每类 F1：
+
+| 方法 | 10 deg | 20 deg | 30 deg | 45 deg | 50 deg | 60 deg | 70 deg |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | 1.000 | 0.999 | 0.996 | 0.952 | 0.934 | 0.893 | 0.929 |
+| B2a-1 `geometry_lowcorr` | 1.000 | 1.000 | 0.997 | 0.951 | 0.933 | 0.896 | 0.933 |
+| B2a-2 `tot_lowcorr` | 0.999 | 0.999 | 0.995 | 0.935 | 0.903 | 0.836 | 0.906 |
+
+阶段判断：
+
+- B2a-1 `geometry_lowcorr` 是弱正结果：Test Acc 从 94.09% 到 94.26%，MAE 从 0.562 到 0.545，Macro-F1 从 0.958 到 0.959；但幅度非常小，不足以单独证明手工几何特征显著提升 Proton_C_7。
+- B2a-1 对中高角度的改善有限，主要是 `60 deg F1 +0.003`、`70 deg F1 +0.004`，同时 `45 deg` 和 `50 deg` 略降。主要混淆仍集中在相邻大角度，尤其 `60 deg <-> 70 deg`。
+- B2a-2 `tot_lowcorr` 明显变差，尤其 `60 deg F1` 从 0.893 降到 0.836；说明 `ToT_density` 在 Proton_C_7 上可能与 CNN 已学到的信息冲突，或引入不稳定性，不建议继续。
+- B2b gated 仍值得跑一组 seed42，与 A5 保持一致，检查 gated 是否能比 concat 更稳地使用几何标量、或抑制 `ToT_density` 的负面影响。
+- B2c 三 seed 不优先推进。论文口径建议写作：可迁移 ToT-only 几何标量在 Proton_C_7 上只有极小增益，说明 Proton_C_7 的 ToT 图像形态已经被 CNN 充分利用，手工特征主要与 CNN 表征冗余。
+- 若 B2b gated 也只有极小增益或无增益，则 B2 主线结束；若 B2b-1 明确优于 B1-best seed42 且改善 MAE/中高角度 F1，可以只对 `geometry_lowcorr_gated` 补一个 B2c 三 seed；不建议再包含 `ToT_density`。
+
 Proton/C 主线阶段：
 
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
@@ -561,7 +652,7 @@ Proton/C 主线阶段：
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 已完成 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；正式版本使用 `early_stopping_patience=8`，旧 patience=5 只作早停过激诊断。 |
-| `B2` | Proton_C_7 手工特征低成本验证 | B2a seed42 配置已撰写 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置，只验证 ToT-only 低冗余手工特征是否补充 CNN 或主要冗余。 |
+| `B2` | Proton_C_7 手工特征低成本验证 | B2a concat 已完成；B2b gated 配置已撰写 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置。B2a 显示几何标量仅带来极小正收益，`ToT_density` 明显变差；B2b 镜像 B2a 特征组并改用 `gated`，与 A5 保持一致。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
 
@@ -579,7 +670,7 @@ Proton/C 主线阶段：
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
 3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
 4. B1 已完成 patience=8 正式 B1-best，可作为 Proton_C_7 baseline。
-5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。
+5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。B2a 已完成 concat，B2b 新增 gated 对照以保持与 A5 的实验逻辑一致。
 
 ## A2 Best Base
 

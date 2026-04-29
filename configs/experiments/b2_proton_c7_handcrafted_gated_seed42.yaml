@@ -1,0 +1,22 @@
+base: b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+
+experiment_name: b2_proton_c7_handcrafted_gated_seed42
+experiment_group: b2_proton_c7_handcrafted_gated_seed42
+
+model:
+  fusion_mode: gated
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT]
+  features: []
+
+grid:
+  handcrafted_features.features:
+    # B2b-1 geometry_lowcorr_gated / mirrors B2a-1
+    - [active_pixel_count, bbox_fill_ratio]
+    # B2b-2 tot_lowcorr_gated / mirrors B2a-2; diagnostic only because ToT_density hurt in B2a
+    - [active_pixel_count, bbox_fill_ratio, ToT_density]
+  training.seed:
+    - 42
