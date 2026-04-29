@@ -97,6 +97,17 @@ python scripts/summarize.py --all
 
 汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `input_channels`、`toa_transform`、`add_hit_mask`、`seed`、`split_seed`、`split_manifest_hash`、`mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP、主干模型、多 seed 对比或 A4b ToA 表达方式结果。
 
+## 对比实验命令记录规范
+
+新增或修改对比实验配置时，文档必须同步给出完整命令链：
+
+- 服务器运行命令：单 seed 或三 seed，按实验设计说明。
+- 汇总命令：标准训练组使用 `scripts/summarize.py --group ... --out ...`。
+- 多 seed 聚合命令：标准训练组使用 `scripts/aggregate_seeds.py`；A4b selector/gate 这类后处理诊断使用 `scripts/aggregate_selector_fusion.py`。
+- 诊断脚本输出：如果脚本不产生标准训练目录，需要明确 `--output-summary`、`--output-by-class`、`--output-json` 等输出文件。
+
+这条规则是为了保证每个实验不只“能跑”，还可以稳定生成论文表格所需的可追溯 CSV。
+
 长网格实验可以使用：
 
 ```bash

@@ -32,6 +32,15 @@ Important risk:
 - Selector training must not use that augmented/shuffled train loader. It needs deterministic evaluation loaders for train/val/test: `training=False`, no rotation expansion, and `shuffle=False`.
 - Sample alignment should be checked by split name, labels, and sample keys, not only by row index.
 
+## Command And Summary Policy
+
+For every A4b comparison or diagnostic phase, the documented execution block must include both the run command and the result collection command.
+
+- Training/grid phases must include the server `run_grid.py` command and the matching `summarize.py --group ... --out ...` command.
+- Multi-seed phases must also include the mean/std aggregation command, using `aggregate_seeds.py` for standard training runs or `aggregate_selector_fusion.py` for selector/gate summary CSVs.
+- Checkpoint diagnostic phases that do not create a normal `outputs/experiments/<group>/` run directory must explicitly name their `--output-summary`, `--output-by-class`, `--output-json`, and any sample/distribution CSV outputs.
+- Test metrics remain final-report-only; validation is the only source for choosing rules, thresholds, gates, betas, regularization, or final variants.
+
 ## Stage 1: Oracle Controls Before New Training
 
 Goal: determine whether the observed oracle gain is larger than ordinary seed-to-seed model diversity.

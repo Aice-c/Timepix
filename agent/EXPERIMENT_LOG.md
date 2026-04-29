@@ -58,6 +58,15 @@ Proton_C_7   -> E:\C1Analysis\Proton_C_7
 - 模型、模态、损失等对比应尽量复用同一 split。
 - 多 seed 认证应报告 `mean ± std`，不应挑选三个 seed 中最高的结果作为正式结果。
 
+## 对比实验命令与汇总记录规范
+
+- 从 2026-04-29 起，任何新对比实验、消融实验或诊断实验，只要写入配置或计划文档，就必须同时记录运行命令和汇总命令。
+- 服务器正式训练/评估命令默认使用 Linux bash 写法；只有本地验证、数据分析或笔记本复现实验才使用 Windows PowerShell 写法。
+- 单 seed 实验应至少给出 dry-run/正式运行命令，以及对应的 `scripts/summarize.py` 或诊断脚本输出 CSV 命令。
+- 三 seed 实验应同时给出三 seed 运行命令、逐 run 汇总命令，以及 `scripts/aggregate_seeds.py` 或 `scripts/aggregate_selector_fusion.py` 的 mean/std 聚合命令。
+- 不经过 `outputs/experiments/<group>/` 的诊断脚本也要明确输出文件，例如 summary CSV、by-class CSV、JSON、sample-level CSV 或 distribution CSV，避免只有运行入口而没有可追溯结果入口。
+- 每次新增实验配置、修改实验编号、废弃旧结果或改变选择标准，都要同步更新本文档中的关键决策与命令块。
+
 ## A2 Best Base
 
 配置文件：

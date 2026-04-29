@@ -186,6 +186,14 @@ outputs/experiments/baseline/20260427_120000_alpha_resnet18_tot/
 
 ## 7. 跑一组对比实验
 
+命令记录规范：
+
+- 每个新对比实验都要同时写清楚运行命令和汇总命令，不能只给 `run_grid.py`。
+- 单 seed 快速版要给出对应的 summary CSV 输出命令。
+- 三 seed 正式版要给出逐 run 汇总命令，以及 mean/std 聚合命令。
+- 如果是 A4b 这类 checkpoint 诊断脚本，没有标准 `experiment_group`，也要明确 `--output-summary`、`--output-by-class`、`--output-json` 等输出路径。
+- 训练命令默认按 Linux 服务器 bash 书写；本地验证命令才使用 Windows PowerShell 路径。
+
 比较不同损失函数：
 
 ```bash
