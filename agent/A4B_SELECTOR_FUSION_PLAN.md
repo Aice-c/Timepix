@@ -222,6 +222,22 @@ Report:
 - 30 deg precision/recall/F1 and confusion matrix.
 - Validation-selected threshold.
 
+Observed A4b-4 results:
+
+| Experiment | Val-selected strategy | Test Acc | vs ToT | Test MAE | Test Macro-F1 | Test selection rate |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| ToT baseline | `primary_only` | 70.48% | 0 | 5.964 deg | 0.646 | 0% |
+| A4b-4a rule | `entropy_adv_0p03` | 70.97% | +0.50% | 5.905 deg | 0.658 | 14.51% |
+| A4b-4b train selector | `threshold=0.95` | 71.17% | +0.70% | 5.890 deg | 0.654 | 6.96% |
+| A4b-4c val-CV selector | `threshold=0.95` | 70.38% | -0.10% | 6.009 deg | 0.644 | 1.39% |
+| Oracle | ideal switch | 81.51% | +11.03% | 3.698 deg | 0.784 | 12.43% |
+
+Interpretation:
+
+- Rule-based and train-logit selectors can extract a small real gain from the complementary candidate.
+- The stricter validation-CV selector does not beat the ToT baseline, so the most rigorous selector result is negative/neutral.
+- There remains a large gap to oracle, so later gated/residual or physical-feature selectors should be framed as attempts to make the complementarity more reliably learnable, not as already proven performance improvements.
+
 ## Stage 3: ToA-Only Relative Controls
 
 Goal: isolate whether relative ToA itself is stronger than raw ToA.

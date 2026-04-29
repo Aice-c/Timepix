@@ -955,6 +955,24 @@ python scripts/evaluate_selector_fusion.py \
 - 默认使用 logistic selector；如 logistic 选择器无法利用互补性，再考虑 `--selector-hidden-dim` 的小 MLP，但应把这作为后续变体并记录。
 - 如果 A4b-4a/4b/4c 都不能超过 ToT baseline，而 oracle 上限仍很高，则说明仅基于 logits/confidence 的可观测特征不足以判断何时切换，需要再考虑图像/物理特征级 selector 或 gated model。
 
+当前结果记录（用户汇报）：
+
+| Experiment | Val-selected strategy | Test Acc | vs ToT | Test MAE | Test Macro-F1 | Test selection rate |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| ToT baseline | `primary_only` | 70.48% | 0 | 5.964 deg | 0.646 | 0% |
+| A4b-4a rule | `entropy_adv_0p03` | 70.97% | +0.50% | 5.905 deg | 0.658 | 14.51% |
+| A4b-4b train selector | `threshold=0.95` | 71.17% | +0.70% | 5.890 deg | 0.654 | 6.96% |
+| A4b-4c val-CV selector | `threshold=0.95` | 70.38% | -0.10% | 6.009 deg | 0.644 | 1.39% |
+| Oracle | ideal switch | 81.51% | +11.03% | 3.698 deg | 0.784 | 12.43% |
+
+阶段性结论：
+
+- A4b-4a 和 A4b-4b 说明仅基于 frozen logits/confidence 的后处理选择器可以获得小幅 test 改善：+0.50% 到 +0.70% accuracy，同时 MAE 和 macro-F1 也略有改善。
+- A4b-4b 的 train-logit selector 表现最好，但它使用 train split 的 expert logits 训练 selector，可能受到 expert 在训练集上过度自信/过拟合模式影响，因此更适合作为探索性上限而非最严格主结论。
+- 更严格的 A4b-4c validation-CV selector 未超过 ToT baseline，说明当前可观测 logits 特征并不能稳定学会 oracle 切换规则。
+- A4b-4 总体结论应谨慎表述：选择性利用 `relative_minmax/no mask` 的确能带来小幅真实收益，但距离 oracle 上限仍很远；互补性存在，但可靠可学习性仍是后续 A4b-5/A4b-6 或物理特征 selector 需要解决的问题。
+- A4b-4a 的 `entropy_adv_0p03` 有解释性价值：当 candidate 相比 ToT 呈现更有利的不确定性/熵关系时切换，能以 14.51% 的选择率获得小幅增益，可作为论文中简单 selector baseline。
+
 ## 数据分析链路：数据集与近垂直分辨极限
 
 新增目的：

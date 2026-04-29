@@ -158,6 +158,17 @@ It has three numbered variants:
 The earlier unnumbered A4b-4 selector output is discarded and should be rerun
 under A4b-4a/4b/4c.
 
+Current result:
+
+- A4b-4a rule selector: 70.97% test accuracy, +0.50% over ToT.
+- A4b-4b train-logit selector: 71.17% test accuracy, +0.70% over ToT.
+- A4b-4c validation-CV selector: 70.38% test accuracy, -0.10% versus ToT.
+- Oracle remains 81.51% test accuracy.
+
+Interpretation: simple rule/train-logit selectors can obtain small real gains,
+but the stricter validation-CV selector does not beat ToT. This means the
+oracle complementarity is not yet reliably learnable from frozen logits alone.
+
 ## Later Phases
 
 Phase 5 can add ToA scalar physical features such as `toa_span`, `toa_std`,

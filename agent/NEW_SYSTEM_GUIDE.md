@@ -381,6 +381,8 @@ python scripts/evaluate_selector_fusion.py \
 
 该脚本不重新训练 ResNet。规则、阈值和是否启用 selector 都只由 validation 决定，test 只做最终报告。若 validation 不支持 selector，脚本会选择 `primary_only`，即退回 ToT baseline。
 
+当前结果：A4b-4a rule 为 70.97% Test Acc，A4b-4b train selector 为 71.17%，A4b-4c val-CV selector 为 70.38%，ToT baseline 为 70.48%，oracle 为 81.51%。因此严格结论是：简单 rule/train selector 可带来小幅改善，但 validation-CV selector 未稳定超过 ToT，可靠学习 oracle 切换仍未完全解决。
+
 B1 Proton/C 训练超参搜索：
 
 ```bash

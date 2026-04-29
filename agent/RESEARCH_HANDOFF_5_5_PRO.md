@@ -349,6 +349,8 @@ scripts/evaluate_selector_fusion.py
 
 该阶段不训练新的 ResNet，而是冻结 ToT baseline 与 `relative_minmax/no mask` candidate。当前重新编号为：A4b-4a rule-based selector；A4b-4b train-logit selector；A4b-4c validation-CV selector。旧的未编号 A4b-4 初版结果作废，后续按 4a/4b/4c 重新运行。所有版本都由 validation 选择规则/阈值/是否启用 selector，test 只做最终报告；若 validation 不支持 selector，脚本可以选择 `primary_only` 退回 ToT baseline。
 
+当前结果：A4b-4a rule-based selector 选择 `entropy_adv_0p03`，test accuracy 70.97%，相对 ToT +0.50%，MAE 5.905 deg，macro-F1 0.658，选择率 14.51%。A4b-4b train-logit selector 选择 `threshold=0.95`，test accuracy 71.17%，相对 ToT +0.70%，MAE 5.890 deg，macro-F1 0.654，选择率 6.96%。A4b-4c validation-CV selector 选择 `threshold=0.95`，test accuracy 70.38%，相对 ToT -0.10%，MAE 6.009 deg，macro-F1 0.644，选择率 1.39%。因此可写成：简单 rule 和 train-logit selector 有小幅真实增益，但更严格的 validation-CV selector 未能稳定超过 ToT；互补性存在，可靠学习切换仍未完全解决。
+
 ### B1 Proton/C 训练超参搜索
 
 目的：在质子/C 数据集上固定 alpha A1 得到的 ResNet18 结构适配方式，仅搜索训练过程超参，为后续质子/C 消融实验确定默认训练配置。

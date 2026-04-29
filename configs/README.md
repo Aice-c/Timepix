@@ -456,6 +456,8 @@ python scripts/evaluate_selector_fusion.py \
 
 脚本会同时输出 `primary_only`、`candidate_only`、规则/selector 候选和 `oracle`。`primary_only` 也参与 validation 策略选择，因此 selector 无效时会退回 ToT baseline。
 
+当前 A4b-4 结果显示：A4b-4a 规则 `entropy_adv_0p03` 获得 Test Acc 70.97%，相对 ToT +0.50%；A4b-4b train-logit selector 获得 71.17%，相对 ToT +0.70%；更严格的 A4b-4c validation-CV selector 为 70.38%，相对 ToT -0.10%。因此只能谨慎说明规则/训练集 selector 有小幅真实收益，但严格 validation-CV selector 未能稳定超过 ToT，仍与 oracle 81.51% 存在很大差距。
+
 ## B1 Proton/C 训练超参搜索
 
 `configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` 是质子/C 7 分类数据集的第一轮训练超参搜索。它固定 alpha A1 得到的 ResNet18 stem/variant：
