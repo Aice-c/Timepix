@@ -14,4 +14,5 @@ class ModelOutput:
     predictions: torch.Tensor | None = None
     regression: torch.Tensor | None = None
     features: torch.Tensor | None = None
-
+    aux_logits: dict[str, torch.Tensor] | None = None
+    diagnostics: dict[str, torch.Tensor] | None = None

@@ -53,6 +53,9 @@ SECTION_KEYS = {
         "patch_size",
         "dropout",
         "fusion_mode",
+        "aux_loss",
+        "gate",
+        "film",
     },
     "loss": {"name", "label_encoding", "emd_p", "gaussian_sigma"},
     "training": {
@@ -92,6 +95,9 @@ SUPPORTED_MODELS = {
     "efficientnet_b0",
     "convnext_tiny",
     "vit_tiny",
+    "dual_stream_concat_aux",
+    "dual_stream_gmu_aux",
+    "toa_conditioned_film",
 }
 SUPPORTED_TASKS = {"classification", "regression"}
 SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd"}

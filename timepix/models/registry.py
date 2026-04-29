@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch.nn as nn
 
+from .dual_stream import DualStreamConcatAuxTimepix, DualStreamGMUAuxTimepix, ToAConditionedFiLMTimepix
 from .resnet import ResNet18Timepix
 from .resnet18_original import ResNet18OriginalTimepix
 from .resnet_maxpool import ResNet18MaxPoolTimepix
@@ -107,6 +108,41 @@ def build_model(
             pretrained=bool(model_cfg.get("pretrained", False)),
             image_size=int(model_cfg.get("image_size", _default_image_size(cfg))),
             patch_size=int(model_cfg.get("patch_size", 10)),
+        )
+    if name == "dual_stream_concat_aux":
+        return DualStreamConcatAuxTimepix(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            kernel_size=conv1_kernel_size,
+            stride=conv1_stride,
+            padding=conv1_padding,
+            pretrained=bool(model_cfg.get("pretrained", False)),
+        )
+    if name == "dual_stream_gmu_aux":
+        gate_cfg = model_cfg.get("gate", {})
+        return DualStreamGMUAuxTimepix(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            kernel_size=conv1_kernel_size,
+            stride=conv1_stride,
+            padding=conv1_padding,
+            pretrained=bool(model_cfg.get("pretrained", False)),
+            gate_init_bias_to_tot=float(gate_cfg.get("init_bias_to_tot", 2.0)),
+        )
+    if name == "toa_conditioned_film":
+        film_cfg = model_cfg.get("film", {})
+        return ToAConditionedFiLMTimepix(
+            **common,
+            feature_dim=int(model_cfg.get("feature_dim", 256)),
+            hidden_dim=int(model_cfg.get("hidden_dim", 512)),
+            kernel_size=conv1_kernel_size,
+            stride=conv1_stride,
+            padding=conv1_padding,
+            pretrained=bool(model_cfg.get("pretrained", False)),
+            film_hidden_dim=int(film_cfg.get("hidden_dim", model_cfg.get("feature_dim", 256))),
+            film_zero_init=bool(film_cfg.get("zero_init", True)),
         )
 
     raise ValueError(f"Unknown model: {name}")

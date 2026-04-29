@@ -52,7 +52,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of A1-A4 configs, results, and design decisions. |
+| `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of experiment numbering, stage purposes, A/B/D series status, configs, results, commands, and design decisions. |
 | `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
 | `agent/A4B_IMPLEMENTATION_PLAN.md` | A4b implementation plan | Staged plan for ToA representation, late logit fusion, ToA scalar features, and later multimodal fusion models. |
 | `agent/A4B_SELECTOR_FUSION_PLAN.md` | A4b selector plan | Follow-up plan after A4b-2.5, including ToT seed-control diagnostics with `a2_best_3seed` and selective/gated fusion ideas. |
@@ -72,7 +72,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
-| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, and ViT-Tiny. |
+| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, and A4c dual-stream ToT/ToA fusion models. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -103,6 +103,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4b_toa_transform.yaml` | A4b ToA transform comparison | Three-seed grid over relative ToA transforms and optional hit-mask channel. |
 | `configs/experiments/a4b_toa_transform_seed42.yaml` | A4b quick comparison | Single-seed-42 shortcut inheriting full A4b transform grid; 6 runs. |
 | `configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml` | A4b-4e key candidate config | Trains only the `relative_minmax/no mask` ToT+ToA candidate for seeds 43 and 44. |
+| `configs/experiments/a4c_end_to_end_bimodal_fusion.yaml` | A4c full bimodal fusion | Three-seed grid over `dual_stream_concat_aux`, `dual_stream_gmu_aux`, and `toa_conditioned_film` using `ToT + relative_minmax ToA, no mask`. |
+| `configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml` | A4c quick comparison | Single-seed-42 shortcut for the first A4c implementation batch. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
@@ -130,7 +132,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
-| `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields. |
+| `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields, including A4c gate/FiLM diagnostic means when present. |
 
 ## Legacy `Program/` Files
 

@@ -17,6 +17,15 @@ Fixed baseline for A4b:
 - Handcrafted features: disabled unless a later ToA-scalar feature phase says otherwise
 - Training: A2 best hyperparameters, AMP enabled
 
+Current numbering decision:
+
+- A4b is reserved for decision-level ToA-assisted selective fusion over frozen
+  or already-trained experts.
+- A4b-5 is the current strongest A4b result; A4b-6 is a residual-fusion control.
+- End-to-end full bimodal models should not be added as A4b-9. They are now
+  planned as `A4c`, with the authoritative numbering and stage-status table in
+  `agent/EXPERIMENT_LOG.md` under "实验编号与阶段总览".
+
 ## Phase 1: ToA Input Representation
 
 Implemented first because it is low-risk and does not change model structure.
@@ -194,14 +203,19 @@ The active order after the A4b-4 results is intentionally conservative:
    `toa_major_axis_corr_abs`. This likely requires separating loaded modalities
    from image modalities so ToA can provide scalar features without also being
    passed as an image channel.
-7. A4b-9 optional end-to-end gated expert fusion. Use a new model-level key such
-   as `multimodal_fusion` rather than overloading the existing `fusion_mode`,
-   which currently means CNN feature plus handcrafted-feature fusion.
+7. End-to-end gated expert fusion is no longer an A4b sub-stage. It is moved to
+   `A4c-4 warm_started_expert_gate`; implementation should use a new
+   model-level key such as `multimodal_fusion` rather than overloading the
+   existing `fusion_mode`, which currently means CNN feature plus
+   handcrafted-feature fusion.
 
 Deferred for now:
 
-- GMU and FiLM until low-cost selector/gate variants are better understood.
-- MMTM, ordinary feature concat, and larger mask/transform grids.
+- Inside A4b, do not add GMU, FiLM, ordinary feature concat, MMTM, or larger
+  mask/transform grids.
+- GMU, FiLM, and dual-stream concat are moved to `A4c` as end-to-end full
+  bimodal fusion models.
+- MMTM is also moved out of A4b and remains an optional A4c item.
 
 A4b-4d implementation:
 
@@ -235,6 +249,19 @@ This phase does not retrain seed42. It combines:
 `aggregate_selector_fusion.py` keeps `primary_only`, `candidate_only`,
 `oracle`, and the validation-selected rule row from each
 `evaluate_selector_fusion.py` summary, then writes mean/std metrics.
+
+Current A4b-4d/A4b-4e result:
+
+- A4b-4d shows the seed42 `entropy_adv_0p03` rule is limited mainly by switch
+  quality. It switches 14.51% of test samples, but beneficial and harmful
+  switches are nearly tied: 70 beneficial, 69 harmful, and 7 neutral. Switch
+  precision is 47.95% and recall is 56.00%.
+- A4b-4e confirms that validation-selected rule selectors give stable small
+  gains across three seeds: Test Acc improves from 70.44%±0.15 to
+  71.44%±0.57, MAE improves from 5.949 to 5.835, and Macro-F1 improves from
+  0.636 to 0.645.
+- The rule selector remains far below the oracle at 79.75%±1.96, so A4b-5/6
+  are still needed to test stronger sample-wise gate and residual strategies.
 
 A4b-5 implementation:
 
@@ -282,3 +309,15 @@ Like A4b-5, ResNet experts are frozen. Validation selects the residual variant;
 test is only reported after selection. The script writes summary, by-class, and
 JSON outputs and can be aggregated across seeds by
 `scripts/aggregate_selector_fusion.py`.
+
+Current A4b-5/A4b-6 result:
+
+- A4b-5 validation-selected gate is currently the strongest practical A4b
+  selective-fusion result. Across three seeds, it improves Test Acc from
+  70.44±0.15% to 72.17±1.72%, reduces MAE from 5.949±0.068 to 5.661±0.320,
+  and raises Macro-F1 from 0.636±0.009 to 0.662±0.027.
+- A4b-6 validation-selected residual also improves over ToT, reaching
+  71.44±1.01% Test Acc, 5.800±0.077 MAE, and 0.656±0.010 Macro-F1, but it is
+  weaker than A4b-5.
+- Test-ranked soft gate or residual variants are kept as diagnostics only; the
+  formal comparison follows validation-selected rows.

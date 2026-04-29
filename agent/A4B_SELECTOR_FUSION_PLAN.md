@@ -2,6 +2,15 @@
 
 This document records the implementation plan after the A4b-2.5 prediction-complementarity analysis.
 
+Numbering note:
+
+- A4b remains the decision-level selective-fusion series over frozen or
+  already-trained experts.
+- Full end-to-end bimodal feature-fusion models are now separated into `A4c`;
+  do not add them as A4b sub-stages.
+- The current authoritative experiment numbering and status table is recorded
+  in `agent/EXPERIMENT_LOG.md` under "实验编号与阶段总览".
+
 ## Current Evidence
 
 A4b-2.5 showed that `ToT baseline` remains the best single model, but `ToT + relative_minmax ToA, no mask` is complementary on part of the test set:
@@ -262,20 +271,20 @@ This is the active A4b numbering after the A4b-4 results.
 | A4b-4a | Rule selector | Done | Formal positive selector baseline; validation chooses `entropy_adv_0p03`. |
 | A4b-4b | Train-logit selector | Done | Exploratory result because train logits may be overconfident. |
 | A4b-4c | Validation-CV selector | Done | More rigorous learned selector; does not beat ToT. |
-| A4b-4d | Switch diagnostics | Next | Explain which selected samples are beneficial, harmful, neutral, or missed. No training. |
-| A4b-4e | Three-seed selector confirmation | Implemented config | Rerun only the key candidate for seeds 43/44 and report mean/std with the existing seed42 candidate. |
-| A4b-5 | Sample-wise gated late fusion | Implemented script | Compare entropy soft gate, learned scalar gates, class-aware gate, and conservative gate over frozen logits. |
-| A4b-6 | Constrained residual interpolation | Implemented script | Keep ToT primary and move logits only partly toward the candidate. |
+| A4b-4d | Switch diagnostics | Done | Shows the rule selector is limited by low switch precision, not by too few switches. |
+| A4b-4e | Three-seed selector confirmation | Done | Validation-selected rules give stable small gains, but remain far below oracle. |
+| A4b-5 | Sample-wise gated late fusion | Done | Validation-selected gate improves over ToT and A4b-4e rule; strongest current A4b selective-fusion result. |
+| A4b-6 | Constrained residual interpolation | Done | Improves over ToT but is weaker than A4b-5; useful as residual-fusion control. |
 | A4b-7 | ToA-only relative controls | Later | Isolate whether relative ToA itself carries independent angle information. |
 | A4b-8 | ToT image plus ToA scalar features | Later | Physically interpretable ToA feature route for the thesis narrative. |
-| A4b-9 | GMU/gated expert model | Optional | End-to-end feature gate only after simpler selector/gate diagnostics. |
+| A4c | End-to-end full bimodal fusion | Planned separately | Full feature-level or warm-started bimodal models are no longer A4b sub-stages; see `agent/EXPERIMENT_LOG.md`. |
 
 Current decision:
 
-- Do not immediately implement GMU, FiLM, MMTM, or ordinary feature concat.
-- First explain A4b-4a/4b/4c with A4b-4d switch diagnostics.
-- Then try low-cost validation-selected soft-gate/residual variants before any new end-to-end multimodal network.
-- If the A4b-4a +0.50% result is presented as a formal positive method, add a three-seed confirmation by training only the key `relative_minmax/no mask` candidate for seeds 43 and 44; the ToT three-seed baseline already exists in `a2_best_3seed`.
+- A4b-4d, A4b-4e, A4b-5, and A4b-6 are complete.
+- A4b-5 is the current strongest practical decision-level selective-fusion result.
+- A4b should not absorb new end-to-end feature-fusion models.
+- GMU, FiLM, and dual-stream concat are now planned under A4c; MMTM remains an optional A4c item.
 
 ## A4b-4d: Switch Diagnostics
 
@@ -425,6 +434,15 @@ Interpretation rule:
 
 - If validation-selected rule selector improves mean test accuracy/MAE/macro-F1 over `primary_only` with acceptable std, A4b-4a can be reported as a small but stable selector baseline.
 - If the mean gain disappears or has high variance, report A4b-4a as a seed42 diagnostic and keep the oracle complementarity as the stronger scientific evidence.
+
+Current result:
+
+- A4b-4d shows the seed42 `entropy_adv_0p03` rule switches 14.51% of test samples, close to the 12.43% oracle switch rate, but switch precision is only 47.95% and switch recall is 56.00%.
+- Among 146 switched test samples, 70 are beneficial, 69 are harmful, and 7 are neutral. The main bottleneck is switch quality, not switch quantity.
+- The rule helps 30 deg and 45 deg but hurts 15 deg and 60 deg. Beneficial and harmful switch score distributions overlap strongly, so confidence/entropy alone cannot reliably identify when the candidate is correct.
+- A4b-4e confirms stable small gains across three seeds: ToT baseline Test Acc is 70.44% ± 0.15, validation-selected rule selector is 71.44% ± 0.57, MAE improves from 5.949 to 5.835, and Macro-F1 improves from 0.636 to 0.645.
+- Candidate-only remains weaker at 68.75% ± 1.52, while oracle is still 79.75% ± 1.96. Therefore the rule selector is useful but only exploits a small fraction of the available complementarity.
+- The selected rule changes by seed (`entropy_adv_0p03`, `entropy_adv_0p0`, `conf_adv_0p15`), so simple rule form is not fully stable.
 
 ## A4b-5: Sample-Wise Gated Late Fusion
 
@@ -602,6 +620,30 @@ python scripts/aggregate_selector_fusion.py \
   --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
 ```
 
+## A4b-5/A4b-6 Results
+
+记录日期：2026-04-29。
+
+A4b-5 当前结果：
+
+- A4b-5 是 frozen expert 后处理实验，不训练新的 ResNet。
+- 三 seed validation-selected gate 相比 ToT primary：Test Acc 从 70.44±0.15% 提高到 72.17±1.72%，MAE 从 5.949±0.068 降到 5.661±0.320，Macro-F1 从 0.636±0.009 提高到 0.662±0.027。
+- 相比 A4b-4e rule selector，A4b-5 Test Acc +0.73 percentage points，MAE -0.174 deg，Macro-F1 +0.017。
+- seed43 选中了 `train` fit，存在偏乐观风险；论文中更保守的主结果建议参考 `class_aware_prob_val-cv`。
+
+A4b-6 当前结果：
+
+- A4b-6 同样是 frozen expert 后处理实验，固定 ToT 为 primary expert，candidate 只作为 residual correction。
+- 三 seed validation-selected residual 相比 ToT primary：Test Acc 从 70.44±0.15% 提高到 71.44±1.01%，MAE 从 5.949±0.068 降到 5.800±0.077，Macro-F1 从 0.636±0.009 提高到 0.656±0.010。
+- 相比 A4b-4e rule selector，A4b-6 Test Acc 基本不变，但 MAE 和 Macro-F1 略有改善。
+- 相比 A4b-5，A4b-6 Test Acc -0.73 percentage points，MAE +0.139 deg，Macro-F1 -0.006。
+
+阶段性结论：
+
+- A4b-5 是当前 A4b 系列里最强的实际选择性融合结果。
+- A4b-6 证明 residual correction 能优于 ToT baseline，但更适合作为 residual-fusion 对照，而不是最终最佳方法。
+- 按 test 排序的 entropy soft gate 或 entropy residual 变体只能作为诊断现象记录；正式结论仍使用 validation-selected 策略。
+
 ## A4b-7: ToA-Only Relative Controls
 
 Goal: isolate whether relative ToA itself is stronger than raw ToA.
@@ -674,9 +716,11 @@ handcrafted_features:
       - toa_major_axis_corr_abs
 ```
 
-## A4b-9: End-to-End Gated Expert Fusion
+## A4c-4: Warm-Started End-to-End Expert Gate
 
-Only start this after Stage 1/2.
+This idea is no longer numbered as an A4b stage. It is retained as the planned
+`A4c-4` follow-up after the A4c first batch and should be discussed with the
+full A4c end-to-end bimodal models.
 
 Preferred route:
 
@@ -697,12 +741,12 @@ Implementation implications:
   - `x_relative = x[:, :2]`
 - Return a normal `ModelOutput` first; auxiliary losses and gate diagnostics can be added later.
 
-Defer:
+Do not handle these inside A4b:
 
-- MMTM
-- ordinary feature concat without gating
 - large mask grids
-- FiLM, unless selector fusion succeeds and time remains
+- ordinary feature concat, GMU, and FiLM are now part of the planned `A4c`
+  end-to-end model family rather than A4b.
+- MMTM is also moved out of A4b and remains an A4c optional item.
 
 ## Strict Evaluation Rules
 

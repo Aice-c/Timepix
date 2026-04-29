@@ -291,6 +291,7 @@ def run_experiment(
     run_started_at = time.perf_counter()
     training_cfg = cfg.get("training", {})
     task_cfg = cfg.get("task", {})
+    model_cfg = cfg.get("model", {})
     task = task_cfg.get("type", "classification")
     seed = int(training_cfg.get("seed", 42))
     set_seed(seed)
@@ -371,6 +372,8 @@ def run_experiment(
     start_epoch = 1
     show_progress = bool(training_cfg.get("progress_bar", True))
     save_last_checkpoint = bool(training_cfg.get("save_last_checkpoint", True))
+    aux_loss_cfg = model_cfg.get("aux_loss", {})
+    best_val_diagnostics = {}
 
     if resume_checkpoint is not None:
         model.load_state_dict(resume_checkpoint["model_state"])
@@ -421,6 +424,7 @@ def run_experiment(
             desc=f"train {epoch}/{epochs}",
             autocast_factory=autocast_factory,
             grad_scaler=grad_scaler,
+            aux_loss_cfg=aux_loss_cfg,
         )
         val_payload = evaluate(
             model,
@@ -431,6 +435,7 @@ def run_experiment(
             progress_bar=show_progress,
             desc=f"val   {epoch}/{epochs}",
             autocast_factory=autocast_factory,
+            aux_loss_cfg=aux_loss_cfg,
         )
         if scheduler is not None:
             scheduler.step()
@@ -463,6 +468,7 @@ def run_experiment(
             best_score = score
             best_epoch = epoch
             best_val_metrics = val_metrics
+            best_val_diagnostics = val_payload.get("diagnostics", {})
             best_state = _clone_state_dict(model)
             patience_counter = 0
             _atomic_torch_save(best_state, best_model_path)
@@ -509,7 +515,15 @@ def run_experiment(
         model.load_state_dict(best_state)
 
     test_started_at = time.perf_counter()
-    test_payload = evaluate(model, loaders["test"], criterion, device, task, autocast_factory=autocast_factory)
+    test_payload = evaluate(
+        model,
+        loaders["test"],
+        criterion,
+        device,
+        task,
+        autocast_factory=autocast_factory,
+        aux_loss_cfg=aux_loss_cfg,
+    )
     test_seconds = time.perf_counter() - test_started_at
     test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle)
     _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle)
@@ -527,6 +541,10 @@ def run_experiment(
         "validation": best_val_metrics,
         "test": test_metrics,
     }
+    if best_val_diagnostics:
+        metrics["validation_diagnostics"] = best_val_diagnostics
+    if test_payload.get("diagnostics"):
+        metrics["test_diagnostics"] = test_payload["diagnostics"]
     write_json(exp_dir / "metrics.json", metrics)
     if "confusion_matrix" in test_metrics:
         np.savetxt(exp_dir / "confusion_matrix.csv", np.asarray(test_metrics["confusion_matrix"], dtype=int), fmt="%d", delimiter=",")

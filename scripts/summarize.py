@@ -64,6 +64,14 @@ SUMMARY_FIELDS = [
     "val_p90_error",
     "test_p90_error",
     "test_macro_f1",
+    "val_gate_tot_mean",
+    "test_gate_tot_mean",
+    "val_gate_toa_mean",
+    "test_gate_toa_mean",
+    "val_film_gamma_abs_mean",
+    "test_film_gamma_abs_mean",
+    "val_film_beta_abs_mean",
+    "test_film_beta_abs_mean",
     "params_total",
     "git_commit",
     "git_dirty",
@@ -115,6 +123,15 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     timing = metadata.get("timing", {})
     git = metadata.get("git", {})
     data_info = metadata.get("data_info", {})
+    val_diag = metrics.get("validation_diagnostics", {})
+    test_diag = metrics.get("test_diagnostics", {})
+
+    def diag_mean(source: dict, key: str):
+        value = source.get(key, {})
+        if isinstance(value, dict):
+            return value.get("mean")
+        return None
+
     return {
         "experiment_group": _infer_group(metadata, metadata_path, root, recursive),
         "experiment_name": metadata.get("experiment_name"),
@@ -162,6 +179,14 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "val_p90_error": val.get("p90_error"),
         "test_p90_error": test.get("p90_error"),
         "test_macro_f1": test.get("macro_f1"),
+        "val_gate_tot_mean": diag_mean(val_diag, "gate_tot"),
+        "test_gate_tot_mean": diag_mean(test_diag, "gate_tot"),
+        "val_gate_toa_mean": diag_mean(val_diag, "gate_toa"),
+        "test_gate_toa_mean": diag_mean(test_diag, "gate_toa"),
+        "val_film_gamma_abs_mean": diag_mean(val_diag, "film_gamma_abs"),
+        "test_film_gamma_abs_mean": diag_mean(test_diag, "film_gamma_abs"),
+        "val_film_beta_abs_mean": diag_mean(val_diag, "film_beta_abs"),
+        "test_film_beta_abs_mean": diag_mean(test_diag, "film_beta_abs"),
         "params_total": metadata.get("param_count", {}).get("total"),
         "git_commit": git.get("commit"),
         "git_dirty": git.get("dirty"),

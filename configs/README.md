@@ -796,6 +796,61 @@ python scripts/aggregate_selector_fusion.py \
   --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
 ```
 
+## A4c end-to-end full bimodal fusion
+
+`configs/experiments/a4c_end_to_end_bimodal_fusion.yaml` 是 A4c 第一批完整端到端双模态模型配置。它与 A4b-5/6 区分开：A4b-5/6 使用 frozen expert 后处理融合；A4c 重新训练 ToT/ToA 图像分支。
+
+固定输入与训练设置：
+
+```yaml
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+
+split:
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+第一批模型：
+
+```text
+dual_stream_concat_aux
+dual_stream_gmu_aux
+toa_conditioned_film
+```
+
+其中 `dual_stream_concat_aux` 和 `dual_stream_gmu_aux` 会返回 auxiliary logits，默认 auxiliary loss 为：
+
+```yaml
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+```
+
+`dual_stream_gmu_aux` 会在 `metrics.json` / summary CSV 中记录 `gate_tot`、`gate_toa` 诊断均值；`toa_conditioned_film` 会记录 `film_gamma_abs`、`film_beta_abs` 诊断均值。
+
+seed42 快速验证：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion_seed42 --out outputs/a4c_end_to_end_bimodal_fusion_seed42_runs.csv
+```
+
+正式三 seed：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion --out outputs/a4c_end_to_end_bimodal_fusion_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_end_to_end_bimodal_fusion_runs.csv --out outputs/a4c_end_to_end_bimodal_fusion_mean_std.csv
+```
+
 `resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
 
 `resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：

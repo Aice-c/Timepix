@@ -67,6 +67,107 @@ Proton_C_7   -> E:\C1Analysis\Proton_C_7
 - 不经过 `outputs/experiments/<group>/` 的诊断脚本也要明确输出文件，例如 summary CSV、by-class CSV、JSON、sample-level CSV 或 distribution CSV，避免只有运行入口而没有可追溯结果入口。
 - 每次新增实验配置、修改实验编号、废弃旧结果或改变选择标准，都要同步更新本文档中的关键决策与命令块。
 
+## 实验编号与阶段总览
+
+本节作为后续实验命名的总索引。原则是：一级编号回答一个论文问题，子编号只表示该问题下的方法阶段；已生成的历史配置和输出目录不强制改名，避免破坏可追溯性，但论文、日志和新配置应按本节编号口径解释。
+
+编号规则：
+
+- `A*`：`Alpha_100` 主线训练实验。
+- `B*`：`Proton_C_7` 训练主线实验。
+- `D*` 或 `Analysis*`：论文数据分析、分辨极限分析，不混入训练实验编号。
+- 带 `_seed42` 的配置表示快速单 seed 配置；不带 `_seed42` 的正式对比配置默认优先三 seed 或完整 grid。
+- 历史 `A4b-2.5` 保留为已经发生的互补性初步诊断编号；后续不再新增半号编号。
+
+Alpha 主线阶段：
+
+| 编号 | 阶段目的 | 当前状态 | 关键说明 |
+| --- | --- | --- | --- |
+| `A1` | ResNet18 结构适配 | 已完成 | 确定 `resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1` 是 Alpha-ToT 的最佳结构方向；A1 中 `dropout=0.3` 表现好，但最终 dropout 交给 A2 训练超参搜索决定。 |
+| `A2` | Alpha-ToT 训练超参数搜索 | 已完成 | 固定 A1 结构后搜索 `learning_rate`、`weight_decay`、`batch_size`、`eta_min`、`dropout`，得到 A2 best base。 |
+| `A2-best` | A2 最佳配置三 seed 认证 | 已完成 | 作为后续 ToT baseline 和 A4b seed-control 的基准池。 |
+| `A3` | 主干模型对比 | 已完成 | 比较 ShallowCNN、ShallowResNet、ResNet18、DenseNet121、EfficientNet-B0、ConvNeXt-Tiny、ViT-Tiny；支持 `resnet18_no_maxpool` 作为当前主干。 |
+| `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
+| `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
+| `A4c` | End-to-end full bimodal fusion | 准备实现 | 研究完整端到端双模态模型是否能超过 A4b-5 的 frozen-expert gate；定位为 A4b 主线后的补充验证，不替代 A4b-5 当前主结果。 |
+| `A5` | 物理/手工特征融合 | 待定 | 建议用于 ToT image + ToT/ToA scalar physical features，不继续塞进 A4b。 |
+| `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
+| `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
+
+A4b 子阶段命名：
+
+| 编号 | 阶段目的 | 当前状态 | 关键结论 |
+| --- | --- | --- | --- |
+| `A4b-1` | ToA 表达方式对比，仍属于 early fusion | 已完成 | relative ToA 明显好于 raw/log1p ToA，但所有 early fusion 变体仍未超过 ToT baseline。 |
+| `A4b-2` | fixed late logit fusion | 已完成 | validation 选择 `alpha_toa=0`，说明全局固定 ToA 权重不可靠。 |
+| `A4b-2.5` | 预测互补性初步诊断 | 已完成 | 发现 ToT 与 `relative_minmax/no mask` candidate 存在 oracle 互补性。 |
+| `A4b-3a` | ToT-vs-ToT seed oracle control | 已完成 | 普通 ToT 多 seed oracle gain 较小，不能解释 ToT/candidate 的高互补性。 |
+| `A4b-3b` | ToT vs `relative_minmax/no mask` validation/test oracle check | 已完成 | 证明互补性在 validation/test 均稳定存在，尤其 30 deg 类别。 |
+| `A4b-4` | hard selector 系列 | 已完成 | rule selector 小幅有效，learned selector 不够稳定。 |
+| `A4b-4d` | selector switch diagnostics | 已完成 | 主要瓶颈不是切换不足，而是 beneficial/harmful switch 难以区分，switch precision 不够。 |
+| `A4b-4e` | rule selector 三 seed 验证 | 已完成 | validation-selected rule 三 seed 稳定小幅提升，但 rule 形式不稳定且远低于 oracle。 |
+| `A4b-5` | sample-wise gated late fusion | 已完成 | 当前 A4b 最强结果；frozen-expert gate 比 hard rule 更好。 |
+| `A4b-6` | residual gated fusion | 已完成 | 优于 ToT baseline，但正式 validation-selected 结果不如 A4b-5；作为 residual 对照。 |
+
+A4c 计划命名：
+
+| 编号 | 名称 | 阶段目的 | 当前安排 |
+| --- | --- | --- | --- |
+| `A4c-1` | `dual_stream_concat_aux` | 完整双流 feature fusion baseline | 第一批实现与运行。 |
+| `A4c-2` | `dual_stream_gmu_aux` | feature-level sample-wise gated fusion | 第一批实现与运行，重点模型之一。 |
+| `A4c-3` | `toa_conditioned_film` | ToA 作为辅助条件调制 ToT 特征 | 第一批实现与运行，重点模型之一。 |
+| `A4c-4` | `warm_started_expert_gate` | A4b-5 frozen expert gate 的端到端 warm-start 版本 | 第二批实现；涉及 checkpoint 映射、冻结/解冻 schedule，工程复杂度较高。 |
+| `A4c-5` | `mmtm_lite` | 中间层跨模态通道重标定 | 选做；仅在 A4c-1/2/3/4 后仍有时间和算力时考虑。 |
+
+A4c 固定决策：
+
+- Dataset: `Alpha_100`
+- Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- Inputs: `ToT + relative_minmax ToA, no mask`
+- Backbone base: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Training config: A2 best
+- Loss/label: `cross_entropy` + `onehot`
+- AMP: enabled
+- Seeds: `42`, `43`, `44` for formal comparison；implementation smoke test 可以先跑 `seed42`
+- Model selection: 只使用 validation；test 只用于最终报告。
+
+A4c 自由度收敛决策：
+
+- `ToA` 不再使用 raw/log1p，也不再扩展更多 mask/transform 网格；`relative_minmax, no mask` 来自 A4b 互补性结果。
+- `A4c-1/2/3` 从头训练，不混入 checkpoint initialization 变量。
+- `A4c-4` 单独作为 warm-start expert gate，允许加载 ToT baseline 和 candidate checkpoint，并使用分阶段冻结/解冻。
+- `A4c-1/2` 使用 auxiliary heads，建议初始权重为 `tot_aux=0.3`、`toa_aux=0.1`；`A4c-3` 中 ToA 是条件调制，不强制 ToA auxiliary head。
+- `A4c-2` 的 gate bias 初始化偏向 ToT；`A4c-3` 的 FiLM 最后一层 zero-init，使初始调制接近 identity。
+- `A4c-5 mmtm_lite` 暂缓，避免完整双模态部分膨胀成新大网格。
+
+Proton/C 主线阶段：
+
+| 编号 | 阶段目的 | 当前状态 | 关键说明 |
+| --- | --- | --- | --- |
+| `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 进行中 | 固定 Alpha A1 最佳结构和 A2 风格训练设置；旧 20 epoch 结果只作诊断，当前中继到 25 epoch。 |
+| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 待 B1-1 后执行 | 固定 B1-1 最佳 `learning_rate + batch_size`，搜索 `weight_decay`。 |
+| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待定 | B1 搜索结束后做。 |
+| `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
+| `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
+| `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
+
+数据分析链路：
+
+| 编号 | 阶段目的 | 当前状态 | 关键说明 |
+| --- | --- | --- | --- |
+| `D1` | Dataset analysis | 已实现 | 分析 `Alpha_100` 与全量 `Proton_C`，输出论文数据集统计、图表和报告。 |
+| `D2` | Resolution limit analysis | 已实现 | 分析全量 `Proton_C` 近垂直角度分辨极限，不使用训练专用 `Proton_C_7`。 |
+| `D3` | Combined analysis report | 已实现 | 合并 `D1/D2` 报告。 |
+
+当前推进顺序决策：
+
+1. A4b 已形成完整闭环：A4/A4b-1/A4b-3/A4b-4/A4b-5/A4b-6。
+2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
+3. A4c 第一批只实现 `A4c-1/2/3`；`A4c-4` 作为第二批；`A4c-5` 选做。
+4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
+5. A5/A6 等 A4c 和 B1 有初步结果后再展开。
+
 ## A2 Best Base
 
 配置文件：
@@ -1167,10 +1268,10 @@ python scripts/summarize.py --all --out outputs/experiment_summary.csv
 - A4b-6：做 constrained residual interpolation，使用 validation-selected `beta` grid 控制 candidate 对 ToT logits 的修正幅度。
 - A4b-7：做紧凑的 ToA-only relative controls。
 - A4b-8：做 ToT image plus ToA scalar physical features。
-- A4b-9：在低成本 selector/gate 分析清楚后，再考虑可选的 end-to-end gated expert fusion。
+- A4c：end-to-end full bimodal fusion 已从 A4b 中分离；不再新增 A4b-9。A4c 第一批为 `dual_stream_concat_aux`、`dual_stream_gmu_aux`、`toa_conditioned_film`，`warm_started_expert_gate` 放入 A4c 第二批。
 
 暂缓内容：
-- GMU、FiLM、MMTM、ordinary feature concat 和更大的 mask/transform grid 暂缓，等 A4b-4d/A4b-5/A4b-6 说明 selector/gate 信号是否可靠后再决定。
+- A4b 内部不再新增 GMU、FiLM、MMTM、ordinary feature concat 或更大的 mask/transform grid；其中 GMU/FiLM/feature concat 已迁移到 A4c，MMTM 作为 A4c 选做项。
 
 ### A4b-4d switch diagnostics 实现
 
@@ -1224,6 +1325,44 @@ python scripts/analyze_selector_switches.py \
 - `python scripts\analyze_selector_switches.py --help`
 - `python -m py_compile scripts\analyze_selector_switches.py`
 - 使用小型 synthetic helper 数据完成 switch precision/recall 计算 smoke test。
+
+当前结果记录（用户汇报）：
+
+A4b-4d 解释的是 seed42 的规则选择器 `entropy_adv_0p03` 为什么离 oracle 仍然很远。
+
+测试集整体：
+
+| 指标 | 数值 |
+| --- | ---: |
+| ToT baseline acc | 70.48% |
+| selector acc | 70.97% |
+| oracle acc | 81.51% |
+| selector gain | +0.50 percentage points |
+| selector switch rate | 14.51% |
+| oracle switch rate | 12.43% |
+| beneficial switches | 70 |
+| harmful switches | 69 |
+| neutral switches | 7 |
+| missed beneficial | 55 |
+| switch precision | 47.95% |
+| switch recall | 56.00% |
+
+按类别统计：
+
+| class | ToT acc | selector acc | oracle acc | switch precision | missed beneficial |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 15 deg | 82.05% | 78.06% | 87.18% | 34.04% | 7 |
+| 30 deg | 29.66% | 37.24% | 55.17% | 59.26% | 24 |
+| 45 deg | 75.42% | 79.38% | 86.72% | 67.44% | 17 |
+| 60 deg | 71.15% | 67.31% | 81.41% | 31.03% | 7 |
+
+结论：
+
+- A4b-4d 的核心解释是：`entropy_adv_0p03` 不是切换太少，而是切换质量不够高。
+- 测试集切换 146 个样本，其中 beneficial 70、harmful 69、neutral 7，几乎一半有益、一半有害，因此整体只能获得 +0.50 percentage points 的小幅收益。
+- selector 主要帮助 30 deg 和 45 deg，但明显伤害 15 deg 和 60 deg。
+- 30 deg 虽然改善最大，但仍漏掉 24 个 oracle-beneficial 样本，因此远低于 oracle。
+- beneficial switch 和 harmful switch 的 entropy/confidence 分布高度重叠，说明 candidate 更自信不等于 candidate 更正确；这正是 rule selector 难以接近 oracle 的主要瓶颈。
 
 ## B1-1 epoch-20 中继恢复方案
 
@@ -1381,6 +1520,35 @@ python scripts/aggregate_selector_fusion.py \
 - 如果 validation-selected rule selector 相对 `primary_only` 提高了 mean test accuracy、MAE 和 macro-F1，A4b-4a 可以作为小幅但较稳定的 selector baseline 汇报。
 - 如果 mean improvement 消失或方差较高，A4b-4a 仍只作为 seed42 诊断结果；更强的结论仍是 oracle-level complementarity，而不是可靠可部署的 fusion gain。
 
+当前三 seed 结果记录（用户汇报）：
+
+A4b-4e 说明 validation-selected rule selector 在三 seed 上都有稳定小幅收益，但仍不是强结论，也没有接近 oracle。
+
+三 seed 汇总：
+
+| method | Test Acc | Test MAE | Macro-F1 | selection rate |
+| --- | ---: | ---: | ---: | ---: |
+| ToT baseline | 70.44% ± 0.15 | 5.949 ± 0.068 | 0.636 ± 0.009 | 0 |
+| candidate only | 68.75% ± 1.52 | 6.546 ± 0.313 | 0.626 ± 0.016 | 100% |
+| validation-selected rule | 71.44% ± 0.57 | 5.835 ± 0.121 | 0.645 ± 0.013 | 9.51% ± 5.40 |
+| oracle | 79.75% ± 1.96 | 4.061 ± 0.438 | 0.748 ± 0.036 | 9.94% ± 2.44 |
+
+逐 seed 结果：
+
+| seed | selected rule | ToT Acc | selector Acc | gain |
+| ---: | --- | ---: | ---: | ---: |
+| 42 | `entropy_adv_0p03` | 70.48% | 70.97% | +0.50 percentage points |
+| 43 | `entropy_adv_0p0` | 70.58% | 72.07% | +1.49 percentage points |
+| 44 | `conf_adv_0p15` | 70.28% | 71.27% | +0.99 percentage points |
+
+解释口径更新：
+
+- validation-selected rule selector 在三 seed 上均优于 ToT baseline，平均 Test Acc 提升约 +0.99 percentage points，同时 MAE 和 Macro-F1 也略有改善。
+- 三个 seed 选中的具体 rule 不一致，说明简单规则形式本身不够稳定。
+- candidate-only 明显不如 ToT，说明不能直接用 relative ToA early-fusion 模型替代 ToT。
+- oracle 仍达到 79.75%，比 validation-selected rule selector 高约 8.31 percentage points，说明互补信息存在，但当前 rule selector 只能利用其中一小部分。
+- 如果固定使用 seed42 的原始 A4b-4a 规则 `entropy_adv_0p03`，三 seed Test Acc 约为 71.74%，平均比 ToT 高约 +1.29 percentage points。但这只作为额外诊断，不应优先于 validation-selected rule，因为正式流程应尊重每个 seed 的 validation selection。
+
 ## A4b-5 sample-wise gated late fusion
 
 记录日期：2026-04-29。
@@ -1474,7 +1642,74 @@ python scripts/aggregate_selector_fusion.py \
 本地验证：
 - `python scripts\evaluate_gated_late_fusion.py --help`
 - `python -m py_compile scripts\evaluate_gated_late_fusion.py`
-- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成 synthetic logits smoke test。
+- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成合成 logits 的 smoke test。
+
+当前三 seed 结果记录（用户汇报）：
+
+原始结果文件：
+
+```text
+outputs/a4b_5_gated_late_fusion_mean_std.csv
+outputs/a4b_5_gated_late_fusion_seed42_summary.csv
+outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+outputs/a4b_5_gated_late_fusion_seed43_summary.csv
+outputs/a4b_5_gated_late_fusion_seed43_by_class.csv
+outputs/a4b_5_gated_late_fusion_seed44_summary.csv
+outputs/a4b_5_gated_late_fusion_seed44_by_class.csv
+```
+
+A4b-5 三 seed 主汇总：
+
+| 方法 | Val Acc | Test Acc | Test MAE | Test F1 |
+| --- | ---: | ---: | ---: | ---: |
+| ToT primary | 69.03±0.46% | 70.44±0.15% | 5.949±0.068 | 0.636±0.009 |
+| Candidate only | 68.03±1.08% | 68.75±1.52% | 6.546±0.313 | 0.626±0.016 |
+| A4b-5 validation-selected gate | 71.40±0.59% | **72.17±1.72%** | **5.661±0.320** | **0.662±0.027** |
+| Oracle | 77.42±2.16% | 79.75±1.96% | 4.061±0.438 | 0.748±0.036 |
+
+相对变化：
+
+- A4b-5 相比 ToT：Test Acc +1.72 percentage points，MAE -0.288 deg，Macro-F1 +0.026。
+- A4b-5 相比 A4b-4e rule selector：Test Acc +0.73 percentage points，MAE -0.174 deg，Macro-F1 +0.017。
+
+每个 seed 的 validation-selected gate：
+
+| Seed | 选中策略 | Fit | Test Acc | vs ToT | Test MAE | Test F1 | Gate Mean | High Gate |
+| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 42 | `a4b5d_class_aware_prob_val-cv` | val-cv | 71.07% | +0.60 | 5.815 | 0.655 | 0.499 | 49.01% |
+| 43 | `a4b5d_class_aware_prob_train` | train | 74.16% | +3.58 | 5.293 | 0.692 | 0.861 | 87.67% |
+| 44 | `a4b5d_class_aware_prob_val-cv` | val-cv | 71.27% | +0.99 | 5.875 | 0.639 | 0.622 | 63.02% |
+
+关键备注：
+
+- seed43 由 validation 选中了 `train` fit。根据前述决策，train-fit 结果作为探索性/偏乐观参考；论文正式表述应说明这一点。
+- 更保守的论文口径可单独报告 `val-cv only` 结果，尤其是 `a4b5d_class_aware_prob_val-cv`。
+- 按 test 诊断排序，部分 entropy soft gate 策略可达到约 72.23±0.80% Test Acc，但这些策略不是 validation-selected，不能作为正式模型选择依据。
+
+主要 gate 变体三 seed 均值：
+
+| Strategy | Fit | Test Acc | Test MAE | Test F1 |
+| --- | --- | ---: | ---: | ---: |
+| `a4b5d_class_aware_prob_val-cv` | val-cv | 71.80±1.09% | 5.711±0.234 | 0.657±0.019 |
+| `a4b5c_learned_scalar_logit_val-cv` | val-cv | 71.70±0.77% | 5.815±0.179 | 0.658±0.014 |
+| `a4b5e_conservative_scalar_prob_val-cv` | val-cv | 71.84±0.64% | 5.845±0.142 | 0.662±0.013 |
+| `a4b5b_learned_scalar_prob_val-cv` | val-cv | 71.77±0.53% | 5.840±0.158 | 0.661±0.012 |
+| `a4b5d_class_aware_prob_train` | train | 71.97±2.82% | 5.765±0.612 | 0.669±0.021 |
+| fixed `rule_entropy_adv_0p03` | rule | 71.74±0.68% | 5.780±0.145 | 0.647±0.010 |
+
+selected gate 按角度的三 seed test 均值：
+
+| 角度 | ToT Acc | Candidate Acc | Selected Gate Acc | Oracle Acc |
+| ---: | ---: | ---: | ---: | ---: |
+| 15 deg | 83.19±1.14% | 76.92±7.87% | 81.48±2.75% | 88.70±1.74% |
+| 30 deg | 25.29±3.92% | 32.18±13.80% | 30.80±8.62% | 41.61±12.83% |
+| 45 deg | 77.02±1.56% | 79.94±5.98% | 79.47±4.34% | 87.76±2.30% |
+| 60 deg | 68.80±2.06% | 58.97±4.00% | 73.08±3.85% | 76.92±4.00% |
+
+阶段性判断：
+
+- A4b-5 比 A4b-4 的 hard selector 更强，尤其 MAE 和 Macro-F1 改善更明显。
+- 当前更保守、可写入论文主线的 A4b-5 代表结果建议使用 `class_aware_prob_val-cv`；包含 train-fit 的 validation-selected 总表可作为完整实验结果，但需标注 seed43 的偏乐观风险。
 
 ## A4b-6 residual gated fusion
 
@@ -1560,4 +1795,174 @@ python scripts/aggregate_selector_fusion.py \
 本地验证：
 - `python scripts\evaluate_residual_gated_fusion.py --help`
 - `python -m py_compile scripts\evaluate_residual_gated_fusion.py`
-- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成 synthetic logits smoke test。
+- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成合成 logits 的 smoke test。
+
+当前三 seed 结果记录（用户汇报）：
+
+原始结果文件：
+
+```text
+outputs/a4b_6_residual_gated_fusion_mean_std.csv
+outputs/a4b_6_residual_gated_fusion_seed42_summary.csv
+outputs/a4b_6_residual_gated_fusion_seed42_by_class.csv
+outputs/a4b_6_residual_gated_fusion_seed43_summary.csv
+outputs/a4b_6_residual_gated_fusion_seed43_by_class.csv
+outputs/a4b_6_residual_gated_fusion_seed44_summary.csv
+outputs/a4b_6_residual_gated_fusion_seed44_by_class.csv
+```
+
+A4b-6 三 seed 主汇总：
+
+| 方法 | Val Acc | Test Acc | Test MAE | Test F1 | Test residual/high rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ToT primary | 69.03±0.46% | 70.44±0.15% | 5.949±0.068 | 0.636±0.009 | 0 |
+| Candidate only | 68.03±1.08% | 68.75±1.52% | 6.546±0.313 | 0.626±0.016 | 1.000 |
+| A4b-6 validation-selected residual | **71.76±0.72%** | **71.44±1.01%** | **5.800±0.077** | **0.656±0.010** | 0.377 |
+| Oracle | 77.42±2.16% | 79.75±1.96% | 4.061±0.438 | 0.748±0.036 | 0.099 |
+
+每个 seed 的 validation-selected residual：
+
+| Seed | Selected strategy | 类型 | 参数 | Val Acc | Test Acc | Test MAE | Test F1 | Test residual mean |
+| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 42 | `a4b6b_per_class_beta_grid` | per-class beta | `0.5;1;0.2;0.3` | 72.23% | 70.28% | 5.890 | 0.661 | 0.431 |
+| 43 | `a4b6b_per_class_beta_grid` | per-class beta | `1;1;0.05;0.5` | 72.13% | 72.07% | 5.755 | 0.663 | 0.574 |
+| 44 | `a4b6e_entropy_residual_t0p1_k5_b0p5` | entropy residual | `t=0.1,k=5,beta=0.5` | 70.93% | 71.97% | 5.755 | 0.645 | 0.213 |
+
+主要候选策略三 seed 聚合：
+
+| Strategy | Test Acc | Test MAE | Test F1 | Residual mean |
+| --- | ---: | ---: | ---: | ---: |
+| `a4b6e_entropy_residual_tm0p05_k5_b0p5` | **72.60±0.77%** | **5.567** | 0.655 | 0.296 |
+| `a4b6e_entropy_residual_tm0p05_k20_b0p3` | 72.43±0.15% | 5.577 | 0.654 | 0.187 |
+| `a4b6a_scalar_beta_b0p3` | 72.40±0.47% | 5.572 | 0.650 | 0.300 |
+| `a4b6e_entropy_residual_t0p1_k5_b0p5` | 72.33±0.55% | 5.621 | 0.652 | 0.231 |
+| `a4b6a_scalar_beta_b0p5` | 72.30±1.47% | 5.676 | 0.652 | 0.500 |
+| official selected residual | 71.44±1.01% | 5.800 | 0.656 | 0.377 |
+
+注意：上表前几名是按 test 诊断排序，不能用于正式模型选择；正式结果仍应以 validation-selected residual 为准。
+
+selected residual 按角度的 test 均值：
+
+| 角度 | ToT Acc | Candidate Acc | Selected Residual Acc | Oracle Acc |
+| ---: | ---: | ---: | ---: | ---: |
+| 15 deg | 83.19±1.14% | 76.92±7.87% | 81.77±5.41% | 88.70±1.74% |
+| 30 deg | 25.29±3.92% | 32.18±13.80% | 32.41±8.97% | 41.61±12.83% |
+| 45 deg | 77.02±1.56% | 79.94±5.98% | 78.44±2.40% | 87.76±2.30% |
+| 60 deg | 68.80±2.06% | 58.97±4.00% | 68.59±1.70% | 76.92±4.00% |
+
+与前面方法的数值对比：
+
+| 对比 | Test Acc 变化 | MAE 变化 | F1 变化 |
+| --- | ---: | ---: | ---: |
+| A4b-6 vs ToT | +0.99 percentage points | -0.149 deg | +0.020 |
+| A4b-6 vs A4b-4e rule | +0.00 percentage points | -0.035 deg | +0.012 |
+| A4b-6 vs A4b-5 gate | -0.73 percentage points | +0.139 deg | -0.006 |
+
+阶段性判断：
+
+- A4b-6 确实优于 ToT baseline，但正式 validation-selected 结果不如 A4b-5。
+- A4b-6 的价值主要体现在作为 residual fusion 对照实验：相比 A4b-4e rule，MAE 和 Macro-F1 略好，但整体 Test Acc 没有进一步提高。
+- 当前 A4b 系列最佳选择性融合结果仍是 A4b-5 gate；A4b-6 更适合作为“以 ToT 为主、candidate 只做受限修正”的对照方案。
+
+## A4c end-to-end full bimodal fusion
+
+记录日期：2026-04-29。
+
+实验定位：
+
+- A4c 是 A4b 之后的完整端到端双模态补充验证组。
+- A4b-5/6 是 frozen-expert / frozen-logit 后处理融合，不重新训练 ResNet expert。
+- A4c 重新训练 ToT/ToA 图像分支，让 feature-level gate 或条件调制模块直接访问中间图像特征。
+- A4c 不替代 A4b-5 当前主结果；它用于回答完整端到端双模态模型能否进一步超过 A4b-5 frozen-expert gate。
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- Inputs: `ToT + relative_minmax ToA, no mask`
+- Backbone base: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Training config: A2 best
+- Loss/label: `cross_entropy` + `onehot`
+- Handcrafted: disabled
+- AMP: enabled
+- Formal seeds: `42`, `43`, `44`
+- Model selection: validation only; test only final report。
+
+新增代码：
+
+```text
+timepix/models/dual_stream.py
+```
+
+新增模型：
+
+| 编号 | `model.name` | 说明 |
+| --- | --- | --- |
+| `A4c-1` | `dual_stream_concat_aux` | ToT/relative-ToA 两个 ResNet18 encoder，高层 feature concat，并带 ToT/ToA auxiliary heads。 |
+| `A4c-2` | `dual_stream_gmu_aux` | ToT/relative-ToA 两个 ResNet18 encoder，使用 GMU-style feature gate；gate bias 初始化偏向 ToT。 |
+| `A4c-3` | `toa_conditioned_film` | ToT 为主分支，relative ToA encoder 生成 FiLM `gamma/beta`，在 ToT `layer3` 后调制；FiLM 最后一层 zero-init。 |
+
+训练框架适配：
+
+- `ModelOutput` 新增 `aux_logits` 和 `diagnostics` 字段。
+- `train_one_epoch()` / `evaluate()` 支持 `model.aux_loss`，当模型返回 auxiliary logits 时计算：
+
+```text
+loss = CE(main) + weight_tot * CE(aux_tot) + weight_toa * CE(aux_toa)
+```
+
+- A4c 当前默认：
+
+```yaml
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+```
+
+- `metrics.json` 会记录 `validation_diagnostics` 和 `test_diagnostics`。
+- `scripts/summarize.py` 与 `scripts/aggregate_seeds.py` 已加入 gate/FiLM 诊断均值列，例如 `test_gate_tot_mean`、`test_gate_toa_mean`、`test_film_gamma_abs_mean`、`test_film_beta_abs_mean`。
+
+新增配置：
+
+```text
+configs/experiments/a4c_end_to_end_bimodal_fusion.yaml
+configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml
+```
+
+seed42 快速验证命令：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion_seed42 --out outputs/a4c_end_to_end_bimodal_fusion_seed42_runs.csv
+```
+
+正式三 seed 命令：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion --out outputs/a4c_end_to_end_bimodal_fusion_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_end_to_end_bimodal_fusion_runs.csv --out outputs/a4c_end_to_end_bimodal_fusion_mean_std.csv
+```
+
+本地验证：
+
+```powershell
+python -m py_compile timepix\models\base.py timepix\models\dual_stream.py timepix\models\registry.py timepix\training\trainer.py timepix\training\runner.py timepix\config_validation.py scripts\summarize.py scripts\aggregate_seeds.py
+python scripts\run_grid.py --config configs\experiments\a4c_end_to_end_bimodal_fusion_seed42.yaml --dry-run
+& 'D:\Program\Anaconda\envs\timepix-local\python.exe' -  # 已用 synthetic batch 验证三种 A4c 模型 forward/train/evaluate 路径
+```
+
+当前实现验证结果：
+
+- `python -m py_compile` 通过。
+- `a4c_end_to_end_bimodal_fusion_seed42.yaml --dry-run` 规划 3 个 run。
+- `a4c_end_to_end_bimodal_fusion.yaml --dry-run` 规划 9 个 run。
+- 使用本地 `timepix-local` 环境和 synthetic `2 x 100 x 100` batch 验证：
+  - `dual_stream_concat_aux` 可完成 train/evaluate；
+  - `dual_stream_gmu_aux` 可输出 `gate_tot`、`gate_toa` diagnostics；
+  - `toa_conditioned_film` 可输出 `film_gamma_abs`、`film_beta_abs` diagnostics。

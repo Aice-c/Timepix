@@ -1,0 +1,12 @@
+base: a4c_end_to_end_bimodal_fusion.yaml
+
+experiment_name: a4c_end_to_end_bimodal_alpha_seed42
+experiment_group: a4c_end_to_end_bimodal_fusion_seed42
+
+grid:
+  model.name:
+    - dual_stream_concat_aux
+    - dual_stream_gmu_aux
+    - toa_conditioned_film
+  training.seed:
+    - 42
