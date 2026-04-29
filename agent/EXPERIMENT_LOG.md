@@ -90,7 +90,7 @@ Alpha 主线阶段：
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
 | `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
-| `A5` | 物理/手工特征融合 | A5a 框架已实现，待运行筛选 | 聚焦 ToT image + selected ToT/ToA scalar physical features；先做 A5a 随机森林/置换重要性筛选，再做少量 CNN 融合验证，避免全特征大网格。 |
+| `A5` | 物理/手工特征融合 | A5a 已完成，A5b 低冗余配置已撰写 | 聚焦 ToT image + selected ToT/ToA scalar physical features；A5a 已完成传统模型/置换重要性筛选，A5b 只跑少量低冗余 CNN concat 验证，避免全特征大网格。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
 
@@ -145,8 +145,8 @@ A5 计划命名：
 
 | 编号 | 名称 | 阶段目的 | 当前安排 |
 | --- | --- | --- | --- |
-| `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 脚本和配置已实现，待运行；只用 train/validation，test 不参与筛选。 |
-| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 模板已撰写，待 A5a 筛选结果；统一使用 concat，避免同时搜索融合方式。 |
+| `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 已完成；只用 train/validation，test 未参与筛选。 |
+| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 正式低冗余配置已撰写；统一使用 concat，避免同时搜索融合方式。 |
 | `A5c` | handcrafted fusion mode comparison | 只对 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated | 模板已撰写，待 A5b 结果；不扩大特征集合。 |
 | `A5d` | best handcrafted fusion 3-seed verification | 对 A5c 选出的最佳 1-2 个设置做 `training.seed=42/43/44` 认证 | 模板已撰写，待 A5c 结果；报告 mean ± std。 |
 
@@ -213,11 +213,11 @@ raw ToA sum / mean / max / min
 A5 分组递进方案：
 
 1. `A5a`：提取 12 维候选特征，训练 handcrafted-only `RandomForest` / `LogisticRegression`，使用 validation permutation importance 和 group permutation importance 筛选特征；test 不参与筛选。
-2. `A5b`：基于 A5a 选出的 6-8 个特征，跑少量 seed42 CNN concat 消融：
-   - `A5b-1`: CNN + selected Geometry
-   - `A5b-2`: CNN + selected Geometry + ToT
-   - `A5b-3`: CNN + selected ToA/Axis
-   - `A5b-4`: CNN + selected all
+2. `A5b`：基于 A5a 的 validation importance 与相关矩阵，跑 4 个 seed42 CNN concat 低冗余消融：
+   - `A5b-1`: `geometry_lowcorr`
+   - `A5b-2`: `tot_lowcorr`
+   - `A5b-3`: `toa_lowcorr`
+   - `A5b-4`: `selected_lowcorr_all`
 3. `A5c`：只拿 A5b 最好的 1 个特征组比较融合方式：
    - handcrafted-only MLP
    - CNN + handcrafted concat
@@ -238,7 +238,7 @@ A5a 当前实现与命令：
 - 新增 `handcrafted_mlp`，用于 A5c 的 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。
 - 新增脚本 `scripts/screen_handcrafted_features.py`，只做特征抽取、`RandomForest` / one-vs-rest `LogisticRegression`、validation permutation importance 和 group permutation importance；不训练 CNN。
 - A5a 配置：`configs/experiments/a5a_alpha_handcrafted_screening.yaml`。
-- A5b/A5c/A5d 和 B2 已提供 `*_TEMPLATE.yaml`，等 A5a 输出筛选结果后再填入正式 feature list。
+- A5b 已提供正式配置 `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml`；A5c/A5d 和 B2 继续保留 `*_TEMPLATE.yaml`，等 A5b 结果后再填入正式 feature list。
 
 服务器 `tmux` 持久化运行：
 
@@ -255,7 +255,7 @@ tmux new -s a5a_screen
 python scripts/screen_handcrafted_features.py \
   --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
   --data-root /root/autodl-tmp/Alpha_100 \
-  --out-dir outputs/a5_feature_screening \
+  --out-dir outputs/a5a_alpha_handcrafted_screening \
   --name a5a_alpha_handcrafted_screening \
   --n-repeats 30
 ```
@@ -263,7 +263,7 @@ python scripts/screen_handcrafted_features.py \
 A5a 输出目录：
 
 ```text
-outputs/a5_feature_screening/a5a_alpha_handcrafted_screening/
+outputs/a5a_alpha_handcrafted_screening/a5a_alpha_handcrafted_screening/
 ```
 
 主要输出文件：
@@ -281,6 +281,60 @@ feature_metadata.json
 ```
 
 说明：A5a 不是 `run_grid.py` 深度训练实验，因此不使用 `scripts/summarize.py` 或 `scripts/aggregate_seeds.py`。它的“汇总”由脚本直接写入 `model_metrics.csv`、`permutation_importance_val.csv` 和 `group_permutation_importance_val.csv`。
+
+A5a 已完成结果与 A5b 选择决策：
+
+- A5a 输出目录：`outputs/a5a_alpha_handcrafted_screening/a5a_alpha_handcrafted_screening/`。
+- `test_metrics_included=false`，说明 A5a 只使用 train/validation 做筛选，test 未参与选择。
+- `RandomForest` validation accuracy 为 63.94%，`logistic_regression_ovr` validation accuracy 为 58.94%；说明手工特征本身有角度判别能力，但不能替代 CNN。
+- 组重要性显示 `Geometry` 最强，其次为 `ToT`；`ToA` 与 `Axis interaction` 有补充价值但不是主导。
+- 相关矩阵显示原 12 维候选存在较强冗余，例如 `active_pixel_count` vs `total_ToT` 为 0.919，`ToA_span` vs `ToA_major_axis_slope_abs` 为 0.878。因此 A5b 不采用 12 维全量特征，也不采用原 8 维 selected all，而改用低冗余代表特征。
+
+A5b 低冗余分组：
+
+```text
+A5b-1 geometry_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+
+A5b-2 tot_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+
+A5b-3 toa_lowcorr:
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5b-4 selected_lowcorr_all:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+A5b 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5b_lowcorr
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out outputs/a5b_alpha_handcrafted_group_ablation_runs.csv
+```
+
+说明：A5b 是 seed42 筛选实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。A5d 进入三 seed 认证后再聚合 mean/std。
+
+同步工程更新：
+
+- `scripts/summarize.py` 已新增 `handcrafted_enabled`、`handcrafted_dim`、`handcrafted_feature_count`、`handcrafted_features`、`handcrafted_source_modalities` 字段。
+- 这样 A5b/A5d 的 summary CSV 可以直接看到每个 run 使用的手工特征组，不需要只依赖很长的 `experiment_name` 反推。
 
 Proton/C 主线阶段：
 
@@ -2703,7 +2757,7 @@ tmux new -s a5a_screen
 python scripts/screen_handcrafted_features.py \
   --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
   --data-root /root/autodl-tmp/Alpha_100 \
-  --out-dir outputs/a5_feature_screening \
+  --out-dir outputs/a5a_alpha_handcrafted_screening \
   --name a5a_alpha_handcrafted_screening \
   --n-repeats 30
 ```

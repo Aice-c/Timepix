@@ -1093,7 +1093,7 @@ tmux attach -t a4c_warm_gate
 
 ## A5 physical handcrafted feature fusion plan
 
-A5a 特征筛选脚本和配置已实现；A5b/A5c/A5d 与 B2 先保留模板，等待 A5a 的 validation importance 结果后再填入正式 feature list。
+A5a 特征筛选已完成；A5b 已根据 validation importance 与训练集相关矩阵落成低冗余 seed42 CNN concat 消融配置。A5c/A5d 与 B2 继续保留模板，等待 A5b 结果后再填入正式 feature list。
 
 A5 不再塞进 A4b，也不作为新的 ToT/ToA 图像融合实验。A5 的问题是：
 
@@ -1172,7 +1172,7 @@ A5d: best handcrafted fusion 3-seed verification
 计划流程：
 
 1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、one-vs-rest `LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
-2. `A5b`：只用 A5a 选出的 6-8 个特征，跑少量 seed42 `concat` 消融，包括 selected Geometry、Geometry+ToT、ToA/Axis、selected all。
+2. `A5b`：只用 A5a 选出的低冗余代表特征，跑 4 个 seed42 `concat` 消融，包括 Geometry、ToT-transferable、ToA-only、selected all。
 3. `A5c`：只拿 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated。
 4. `A5d`：只对 A5c 最优 1-2 个设置做 `training.seed=42/43/44` 认证并报告 mean ± std。
 
@@ -1185,11 +1185,42 @@ configs/experiments/a5a_alpha_handcrafted_screening.yaml
 A5b/A5c/A5d 模板：
 
 ```text
+configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml
 configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml
 configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml
 ```
+
+A5b 正式低冗余分组：
+
+```text
+A5b-1 geometry_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+
+A5b-2 tot_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+
+A5b-3 toa_lowcorr:
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5b-4 selected_lowcorr_all:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+选择逻辑：
+
+- 不把 12 个 A5a 候选特征全部塞入 CNN。
+- 优先保留 validation permutation importance 稳定、物理意义清楚、且同组内高度相关更少的代表特征。
+- 暂不纳入 `total_ToT`、`pca_minor_axis`、`ToA_major_axis_slope_abs`，因为它们分别与 `active_pixel_count` 或 `ToA_span` 存在较高相关风险。
 
 A5a 服务器 `tmux` 持久化运行：
 
@@ -1208,7 +1239,7 @@ tmux new -s a5a_screen
 python scripts/screen_handcrafted_features.py \
   --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
   --data-root /root/autodl-tmp/Alpha_100 \
-  --out-dir outputs/a5_feature_screening \
+  --out-dir outputs/a5a_alpha_handcrafted_screening \
   --name a5a_alpha_handcrafted_screening \
   --n-repeats 30
 ```
@@ -1216,7 +1247,7 @@ python scripts/screen_handcrafted_features.py \
 A5a 输出目录：
 
 ```text
-outputs/a5_feature_screening/a5a_alpha_handcrafted_screening/
+outputs/a5a_alpha_handcrafted_screening/a5a_alpha_handcrafted_screening/
 ```
 
 主要汇总文件：
@@ -1231,6 +1262,25 @@ feature_metadata.json
 ```
 
 说明：A5a 是传统模型/特征筛选诊断，不产生标准 `outputs/experiments/<group>/...` 训练目录，因此不使用 `scripts/summarize.py` 或 `scripts/aggregate_seeds.py`。A5b/A5c/A5d 进入 CNN 训练后必须补充标准 run-grid、summarize 和 aggregate 命令。
+
+A5b 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5b_lowcorr
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out outputs/a5b_alpha_handcrafted_group_ablation_runs.csv
+```
+
+A5b 是 seed42 筛选实验，因此只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。A5d 进入三 seed 认证后再使用 mean/std 聚合。
+
+A5 相关汇总 CSV 会额外包含 `handcrafted_enabled`、`handcrafted_dim`、`handcrafted_feature_count`、`handcrafted_features` 和 `handcrafted_source_modalities`，用于直接追踪每个 run 使用的标量特征组。
 
 ## B2 Proton_C_7 handcrafted transfer plan
 

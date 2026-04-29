@@ -113,6 +113,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4c_warm_started_expert_gate.yaml` | A4c-4 warm-started expert gate | Three-seed comparison of frozen vs fine-tuned warm-start expert gate using automatically discovered ToT primary and relative-minmax candidate checkpoints. |
 | `configs/experiments/a4c_warm_started_expert_gate_seed42.yaml` | A4c-4 quick comparison | Single-seed-42 shortcut for the warm-started expert gate. |
 | `configs/experiments/a5a_alpha_handcrafted_screening.yaml` | A5a feature screening config | Alpha_100 ToT image plus ToT/ToA scalar source config for `scripts/screen_handcrafted_features.py`; no CNN training and no test-based selection. |
+| `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml` | A5b low-correlation group ablation | Seed42 CNN+handcrafted concat comparison over low-redundancy Geometry, ToT-transferable, ToA-only, and selected-all feature groups. |
 | `configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml` | A5b template | Placeholder CNN + selected handcrafted feature-group ablation config; fill feature lists after A5a validation importance results. |
 | `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder CNN + selected handcrafted features with `concat`/`gated` fusion comparison. |
 | `configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml` | A5c handcrafted-only template | Placeholder `handcrafted_mlp` diagnostic config for selected A5 feature groups. |
@@ -145,7 +146,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report; defaults to full `Proton_C`, not training-only `Proton_C_7`. |
 | `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
-| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, mixed-precision state, and timing fields. |
+| `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, handcrafted feature fields, mixed-precision state, and timing fields. |
 | `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields, including A4c gate/FiLM diagnostic means when present. |
 
 ## Legacy `Program/` Files

@@ -170,6 +170,16 @@ python scripts/screen_handcrafted_features.py \
 
 A5a 的 `LogisticRegression` 显式包装为 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))`，用于兼容较新的 `scikit-learn` 多分类行为。A5a 输出是特征筛选诊断文件，不走 `scripts/summarize.py`；A5b/A5c/A5d 进入 CNN 训练后再使用标准 `run_grid.py`、`summarize.py` 和 `aggregate_seeds.py`。
 
+A5b 低冗余手工特征组 CNN concat 消融：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out outputs/a5b_alpha_handcrafted_group_ablation_runs.csv
+```
+
+A5b 是 seed42 筛选实验，暂不做 `aggregate_seeds.py`；A5d 三 seed 认证阶段再聚合 mean/std。
+
 C/质子 ToT：
 
 ```bash

@@ -1,0 +1,34 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a5b_alpha_handcrafted_group_ablation
+experiment_group: a5b_alpha_handcrafted_group_ablation
+
+dataset:
+  modalities: [ToT]
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+model:
+  fusion_mode: concat
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT, ToA]
+  features: []
+
+grid:
+  handcrafted_features.features:
+    # A5b-1 geometry_lowcorr
+    - [active_pixel_count, bbox_fill_ratio]
+    # A5b-2 tot_lowcorr / transferable candidate for Proton_C_7
+    - [active_pixel_count, bbox_fill_ratio, ToT_density]
+    # A5b-3 toa_lowcorr / Alpha-only timing features
+    - [ToA_span, ToA_major_axis_corr_abs]
+    # A5b-4 selected_lowcorr_all
+    - [active_pixel_count, bbox_fill_ratio, ToT_density, ToA_span, ToA_major_axis_corr_abs]
+  training.seed:
+    - 42

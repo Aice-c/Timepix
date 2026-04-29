@@ -27,6 +27,11 @@ SUMMARY_FIELDS = [
     "input_channels",
     "toa_transform",
     "add_hit_mask",
+    "handcrafted_enabled",
+    "handcrafted_dim",
+    "handcrafted_feature_count",
+    "handcrafted_features",
+    "handcrafted_source_modalities",
     "task",
     "model",
     "fusion_mode",
@@ -129,6 +134,8 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
     timing = metadata.get("timing", {})
     git = metadata.get("git", {})
     data_info = metadata.get("data_info", {})
+    handcrafted_features = data_info.get("handcrafted_features", [])
+    feature_source_modalities = data_info.get("feature_source_modalities", [])
     val_diag = metrics.get("validation_diagnostics", {})
     test_diag = metrics.get("test_diagnostics", {})
 
@@ -148,6 +155,13 @@ def _row_from_metadata(metadata: dict, metadata_path: Path, root: Path, recursiv
         "input_channels": data_info.get("input_channels"),
         "toa_transform": data_info.get("toa_transform", data.get("toa_transform", "none")),
         "add_hit_mask": data_info.get("add_hit_mask", data.get("add_hit_mask", False)),
+        "handcrafted_enabled": bool(data_info.get("handcrafted_dim", 0)),
+        "handcrafted_dim": data_info.get("handcrafted_dim"),
+        "handcrafted_feature_count": len(handcrafted_features) if isinstance(handcrafted_features, list) else None,
+        "handcrafted_features": ";".join(handcrafted_features) if isinstance(handcrafted_features, list) else "",
+        "handcrafted_source_modalities": "+".join(feature_source_modalities)
+        if isinstance(feature_source_modalities, list)
+        else "",
         "task": metadata.get("task"),
         "model": model.get("name"),
         "fusion_mode": model.get("fusion_mode"),
