@@ -151,6 +151,36 @@ python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_ru
 python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
 ```
 
+## B1-best tmux 示例
+
+B1-best 是 `Proton_C_7` 最佳训练配置的三 seed 认证，建议使用专用 `tmux` 会话：
+
+```bash
+cd ~/Timepix
+tmux new -s b1_best
+```
+
+进入会话后一次性运行完整链路：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_3seed --out outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_3seed_mean_std.csv
+```
+
+断开但保持训练运行：
+
+```text
+Ctrl+b 然后按 d
+```
+
+重新进入：
+
+```bash
+tmux attach -t b1_best
+```
+
 ## A4c-4 tmux 示例
 
 A4c-4 `warm_started_expert_gate` 属于长时间三 seed 对比实验，建议使用专用 `tmux` 会话：

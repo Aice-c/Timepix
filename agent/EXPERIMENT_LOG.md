@@ -147,7 +147,7 @@ Proton/C 主线阶段：
 | --- | --- | --- | --- |
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
-| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待配置/待运行 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`，建议做 `training.seed=42/43/44` 三 seed 认证。 |
+| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 配置已撰写，待运行 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`，运行 `training.seed=42/43/44` 三 seed 认证。 |
 | `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
@@ -1439,7 +1439,80 @@ scheduler     = cosine
 eta_min       = 1e-7
 ```
 
-- 下一步建议进入 `B1-best`：固定上述组合，做 `training.seed=42/43/44` 三 seed 认证，并报告 mean ± std。
+- 下一步进入 `B1-best`：固定上述组合，做 `training.seed=42/43/44` 三 seed 认证，并报告 mean ± std。
+
+### B1-best 三 seed 认证
+
+配置文件：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
+```
+
+实验目的：
+
+- 固定 B1-1/B1-2 得到的 `Proton_C_7` 默认训练超参数，验证该组合在不同训练随机种子下的稳定性。
+- 该实验不是新的超参搜索；只改变 `training.seed`，`split.seed` 与 split manifest 保持为 42，确保不同 seed 使用同一数据划分。
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss/label: `cross_entropy` + `onehot`
+- `learning_rate=3e-4`
+- `batch_size=128`
+- `weight_decay=1e-4`
+- `dropout=0.1`
+- `scheduler=cosine`
+- `eta_min=1e-7`
+- `epochs=25`
+- `early_stopping_patience=5`
+- AMP: enabled
+- Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
+
+网格：
+
+```yaml
+grid:
+  training.seed:
+    - 42
+    - 43
+    - 44
+```
+
+决策备注：
+
+- B1-best 配置不继承 B1-2 配置文件，因为 B1-2 自身包含 `training.weight_decay` 搜索 grid；直接继承会因深度合并而把旧搜索项带入 B1-best。
+- 因此 B1-best 使用独立 YAML 显式写出固定配置，只保留 `training.seed` 一个 grid 维度。
+- 运行后使用 `scripts/summarize.py` 输出逐 run 汇总，再使用 `scripts/aggregate_seeds.py` 计算 mean ± std。
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b1_best
+```
+
+进入 `tmux` 后一次性运行完整链路：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_3seed --out outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_3seed_mean_std.csv
+```
+
+`tmux` 使用：
+
+```bash
+# 断开但保持运行
+Ctrl+b 然后按 d
+
+# 重新进入
+tmux attach -t b1_best
+```
 
 ## 常用汇总命令
 

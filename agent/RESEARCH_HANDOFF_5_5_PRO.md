@@ -62,7 +62,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b 后续选择性融合已形成完整阶段：`A4b-4e` rule selector 三 seed 稳定小幅提升，`A4b-5` frozen-expert sample-wise gated late fusion 是当前最强多模态融合结果，`A4b-6` residual fusion 有效但不如 A4b-5。
 - `A4c: End-to-end full bimodal fusion models` 已开始实现，作为 A4b-5 后的完整端到端双模态补充验证；第一批代码和配置包含 `A4c-1 dual_stream_concat_aux`、`A4c-2 dual_stream_gmu_aux`、`A4c-3 toa_conditioned_film`；第二批 `A4c-4 warm_started_expert_gate` 已适配，按 seed 自动查找 A2 ToT primary 与 A4b `relative_minmax/no mask` candidate checkpoint，并比较 `freeze_experts=true/false`；`A4c-5 mmtm_lite` 暂为选做。
 - 实验编号、阶段目的、完成状态和后续安排的权威索引见 `agent/EXPERIMENT_LOG.md` 中的“实验编号与阶段总览”。
-- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。下一步建议做 `B1-best` 三 seed 认证。
+- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 三 seed 认证配置已新增，固定 B1-2 最佳组合并运行 `training.seed=42/43/44`。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -409,7 +409,15 @@ configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml
 
 该配置显式将 `training.learning_rate` grid 限定为 `[0.0003]`、`training.batch_size` grid 限定为 `[128]`，只让 `training.weight_decay` 展开为 `0`、`1e-5`、`1e-4` 三组，避免继承 B1-1 的 `learning_rate × batch_size` 网格。
 
-B1-2 结果：`weight_decay=1e-4` 取得最高 `val_accuracy=93.84%`，`test_accuracy=93.97%`，`test_mae=0.574`，`test_f1=0.9563`。`weight_decay=0` 很接近但略低，`weight_decay=1e-5` 明显更差。因此当前 B1 最佳组合为 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`、`dropout=0.1`、`scheduler=cosine`、`eta_min=1e-7`。下一步建议固定该组合做 `B1-best` 三 seed 认证。
+B1-2 结果：`weight_decay=1e-4` 取得最高 `val_accuracy=93.84%`，`test_accuracy=93.97%`，`test_mae=0.574`，`test_f1=0.9563`。`weight_decay=0` 很接近但略低，`weight_decay=1e-5` 明显更差。因此当前 B1 最佳组合为 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`、`dropout=0.1`、`scheduler=cosine`、`eta_min=1e-7`。
+
+B1-best 配置已新增：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
+```
+
+该配置不继承 B1-2，因为 B1-2 带有 `weight_decay` 搜索 grid；B1-best 独立写出固定配置，只展开 `training.seed=[42,43,44]`，用于报告 mean ± std。
 
 ## A4b 当前后续安排
 

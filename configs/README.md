@@ -581,7 +581,44 @@ scheduler     = cosine
 eta_min       = 1e-7
 ```
 
-`weight_decay=0` 与最佳组很接近，但 validation、test 和 MAE 均略低；`weight_decay=1e-5` 明显更差。下一步建议新增 `B1-best` 三 seed 认证配置，固定上述组合并运行 `training.seed=42/43/44`。
+`weight_decay=0` 与最佳组很接近，但 validation、test 和 MAE 均略低；`weight_decay=1e-5` 明显更差。下一步进入 `B1-best` 三 seed 认证，固定上述组合并运行 `training.seed=42/43/44`。
+
+### B1-best 三 seed 认证
+
+`configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 固定 B1-2 最佳组合，只展开训练随机种子：
+
+```yaml
+training:
+  learning_rate: 0.0003
+  batch_size: 128
+  weight_decay: 0.0001
+  scheduler: cosine
+  eta_min: 0.0000001
+  epochs: 25
+  early_stopping_patience: 5
+  mixed_precision: true
+
+grid:
+  training.seed: [42, 43, 44]
+```
+
+注意：B1-best 不继承 B1-2 配置文件，因为 B1-2 配置含有 `weight_decay` 搜索 grid；为了避免深度合并后误跑旧搜索项，B1-best 独立写出固定配置。
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b1_best
+```
+
+进入 `tmux` 后一次性运行训练、逐 run 汇总和三 seed 聚合：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_3seed --out outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_3seed_mean_std.csv
+```
 
 ### B1-1 20 epoch 结果续跑到 25 epoch
 
