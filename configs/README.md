@@ -498,6 +498,54 @@ python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --ou
 
 如果 `batch_size=256` 显存不足，`--continue-on-error` 会继续后面的组合；后续 B1-2 将基于 B1-1 最佳 `learning_rate + batch_size` 搜索 `weight_decay`。
 
+### B1-1 20 epoch 结果续跑到 25 epoch
+
+如果 B1-1 已经用旧的 20 epoch 预算跑完，且每个 run 都保留了
+`last_checkpoint.pth`，可以用 `scripts/extend_runs.py` 继续到 25 epoch。
+推荐复制到新组 `b1_proton_c7_resnet18_tot_lr_batch_ep25_from20`，不要覆盖旧
+20 epoch 结果。
+
+注意：这类结果是 `from20` 续跑结果，不完全等价于从一开始就用
+`CosineAnnealingLR(T_max=25)` 训练，因为前 20 个 epoch 已经按旧的 cosine
+schedule 跑完。它适合用作节省算力的 B1 epoch-budget rescue，并应在实验日志中
+标注。
+
+先 dry-run：
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --dry-run
+```
+
+确认计划无误后执行：
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --continue-on-error
+```
+
+汇总：
+
+```bash
+python scripts/summarize.py \
+  --group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_from20_runs.csv
+```
+
 ## 混合精度训练
 
 训练配置中可以显式开关 CUDA AMP：

@@ -1214,3 +1214,67 @@ Local verification:
 - `python scripts\analyze_selector_switches.py --help`
 - `python -m py_compile scripts\analyze_selector_switches.py`
 - Small synthetic helper smoke test for switch precision/recall calculations.
+
+## B1-1 epoch-20 recovery plan
+
+Date: 2026-04-29.
+
+Issue:
+- B1-1 was accidentally run with the older 20-epoch setup.
+- The intended B1-1 budget is now 25 epochs with `early_stopping_patience=5`.
+- Re-running the full 9-run grid from scratch is expensive.
+
+Decision:
+- If each old run has `last_checkpoint.pth`, it can be continued from that checkpoint with `training.epochs=25`.
+- This continuation is valid as an epoch-budget rescue, but it is not perfectly identical to a fresh 25-epoch run from scratch, because the cosine scheduler had already followed the 20-epoch schedule before the resume. Record this as `from20` continuation rather than pretending it was originally trained with `T_max=25`.
+- Runs that already triggered early stopping before epoch 20 should usually be skipped, because increasing `max_epochs` from 20 to 25 would not have changed a run that had already stopped by patience.
+- Keep the old 20-epoch group intact and copy resumed runs into a new group to avoid mixing old and rescued results.
+
+Implemented support:
+
+```text
+scripts/extend_runs.py
+```
+
+Recommended server dry-run:
+
+```bash
+cd /root/Timepix
+
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --dry-run
+```
+
+Recommended server execution:
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --continue-on-error
+```
+
+Summary command:
+
+```bash
+python scripts/summarize.py \
+  --group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_from20_runs.csv
+```
+
+Local verification:
+- `python scripts\extend_runs.py --help`
+- `python -m py_compile scripts\extend_runs.py`
+- `D:\Program\Anaconda\envs\timepix-local\python.exe scripts\extend_runs.py ... --dry-run` on local B1 outputs.

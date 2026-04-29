@@ -392,6 +392,25 @@ python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_to
 
 B1-1 固定 `Proton_C_7 + ToT` 与 A1 得到的 ResNet18 stem/variant：`resnet18_no_maxpool`、`conv1_kernel_size=2`、`conv1_stride=1`、`conv1_padding=0`，只搜索 `learning_rate × batch_size`。`dropout=0.1` 是保守训练默认值，不作为 A1 结构结论描述。当前版本使用 `epochs=25`、`early_stopping_patience=5`，输出组为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`，用于和早期 20 epoch 诊断结果分开。
 
+如果已经误用旧 20 epoch 预算跑完 B1-1，可以从 `last_checkpoint.pth` 继续到
+25 epoch。推荐复制到 `b1_proton_c7_resnet18_tot_lr_batch_ep25_from20`，
+并跳过已经早停的 run：
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --continue-on-error
+```
+
+这类结果需要标注为 `from20` 续跑：它节省算力，但由于前 20 epoch 已按旧
+cosine schedule 训练，不完全等价于从头使用 `T_max=25` 的正式重跑。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash
