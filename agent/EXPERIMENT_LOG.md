@@ -1008,6 +1008,7 @@ outputs/analysis_report.md
 - Windows 本地环境中 UMAP/numba 和 sklearn 默认 `lbfgs` 后端可能不稳定，因此 UMAP 在 Windows 默认跳过，LogisticRegression 基线使用更稳的 `liblinear`；Linux 服务器上仍会尝试 UMAP。
 - 服务器运行近垂直分析时如出现 `Skipped UMAP: No module named 'umap'`，说明缺少 `umap-learn`；已新增 `requirements-analysis.txt`，可用 `pip install -r requirements-analysis.txt` 安装完整分析依赖，或仅执行 `pip install umap-learn` 补齐 UMAP。
 - 绘图风格已调整为论文友好的 Matplotlib 默认参数：300 dpi PNG、PDF 字体嵌入、统一字号、色盲友好配色，并在保存后关闭 figure 以降低批量绘图内存占用。
+- 数据分析长循环已加入 `tqdm` 进度条：扫描样本/读取 shape、事件特征提取、传统 ML 基线、pairwise AUC。`requirements-analysis.txt` 已补充 `tqdm>=4.66`；缺少 tqdm 时脚本会回退为普通迭代。
 
 服务器命令：
 
@@ -1370,3 +1371,98 @@ python scripts/aggregate_selector_fusion.py \
 Interpretation:
 - If the validation-selected rule selector improves mean test accuracy, MAE, and macro-F1 over `primary_only`, A4b-4a can be reported as a small but stable selector baseline.
 - If the mean improvement disappears or variance is high, A4b-4a remains a seed42 diagnostic; the stronger conclusion is still the oracle-level complementarity, not a reliable deployed fusion gain.
+
+## A4b-5 sample-wise gated late fusion
+
+Date: 2026-04-29.
+
+Decision:
+- A4b-5 and A4b-6 are no longer treated as sequential "whether to continue" checks.
+- They are formal selective-fusion comparison families. Soft/constrained variants are diagnostic ablations, and learned variants are compared in the same run.
+- A4b-5 is implemented first because it is a direct extension of A4b-4: replace hard selection/global alpha with a sample-wise gate.
+
+Implementation:
+
+```text
+scripts/evaluate_gated_late_fusion.py
+```
+
+Fixed constraints:
+- Dataset/split: `Alpha_100`, paired split `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`.
+- Primary expert: ToT baseline from `a2_best_3seed`.
+- Candidate expert: `ToT + relative_minmax ToA, no mask`.
+- Primary/candidate ResNet experts are frozen; only the gate is trained/calibrated.
+- Test set is not used for choosing gate type, threshold, slope, fit mode, or regularization.
+
+Implemented A4b-5 variants:
+- A4b-5a: entropy soft gate, probability fusion.
+- A4b-5b: learned scalar gate, probability fusion.
+- A4b-5c: learned scalar gate, logit fusion.
+- A4b-5d: class-aware probability gate.
+- A4b-5e: conservative scalar probability gate, initialized toward ToT and penalized for high mean gate.
+
+Gate features:
+- ToT logits, candidate logits, logit differences.
+- ToT probabilities, candidate probabilities, probability differences.
+- Top1 confidence, top1-top2 margin, entropy for each expert.
+- Disagreement flag and predicted angle difference.
+- ToT-predicts-30 and candidate-predicts-30 flags.
+
+Gate fitting:
+- `train`: exploratory/optimistic reference, because expert outputs on train can be overconfident.
+- `val-cv`: stricter variant using validation cross-fitting for validation metrics and final validation fit for test reporting.
+- A4b-5a uses validation-grid selection over entropy threshold and sigmoid slope.
+
+Seed42 command:
+
+```bash
+cd /root/Timepix
+
+python scripts/evaluate_gated_late_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_5_gated_late_fusion_seed42.json \
+  --output-summary outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+```
+
+Three-seed command after A4b-4e candidate seeds are available:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_gated_late_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_5_gated_late_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_5_gated_late_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed43_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed44_summary.csv \
+  --out outputs/a4b_5_gated_late_fusion_mean_std.csv
+```
+
+Output:
+- Summary CSV includes ToT baseline, candidate-only, A4b-4a rule, all A4b-5 variants, and oracle.
+- Per-class CSV includes baselines, rule, selected A4b-5 variant, and oracle.
+- Summary rows include validation/test Acc, MAE, P90, macro-F1, mean gate, high-gate rate, true-30 mean gate, beneficial high-gate count, and harmful high-gate count.
+
+Local verification:
+- `python scripts\evaluate_gated_late_fusion.py --help`
+- `python -m py_compile scripts\evaluate_gated_late_fusion.py`
+- Synthetic logits smoke test using `D:\Program\Anaconda\envs\timepix-local\python.exe`.

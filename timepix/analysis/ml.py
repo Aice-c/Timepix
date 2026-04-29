@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .progress import iter_progress
 from .representative import deterministic_sample
 
 
@@ -101,7 +102,8 @@ def run_ml_baselines(
             continue
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, stratify=y, random_state=seed)
         rbf_ok = include_rbf and len(x_train) <= 5000
-        for name, model in _build_models(seed, rbf_ok):
+        models = _build_models(seed, rbf_ok)
+        for name, model in iter_progress(models, total=len(models), desc=f"ML baselines seed={seed}", unit="model"):
             model.fit(x_train, y_train)
             y_pred = model.predict(x_test)
             cm = confusion_matrix(y_test, y_pred, labels=list(range(len(labels))))
@@ -145,39 +147,38 @@ def pairwise_auc_by_gap(features: pd.DataFrame, feature_cols: list[str], seeds: 
     from sklearn.preprocessing import StandardScaler
 
     angles = sorted(float(v) for v in features["angle_value"].dropna().unique())
+    tasks = [(left, right, seed) for i, left in enumerate(angles) for right in angles[i + 1 :] for seed in seeds]
     rows = []
-    for i, left in enumerate(angles):
-        for right in angles[i + 1 :]:
-            gap = right - left
-            subset = features[features["angle_value"].isin([left, right])]
-            for seed in seeds:
-                sampled = deterministic_sample(subset, sample_cap, seed, stratify="angle")
-                x, y, labels = _prepare_xy(sampled, feature_cols)
-                if len(np.unique(y)) != 2:
-                    continue
-                x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, stratify=y, random_state=seed)
-                model = make_pipeline(
-                    StandardScaler(),
-                    LogisticRegression(max_iter=1000, class_weight="balanced", random_state=seed, solver="liblinear"),
-                )
-                model.fit(x_train, y_train)
-                y_pred = model.predict(x_test)
-                if hasattr(model, "decision_function"):
-                    score = model.decision_function(x_test)
-                else:
-                    score = model.predict_proba(x_test)[:, 1]
-                rows.append(
-                    {
-                        "seed": seed,
-                        "angle_left": left,
-                        "angle_right": right,
-                        "angle_pair": f"{left:g}-{right:g}",
-                        "angle_gap": gap,
-                        "auc": float(roc_auc_score(y_test, score)),
-                        "accuracy": float(accuracy_score(y_test, y_pred)),
-                        "balanced_accuracy": float(balanced_accuracy_score(y_test, y_pred)),
-                    }
-                )
+    for left, right, seed in iter_progress(tasks, total=len(tasks), desc="Pairwise AUC", unit="fit"):
+        gap = right - left
+        subset = features[features["angle_value"].isin([left, right])]
+        sampled = deterministic_sample(subset, sample_cap, seed, stratify="angle")
+        x, y, labels = _prepare_xy(sampled, feature_cols)
+        if len(np.unique(y)) != 2:
+            continue
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, stratify=y, random_state=seed)
+        model = make_pipeline(
+            StandardScaler(),
+            LogisticRegression(max_iter=1000, class_weight="balanced", random_state=seed, solver="liblinear"),
+        )
+        model.fit(x_train, y_train)
+        y_pred = model.predict(x_test)
+        if hasattr(model, "decision_function"):
+            score = model.decision_function(x_test)
+        else:
+            score = model.predict_proba(x_test)[:, 1]
+        rows.append(
+            {
+                "seed": seed,
+                "angle_left": left,
+                "angle_right": right,
+                "angle_pair": f"{left:g}-{right:g}",
+                "angle_gap": gap,
+                "auc": float(roc_auc_score(y_test, score)),
+                "accuracy": float(accuracy_score(y_test, y_pred)),
+                "balanced_accuracy": float(balanced_accuracy_score(y_test, y_pred)),
+            }
+        )
     return pd.DataFrame(rows)
 
 

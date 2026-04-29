@@ -54,6 +54,7 @@ pip install umap-learn
 - 近垂直分析日志里的 `Skipped UMAP: No module named 'umap'` 表示缺少 `umap-learn`。
 - `Skipped t-SNE: pass --tsne to enable the optional slow embedding.` 不是缺依赖，而是脚本默认跳过较慢的 t-SNE；需要时加 `--tsne`。
 - 绘图采用 Matplotlib 后端，默认保存 300 dpi PNG 和可编辑/可放大的 PDF，并设置论文友好的字号、色盲友好配色和可嵌入字体。
+- 长耗时步骤会显示 `tqdm` 进度条，包括数据扫描、事件特征提取、传统 ML 基线和 pairwise AUC；如果环境缺少 `tqdm`，脚本仍会正常运行但不显示进度条。
 
 本地 Windows 验证环境：
 

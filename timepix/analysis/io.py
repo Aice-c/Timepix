@@ -12,6 +12,8 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from .progress import iter_progress
+
 
 DEFAULT_DATASET_MODALITIES = {
     "Alpha_100": ["ToT", "ToA"],
@@ -113,30 +115,34 @@ def scan_dataset(data_root: str | Path, dataset: str) -> pd.DataFrame:
     base = Path(data_root)
     dataset_root = base / dataset
     modalities = infer_modalities(dataset, dataset_root)
-    rows = []
+    file_items = []
     for angle_dir in numeric_angle_dirs(dataset_root):
         angle = angle_dir.name
         for modality in modalities:
             for path in _iter_modality_files(angle_dir, modality):
-                status, rows_count, cols_count, error = matrix_shape(path)
-                rel_path = path.relative_to(base) if path.is_relative_to(base) else path
-                rows.append(
-                    {
-                        "dataset": dataset,
-                        "dataset_root": str(dataset_root),
-                        "angle": angle,
-                        "angle_value": float(angle),
-                        "modality": modality,
-                        "sample_key": f"{angle}/{normalize_sample_key(path.name, modality)}",
-                        "file_name": path.name,
-                        "path": str(path),
-                        "relative_path": str(rel_path),
-                        "status": status,
-                        "shape_rows": rows_count,
-                        "shape_cols": cols_count,
-                        "error": error,
-                    }
-                )
+                file_items.append((angle, modality, path))
+
+    rows = []
+    for angle, modality, path in iter_progress(file_items, total=len(file_items), desc=f"Scan {dataset}", unit="file"):
+        status, rows_count, cols_count, error = matrix_shape(path)
+        rel_path = path.relative_to(base) if path.is_relative_to(base) else path
+        rows.append(
+            {
+                "dataset": dataset,
+                "dataset_root": str(dataset_root),
+                "angle": angle,
+                "angle_value": float(angle),
+                "modality": modality,
+                "sample_key": f"{angle}/{normalize_sample_key(path.name, modality)}",
+                "file_name": path.name,
+                "path": str(path),
+                "relative_path": str(rel_path),
+                "status": status,
+                "shape_rows": rows_count,
+                "shape_cols": cols_count,
+                "error": error,
+            }
+        )
     return pd.DataFrame(rows, columns=INDEX_COLUMNS)
 
 

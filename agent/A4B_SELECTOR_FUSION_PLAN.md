@@ -255,7 +255,7 @@ This is the active A4b numbering after the A4b-4 results.
 | A4b-4c | Validation-CV selector | Done | More rigorous learned selector; does not beat ToT. |
 | A4b-4d | Switch diagnostics | Next | Explain which selected samples are beneficial, harmful, neutral, or missed. No training. |
 | A4b-4e | Three-seed selector confirmation | Implemented config | Rerun only the key candidate for seeds 43/44 and report mean/std with the existing seed42 candidate. |
-| A4b-5 | Entropy soft gate | Planned | Convert A4b-4a hard switch into validation-selected sample-wise soft interpolation. |
+| A4b-5 | Sample-wise gated late fusion | Implemented script | Compare entropy soft gate, learned scalar gates, class-aware gate, and conservative gate over frozen logits. |
 | A4b-6 | Constrained residual interpolation | Planned | Keep ToT primary and move logits only partly toward the candidate. |
 | A4b-7 | ToA-only relative controls | Later | Isolate whether relative ToA itself carries independent angle information. |
 | A4b-8 | ToT image plus ToA scalar features | Later | Physically interpretable ToA feature route for the thesis narrative. |
@@ -417,11 +417,33 @@ Interpretation rule:
 - If validation-selected rule selector improves mean test accuracy/MAE/macro-F1 over `primary_only` with acceptable std, A4b-4a can be reported as a small but stable selector baseline.
 - If the mean gain disappears or has high variance, report A4b-4a as a seed42 diagnostic and keep the oracle complementarity as the stronger scientific evidence.
 
-## A4b-5: Entropy Soft Gate
+## A4b-5: Sample-Wise Gated Late Fusion
 
-Goal: test whether the A4b-4a hard switch is too brittle.
+Goal: compare sample-wise gates that dynamically weight ToT and the `relative_minmax/no mask` candidate. This is now treated as a formal selective-fusion comparison rather than a pre-check.
 
-Recommended first variant:
+Implemented script:
+
+```text
+scripts/evaluate_gated_late_fusion.py
+```
+
+Fixed experts:
+
+- Primary: ToT baseline from `a2_best_3seed`.
+- Candidate: `ToT + relative_minmax ToA, no mask`.
+- ResNet experts are frozen; only the gate is trained or calibrated.
+
+Implemented variants:
+
+| ID | Variant | Fit/selection |
+| --- | --- | --- |
+| A4b-5a | entropy soft gate, probability fusion | validation grid over threshold and slope |
+| A4b-5b | learned scalar gate, probability fusion | train-fit and val-CV |
+| A4b-5c | learned scalar gate, logit fusion | train-fit and val-CV |
+| A4b-5d | class-aware gate, probability fusion | train-fit and val-CV |
+| A4b-5e | conservative scalar gate, probability fusion | train-fit and val-CV, ToT-biased init and mean-gate penalty |
+
+Entropy soft gate:
 
 ```text
 entropy_adv = primary_entropy - candidate_entropy
@@ -429,7 +451,69 @@ g = sigmoid(k * (entropy_adv - threshold))
 p_final = (1 - g) * p_tot + g * p_candidate
 ```
 
-Validation chooses `threshold` and `k`; test is reported once. This keeps the experiment aligned with A4b-4a and avoids adding a large learned gate before the switch diagnostics are understood.
+Learned-gate features include:
+
+```text
+logits_tot, logits_candidate, logit differences
+probabilities_tot, probabilities_candidate, probability differences
+top1 confidence, top1-top2 margin, entropy
+disagreement flag, predicted angle difference
+ToT-predicts-30 flag, candidate-predicts-30 flag
+```
+
+Selection rule:
+
+- Select the A4b-5 variant using validation accuracy.
+- Tie-break by lower validation MAE, higher validation macro-F1, and lower mean gate.
+- Test metrics are reported after selection and are not used to choose gate type, threshold, slope, fit mode, or regularization.
+
+Seed42 command:
+
+```bash
+cd /root/Timepix
+
+python scripts/evaluate_gated_late_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_5_gated_late_fusion_seed42.json \
+  --output-summary outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+```
+
+Three-seed command after A4b-4e candidates finish:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_gated_late_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_5_gated_late_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_5_gated_late_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
+done
+```
+
+The existing `scripts/aggregate_selector_fusion.py` can aggregate the A4b-5 summaries because it keeps `primary_only`, `candidate_only`, `oracle`, and each seed's `selected_by_val` row:
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed43_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed44_summary.csv \
+  --out outputs/a4b_5_gated_late_fusion_mean_std.csv
+```
 
 ## A4b-6: Constrained Residual Interpolation
 

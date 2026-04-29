@@ -689,6 +689,55 @@ python scripts/aggregate_selector_fusion.py \
   --out outputs/a4b_4e_rule_selector_mean_std.csv
 ```
 
+## A4b-5 gated late fusion
+
+A4b-5 uses frozen ToT/candidate experts and trains or calibrates only a
+sample-wise gate. It compares entropy soft gate, learned scalar probability
+gate, learned scalar logit gate, class-aware gate, and conservative gate in one
+script.
+
+Seed42:
+
+```bash
+python scripts/evaluate_gated_late_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_5_gated_late_fusion_seed42.json \
+  --output-summary outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+```
+
+Three seeds, after A4b-4e candidate seeds finish:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_gated_late_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_5_gated_late_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_5_gated_late_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed43_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed44_summary.csv \
+  --out outputs/a4b_5_gated_late_fusion_mean_std.csv
+```
+
 `resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
 
 `resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：

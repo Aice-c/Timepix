@@ -235,3 +235,23 @@ This phase does not retrain seed42. It combines:
 `aggregate_selector_fusion.py` keeps `primary_only`, `candidate_only`,
 `oracle`, and the validation-selected rule row from each
 `evaluate_selector_fusion.py` summary, then writes mean/std metrics.
+
+A4b-5 implementation:
+
+```text
+scripts/evaluate_gated_late_fusion.py
+```
+
+The script compares A4b-5a through A4b-5e in one run:
+
+- entropy soft gate over probabilities.
+- learned scalar gate with probability fusion.
+- learned scalar gate with logit fusion.
+- class-aware probability gate.
+- conservative scalar probability gate with ToT-biased initialization and a
+  mean-gate penalty.
+
+It supports both `train` and `val-cv` gate fitting modes. Train-fit results are
+kept as exploratory/optimistic references; validation-CV and validation-grid
+variants are the stricter evidence. The script selects the best A4b-5 variant
+on validation only and reports test metrics once.

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .io import read_matrix
+from .progress import iter_progress
 
 
 EPS = 1e-12
@@ -212,7 +213,13 @@ def extract_feature_table(index_df: pd.DataFrame, dataset: str | None = None, mo
         subset = subset[subset["modality"] == modality]
     tot_lookup = paired_tot_lookup(index_df)
     rows = []
-    for item in subset.itertuples(index=False):
+    items = list(subset.itertuples(index=False))
+    desc_parts = ["Features"]
+    if dataset:
+        desc_parts.append(str(dataset))
+    if modality:
+        desc_parts.append(str(modality))
+    for item in iter_progress(items, total=len(items), desc=" ".join(desc_parts), unit="sample"):
         path = Path(item.path)
         try:
             array = read_matrix(path)

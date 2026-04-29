@@ -896,3 +896,43 @@ python scripts/aggregate_selector_fusion.py \
     outputs/a4b_4e_rule_selector_seed44_summary.csv \
   --out outputs/a4b_4e_rule_selector_mean_std.csv
 ```
+
+## A4b-5 Gated Late Fusion
+
+A4b-5 does not retrain ResNet experts. It reloads frozen ToT/candidate logits and
+compares sample-wise gate variants.
+
+Seed42:
+
+```bash
+python scripts/evaluate_gated_late_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_5_gated_late_fusion_seed42.json \
+  --output-summary outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+```
+
+Three-seed run after A4b-4e:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_gated_late_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_5_gated_late_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_5_gated_late_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
+done
+```
