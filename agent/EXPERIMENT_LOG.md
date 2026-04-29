@@ -236,7 +236,7 @@ A5a 当前实现与命令：
 - 训练链路新增 12 个 A5 手工特征，并保留旧 `total_energy` 用法兼容。
 - 新增 `handcrafted_features.source_modalities`，使图像输入 `dataset.modalities` 和手工特征读取来源解耦。
 - 新增 `handcrafted_mlp`，用于 A5c 的 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。
-- 新增脚本 `scripts/screen_handcrafted_features.py`，只做特征抽取、`RandomForest` / `LogisticRegression`、validation permutation importance 和 group permutation importance；不训练 CNN。
+- 新增脚本 `scripts/screen_handcrafted_features.py`，只做特征抽取、`RandomForest` / one-vs-rest `LogisticRegression`、validation permutation importance 和 group permutation importance；不训练 CNN。
 - A5a 配置：`configs/experiments/a5a_alpha_handcrafted_screening.yaml`。
 - A5b/A5c/A5d 和 B2 已提供 `*_TEMPLATE.yaml`，等 A5a 输出筛选结果后再填入正式 feature list。
 
@@ -2656,3 +2656,54 @@ A4c-4 三 seed 汇总：
 - `freeze_experts=false` 明显不稳定，平均结果接近或低于 ToT primary，说明端到端微调已训练 expert 容易破坏原有决策边界。
 - `freeze=true` 的 `candidate gate` 均值较高且方差很大，说明 gate 倾向使用 candidate expert，但不同 seed 的使用比例不稳定；它不能解释为“模型大量使用 ToA 通道”，因为 candidate expert 本身是 ToT+relative-ToA 模型。
 - A4c-4 的论文定位应作为 warm-start expert gate 对照：它支持“冻结强 expert 后做受控融合比端到端微调更稳”，但当前不是 A4c/A4b 的最佳结果。
+
+## A5a server bugfix: LogisticRegression multiclass compatibility
+
+记录日期：2026-04-30。
+
+问题：
+
+- 服务器运行 `scripts/screen_handcrafted_features.py` 时在 `LogisticRegression(... solver="liblinear").fit(...)` 处报错。
+- 报错信息为：`The 'liblinear' solver does not support multiclass classification (n_classes >= 3)`。
+- 原因是当前服务器 `scikit-learn` 版本不再允许 `liblinear` 直接处理多分类；A5a 的 Alpha_100 是 4 分类，因此会触发该错误。
+
+修复决策：
+
+- 保留 `liblinear` 的稳定 one-vs-rest 逻辑，但显式包装为：
+
+```python
+OneVsRestClassifier(LogisticRegression(solver="liblinear", class_weight="balanced"))
+```
+
+- A5a 传统模型输出名称从 `logistic_regression` 改为 `logistic_regression_ovr`，避免误解其多分类策略。
+- `RandomForestClassifier` 保持不变。
+- 文档同步补充到 `configs/README.md`、`agent/FILE_MAP.md`、`agent/CODE_CONTEXT.md` 和 `agent/ARCHITECTURE.md`。
+
+受影响文件：
+
+```text
+scripts/screen_handcrafted_features.py
+configs/README.md
+agent/EXPERIMENT_LOG.md
+agent/FILE_MAP.md
+agent/CODE_CONTEXT.md
+agent/ARCHITECTURE.md
+```
+
+重跑 A5a 命令不变：
+
+```bash
+cd ~/Timepix
+tmux new -s a5a_screen
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/screen_handcrafted_features.py \
+  --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --out-dir outputs/a5_feature_screening \
+  --name a5a_alpha_handcrafted_screening \
+  --n-repeats 30
+```

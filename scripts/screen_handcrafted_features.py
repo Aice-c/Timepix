@@ -21,8 +21,9 @@ from timepix.config_validation import validate_experiment_config
 
 
 def _load_sklearn() -> None:
-    global RandomForestClassifier, LogisticRegression, accuracy_score, f1_score, permutation_importance
+    global OneVsRestClassifier, RandomForestClassifier, LogisticRegression, accuracy_score, f1_score, permutation_importance
     try:
+        from sklearn.multiclass import OneVsRestClassifier as _OneVsRestClassifier
         from sklearn.ensemble import RandomForestClassifier as _RandomForestClassifier
         from sklearn.inspection import permutation_importance as _permutation_importance
         from sklearn.linear_model import LogisticRegression as _LogisticRegression
@@ -34,6 +35,7 @@ def _load_sklearn() -> None:
             "Install the analysis/local environment dependencies first."
         ) from exc
 
+    OneVsRestClassifier = _OneVsRestClassifier
     RandomForestClassifier = _RandomForestClassifier
     LogisticRegression = _LogisticRegression
     accuracy_score = _accuracy_score
@@ -248,11 +250,14 @@ def _run_model_suite(
             class_weight="balanced",
             n_jobs=-1,
         ).fit(x_train, y_train),
-        "logistic_regression": LogisticRegression(
-            max_iter=2000,
-            class_weight="balanced",
-            solver="liblinear",
-            random_state=seed,
+        "logistic_regression_ovr": OneVsRestClassifier(
+            LogisticRegression(
+                max_iter=2000,
+                class_weight="balanced",
+                solver="liblinear",
+                random_state=seed,
+            ),
+            n_jobs=-1,
         ).fit(x_train, y_train),
     }
 

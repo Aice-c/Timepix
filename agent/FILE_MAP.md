@@ -19,6 +19,7 @@
 | `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
 | `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`. |
 | `requirements.txt` | Refactored runtime dependencies | Minimal new-system dependencies including Optuna. |
+| `requirements-analysis.txt` | Analysis/screening dependencies | Adds `scikit-learn`, `scipy`, plotting, and UMAP dependencies used by data analysis and A5a feature screening. |
 | `generate_presentation.py` | Builds analysis PPT | Uses handcrafted feature CSV/plots for near-vertical analysis. |
 | `generate_ppt.py` | Builds a PPT deck | General presentation generation helper. |
 | `generate_literature_ppt.py` | Builds literature review PPT | Untracked at inspection time. |
@@ -71,8 +72,10 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
 | `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
+| `timepix/data/features.py` | Training handcrafted features | A5 feature registry and scaler; intentionally separate from `timepix/analysis/` feature code. Supports `source_modalities` for image-ToT plus scalar ToT/ToA experiments. |
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
-| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, and A4c warm-started expert gate. |
+| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, A4c warm-started expert gate, and A5 handcrafted-only MLP. |
+| `timepix/models/handcrafted.py` | Handcrafted-only model | `handcrafted_mlp` baseline for A5c; ignores image tensors and trains on standardized scalar features only. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -109,6 +112,12 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml` | A4c quick comparison | Single-seed-42 shortcut for the first A4c implementation batch. |
 | `configs/experiments/a4c_warm_started_expert_gate.yaml` | A4c-4 warm-started expert gate | Three-seed comparison of frozen vs fine-tuned warm-start expert gate using automatically discovered ToT primary and relative-minmax candidate checkpoints. |
 | `configs/experiments/a4c_warm_started_expert_gate_seed42.yaml` | A4c-4 quick comparison | Single-seed-42 shortcut for the warm-started expert gate. |
+| `configs/experiments/a5a_alpha_handcrafted_screening.yaml` | A5a feature screening config | Alpha_100 ToT image plus ToT/ToA scalar source config for `scripts/screen_handcrafted_features.py`; no CNN training and no test-based selection. |
+| `configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml` | A5b template | Placeholder CNN + selected handcrafted feature-group ablation config; fill feature lists after A5a validation importance results. |
+| `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder CNN + selected handcrafted features with `concat`/`gated` fusion comparison. |
+| `configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml` | A5c handcrafted-only template | Placeholder `handcrafted_mlp` diagnostic config for selected A5 feature groups. |
+| `configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` | A5d template | Placeholder final 3-seed verification config for the best A5 handcrafted setting. |
+| `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2 handcrafted transfer template | Proton_C_7 ToT-only transfer of Alpha-selected ToT-only handcrafted features using B1-best patience-8 training settings. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
@@ -132,6 +141,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/analyze_selector_switches.py` | Analyze selector switches | A4b-4d diagnostic script that applies a fixed A4b-4 rule and reports switch precision/recall, harmful switches, per-class behavior, per-sample outcomes, and score distributions. |
 | `scripts/evaluate_gated_late_fusion.py` | Evaluate gated late fusion | A4b-5 entrypoint for entropy soft gate, learned scalar gate, class-aware gate, and conservative gate over frozen ToT/candidate logits. |
 | `scripts/evaluate_residual_gated_fusion.py` | Evaluate residual gated fusion | A4b-6 entrypoint for scalar/per-class beta residuals, learned residual gates, and conservative residual correction over frozen ToT/candidate logits. |
+| `scripts/screen_handcrafted_features.py` | A5a handcrafted feature screening | Extracts standardized handcrafted features, writes train/val/test feature tables, runs RandomForest and one-vs-rest LogisticRegression diagnostics, and reports validation permutation importance. |
 | `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report; defaults to full `Proton_C`, not training-only `Proton_C_7`. |
 | `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |

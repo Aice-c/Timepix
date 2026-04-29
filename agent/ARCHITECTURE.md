@@ -109,21 +109,35 @@ Handcrafted feature standardization is configured under
 
 ## Handcrafted Features
 
-Currently registered handcrafted features:
+Training-time handcrafted features live in `timepix.data.features` and are
+kept separate from the thesis data-analysis feature code under
+`timepix.analysis`. The old `total_energy` name remains supported for backward
+compatibility, but new A5 configs should use explicit feature names.
 
-- `total_energy`: sum of the modality array.
+A5 currently registers a compact candidate pool:
 
-Feature flags are stored by modality in YAML:
+- Geometry: `active_pixel_count`, `bbox_long`, `bbox_short`,
+  `bbox_fill_ratio`, `pca_major_axis`, `pca_minor_axis`.
+- ToT intensity: `total_ToT`, `ToT_density`.
+- ToA timing: `ToA_span`, `ToA_p90_minus_p10`.
+- Axis interaction: `ToA_major_axis_slope_abs`,
+  `ToA_major_axis_corr_abs`.
 
-```python
-handcrafted_features = {
-    "ToT": {"total_energy": True},
-    "ToA": {"total_energy": False},
-}
+Handcrafted feature sources can be decoupled from image input modalities:
+
+```yaml
+dataset:
+  modalities: [ToT]
+
+handcrafted_features:
+  enabled: true
+  source_modalities: [ToT, ToA]
+  features: [active_pixel_count, total_ToT, ToA_span]
 ```
 
-Enabled handcrafted features are concatenated with CNN features inside models
-that support this path.
+In this example the CNN receives only the ToT image, while scalar features may
+load ToT and ToA matrices. This is used by A5 to avoid mixing ToA image-channel
+fusion with physical scalar-feature fusion.
 
 ## Model Interface
 
@@ -138,7 +152,8 @@ Models return `ModelOutput`, which may contain classification `logits` and/or a
 regression tensor. The current factory supports `resnet18`,
 `resnet18_no_maxpool`, `resnet18_maxpool`, `resnet18_original`,
 `shallow_resnet`, `shallow_cnn`, `densenet121`, `efficientnet_b0`,
-`convnext_tiny`, and `vit_tiny`.
+`convnext_tiny`, `vit_tiny`, A4c dual-stream models, A4c warm-started expert
+gate, and `handcrafted_mlp`.
 
 `resnet18` is an alias for `resnet18_no_maxpool`. Both ResNet18 variants accept
 `model.conv1_kernel_size`, `model.conv1_stride`, `model.conv1_padding`,
@@ -197,6 +212,12 @@ metadata.
 
 `scripts/aggregate_seeds.py` aggregates a summary CSV into `mean`/`std` rows for
 repeated-seed certification.
+
+`scripts/screen_handcrafted_features.py` runs A5a handcrafted feature
+screening without CNN training. It extracts standardized train/val/test feature
+CSV files, fits RandomForest and one-vs-rest LogisticRegression diagnostics,
+and reports validation permutation importance. Test rows are saved for later
+final reporting, but A5a feature selection should use train/validation only.
 
 `scripts/evaluate_logit_fusion.py` evaluates A4b decision-level fusion from
 trained single-modality checkpoints. It discovers matching ToT and ToA runs by

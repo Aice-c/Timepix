@@ -205,11 +205,52 @@ sample_tensor.shape = [1, H, W]
 
 ## 7. 手工特征和融合方式
 
-当前支持的手工特征：
+训练主链路中的手工特征实现位于 `timepix/data/features.py`。A5 明确不复用
+`timepix/analysis/` 数据分析链路里的特征实现，避免论文数据分析特征和训练特征互相污染。
 
-- `total_energy`
+历史兼容特征：
 
-新系统支持三种融合方式：
+- `total_energy`：默认解释为 ToT 总量；旧配置也可以继续使用 `features: {ToT: [total_energy]}`。
+
+A5 第一版候选特征控制为 12 维：
+
+```text
+Geometry:
+  active_pixel_count
+  bbox_long
+  bbox_short
+  bbox_fill_ratio
+  pca_major_axis
+  pca_minor_axis
+
+ToT:
+  total_ToT
+  ToT_density
+
+ToA:
+  ToA_span
+  ToA_p90_minus_p10
+
+Axis interaction:
+  ToA_major_axis_slope_abs
+  ToA_major_axis_corr_abs
+```
+
+A5 支持把图像模态和手工特征来源解耦：
+
+```yaml
+dataset:
+  modalities: [ToT]          # CNN 只看 ToT 图像
+
+handcrafted_features:
+  enabled: true
+  source_modalities: [ToT, ToA]  # 标量特征可以读取 ToT/ToA
+```
+
+这样 Alpha A5 可以做 `ToT CNN + ToT/ToA scalar features`，但不会把 ToA 当作图像通道送入模型。
+Proton_C_7 只有 ToT，B2 迁移实验只能使用 `ToT-only` 特征。
+
+新系统支持三种 CNN 与手工特征融合方式：
 
 ```text
 none    不使用手工特征
@@ -218,6 +259,8 @@ gated   拼接后做 feature-wise gate，再分类
 ```
 
 旧代码里的“注意力机制”在新系统中命名为 `gated`，更准确地说是门控式特征重标定，不是 Transformer attention。
+
+此外，A5c 新增 `model.name: handcrafted_mlp`，用于 handcrafted-only 诊断。该模型忽略图像输入，只使用标准化后的手工标量。
 
 ## 8. 损失函数与指标
 
@@ -263,6 +306,7 @@ gated   拼接后做 feature-wise gate，再分类
 - `scripts/search_hparams.py`：在代表性实验设置上做 Optuna/TPE 训练超参数搜索。
 - `scripts/summarize.py`：汇总全部实验或某个实验组。
 - `scripts/aggregate_seeds.py`：把多 seed summary 聚合成 mean/std。
+- `scripts/screen_handcrafted_features.py`：A5a 手工特征筛选入口，不训练 CNN；输出 feature CSV、传统模型诊断和 validation permutation importance。
 
 实验可以通过 `experiment_group` 分组保存，例如：
 

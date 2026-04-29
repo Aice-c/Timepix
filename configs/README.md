@@ -1171,7 +1171,7 @@ A5d: best handcrafted fusion 3-seed verification
 
 计划流程：
 
-1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、`LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
+1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、one-vs-rest `LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
 2. `A5b`：只用 A5a 选出的 6-8 个特征，跑少量 seed42 `concat` 消融，包括 selected Geometry、Geometry+ToT、ToA/Axis、selected all。
 3. `A5c`：只拿 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated。
 4. `A5d`：只对 A5c 最优 1-2 个设置做 `training.seed=42/43/44` 认证并报告 mean ± std。
@@ -1194,6 +1194,8 @@ configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml
 A5a 服务器 `tmux` 持久化运行：
 
 依赖：`scripts/screen_handcrafted_features.py` 需要 `scikit-learn`。服务器若缺少该依赖，可先在对应环境安装 `requirements-analysis.txt`，或至少安装 `scikit-learn`。
+
+实现说明：A5a 的 `LogisticRegression` 使用 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))`。这是为了兼容较新的 `scikit-learn` 多分类约束；不要改回直接 `LogisticRegression(..., solver="liblinear").fit(...)`。
 
 ```bash
 cd ~/Timepix

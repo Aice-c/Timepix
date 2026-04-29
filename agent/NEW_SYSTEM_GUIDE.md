@@ -155,6 +155,21 @@ alpha ToT + 手工特征门控融合：
 python scripts/train.py --config configs/experiments/alpha_resnet18_tot_handcrafted_gated.yaml
 ```
 
+注意：上面两个是早期简单示例，主要使用旧兼容的 `total_energy`。正式 A5 手工特征实验使用新的 A5a/A5b/A5c/A5d 编号和配置，训练特征实现位于 `timepix/data/features.py`，不复用 `timepix/analysis/` 数据分析特征。
+
+A5a 手工特征筛选不训练 CNN，使用 `RandomForest` 与 one-vs-rest `LogisticRegression` 在 validation 上做特征重要性诊断：
+
+```bash
+python scripts/screen_handcrafted_features.py \
+  --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --out-dir outputs/a5_feature_screening \
+  --name a5a_alpha_handcrafted_screening \
+  --n-repeats 30
+```
+
+A5a 的 `LogisticRegression` 显式包装为 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))`，用于兼容较新的 `scikit-learn` 多分类行为。A5a 输出是特征筛选诊断文件，不走 `scripts/summarize.py`；A5b/A5c/A5d 进入 CNN 训练后再使用标准 `run_grid.py`、`summarize.py` 和 `aggregate_seeds.py`。
+
 C/质子 ToT：
 
 ```bash
