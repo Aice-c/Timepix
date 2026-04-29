@@ -384,6 +384,30 @@ python scripts/evaluate_oracle_complementarity.py \
   --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv
 ```
 
+A4b-3 当前结果显示，ToT-vs-ToT 随机 seed control 的 oracle gain 很小：validation/test 分别约为 +2.33% 和 +2.55%，30 deg 上仅约 +2.55% 和 +1.15%。而 ToT vs `relative_minmax/no mask` 的 oracle gain 在 validation/test 分别为 +10.19% 和 +11.03%，30 deg 上达到 +27.08% 和 +25.52%。因此该互补性不能简单归因于随机 seed 差异，后续应进入 selector/gate 融合验证。
+
+A4b-4 使用 frozen-logit selector 验证互补性是否可学习。该脚本不训练新的 ResNet，只重新加载 ToT 与 `relative_minmax/no mask` checkpoint，在 train split 的 logits/probabilities/confidence/margin/entropy/disagreement 特征上训练轻量 selector；validation 选择 threshold 和是否启用 selector；test 只做最终报告：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4_selector_fusion_seed42.json \
+  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+```
+
+脚本会同时输出 `primary_only`、`candidate_only`、不同 selector threshold 和 `oracle`。`primary_only` 也参与 validation 策略选择，因此 selector 无效时会退回 ToT baseline。
+
 ## B1 Proton/C 训练超参搜索
 
 `configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` 是质子/C 7 分类数据集的第一轮训练超参搜索。它固定 alpha A1 得到的 ResNet18 stem/variant：

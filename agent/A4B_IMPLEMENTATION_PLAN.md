@@ -116,14 +116,48 @@ Current seed-42 result:
   problem appears to be choosing when to trust the auxiliary prediction, not a
   complete absence of complementary information.
 
+## Phase 3: Oracle Controls
+
+Implemented as:
+
+```text
+scripts/evaluate_oracle_complementarity.py
+```
+
+Current result:
+
+- ToT-vs-ToT seed-control oracle gain is small: about +2.33% on validation and
+  +2.55% on test.
+- ToT vs `relative_minmax/no mask` is much stronger: +10.19% oracle gain on
+  validation and +11.03% on test.
+- For 30 deg, ToT vs `relative_minmax/no mask` gives +27.08% oracle gain on
+  validation and +25.52% on test.
+
+Conclusion: the relative candidate's complementarity is larger than ordinary
+seed diversity, so the next question is whether a selector/gate can learn when
+to use it.
+
+## Phase 4: Frozen-Logit Selector
+
+Implemented as:
+
+```text
+scripts/evaluate_selector_fusion.py
+```
+
+This phase freezes the trained ToT and `relative_minmax/no mask` checkpoints.
+It trains a lightweight selector on train-split logits/probabilities/confidence
+features, selects the threshold on validation, and reports test metrics once.
+`primary_only` is included as a validation-selectable fallback.
+
 ## Later Phases
 
-Phase 3 can add ToA scalar physical features such as `toa_span`, `toa_std`,
+Phase 5 can add ToA scalar physical features such as `toa_span`, `toa_std`,
 `toa_valid_count`, and `toa_p90_minus_p10`. This likely requires separating
 loaded modalities from image modalities so ToA can provide scalar features
 without also being passed as an image channel.
 
-Phase 4 can add trainable multimodal models such as dual-stream feature concat
+Phase 6 can add trainable multimodal models such as dual-stream feature concat
 or GMU. This should use a new model-level key such as `multimodal_fusion` rather
 than overloading the existing `fusion_mode`, which currently means CNN feature
 plus handcrafted-feature fusion.

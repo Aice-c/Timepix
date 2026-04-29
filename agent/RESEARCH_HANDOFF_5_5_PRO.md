@@ -337,6 +337,18 @@ scripts/evaluate_oracle_complementarity.py
 
 该阶段不训练新模型，而是重新加载 checkpoint，在 validation/test 上做确定性推理。关键决策是：A4b-3a 的纯 ToT 多 seed oracle control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed基准组；A4b-3b 先使用 `a2_best_3seed` 的 seed42 ToT 与 `a4b_toa_transform_seed42` 的 `relative_minmax/no mask` candidate 做验证集/测试集复查。由于 `a2_best_3seed` 的历史配置仍写着 `Alpha` 和 `/root/autodl-tmp/Alpha`，服务器重放时要传 `--data-root /root/autodl-tmp/Alpha_100`，并用 `Alpha_100_ToT` split 复制出旧名称 `Alpha_ToT` 作为兼容别名。
 
+当前结果：ToT-vs-ToT seed control 的 oracle gain 很小，validation 为 +2.33% ± 0.15%，test 为 +2.55% ± 0.06%；30 deg oracle gain 也只有 validation +2.55% ± 0.80%、test +1.15% ± 0.80%。相对地，ToT vs `relative_minmax/no mask` 的 oracle gain 在 validation/test 分别为 +10.19% 和 +11.03%，30 deg oracle gain 分别为 +27.08% 和 +25.52%。这说明 A4b-2.5 的互补性远大于普通随机 seed 多样性，后续问题应转为 selector/gate 能否从 validation 可用信息中学会何时信 candidate。
+
+阶段 4：frozen-logit selector fusion。
+
+脚本：
+
+```text
+scripts/evaluate_selector_fusion.py
+```
+
+该阶段不训练新的 ResNet，而是冻结 ToT baseline 与 `relative_minmax/no mask` candidate。脚本在 train split 的 logits/probabilities/confidence/margin/entropy/disagreement 等特征上训练轻量 selector，validation 选择 threshold 和是否启用 selector，test 只做最终报告。若 validation 不支持 selector，脚本可以选择 `primary_only` 退回 ToT baseline。
+
 ### B1 Proton/C 训练超参搜索
 
 目的：在质子/C 数据集上固定 alpha A1 得到的 ResNet18 结构适配方式，仅搜索训练过程超参，为后续质子/C 消融实验确定默认训练配置。

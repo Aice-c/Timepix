@@ -802,6 +802,101 @@ sha256sum \
 
 如果上述三个 split hash 不一致，先不要继续运行 A4b-3b，因为 ToT 与 ToT+ToA 的逐样本 oracle 对齐会失去严格意义。
 
+当前结果记录（用户汇报）：
+
+A4b-3a：ToT-vs-ToT 随机 seed 控制。
+
+| Split | ToT-vs-ToT Oracle Acc | Oracle Gain | ToT 错时另一个 seed 更好 |
+| --- | ---: | ---: | ---: |
+| Val | 71.56% ± 0.38% | +2.33% ± 0.15% | 8.22% ± 0.61% |
+| Test | 73.06% ± 0.00% | +2.55% ± 0.06% | 9.33% ± 0.20% |
+
+30 deg 类别：
+
+| Split | ToT-vs-ToT 30 deg Oracle Gain |
+| --- | ---: |
+| Val | +2.55% ± 0.80% |
+| Test | +1.15% ± 0.80% |
+
+A4b-3b：ToT vs `relative_minmax/no mask`。
+
+| Split | ToT Acc | Candidate Acc | Oracle Acc | Oracle Gain | MAE Gain |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Val | 69.53% | 67.13% | 79.72% | +10.19% | +2.29 deg |
+| Test | 70.48% | 67.10% | 81.51% | +11.03% | +2.27 deg |
+
+Test set 中 ToT baseline 错了 297 个样本，其中 candidate 在角度误差意义上更好的有 125 个，占 42.09%。
+
+30 deg 类别：
+
+| Split | ToT 30 deg Acc | Candidate 30 deg Acc | Oracle 30 deg Acc | Oracle Gain |
+| --- | ---: | ---: | ---: | ---: |
+| Val | 24.31% | 46.53% | 51.39% | +27.08% |
+| Test | 29.66% | 46.21% | 55.17% | +25.52% |
+
+阶段性结论：
+
+- 普通 ToT 随机 seed 多样性确实带来少量 oracle 上限，但幅度较小：test oracle gain 约 +2.55%，30 deg oracle gain 约 +1.15%。
+- `relative_minmax/no mask` 与 ToT 的互补性明显更强：test oracle gain 为 +11.03%，30 deg oracle gain 为 +25.52%。
+- 因此 A4b-2.5 中观察到的强互补性不能简单解释为“换一个随机种子也会这样”。更合理的解释是：相对 ToA early-fusion candidate 捕捉到一部分 ToT baseline 未能正确利用的样本/类别局部信息。
+- A4b 的后续重点应从“确认是否存在互补性”转向“互补性能否被验证集可学习的 selector/gate 稳定利用”。test oracle 仍只能作为上限诊断，不能作为模型选择依据。
+
+### A4b-4 Frozen-Logit Selector Fusion
+
+新增脚本：
+
+```text
+scripts/evaluate_selector_fusion.py
+```
+
+实验目的：
+
+- 在 A4b-3 证明 `ToT` 与 `relative_minmax/no mask` candidate 存在强互补性之后，验证这种 oracle 互补性能否由一个轻量 selector 在不重新训练 ResNet 的情况下学出来。
+- 该实验不训练新的图像主干。ToT baseline 与 candidate checkpoint 全部冻结，只在它们的 logits/probabilities/confidence/margin/entropy/disagreement 等输出特征上训练 selector。
+
+固定输入：
+
+- Primary expert: `a2_best_3seed` 中的 ToT seed42。
+- Candidate expert: `a4b_toa_transform_seed42` 中的 `relative_minmax/no mask`。
+- Dataset: `Alpha_100`。
+- Split: 复用历史 `Alpha_100_ToT` / paired split；旧 `Alpha` split 名称按 A4b-3 的兼容策略处理。
+
+关键实现：
+
+- 重新加载两个已有 `best_model.pth`，用 `eval_mode=True` 在 train/val/test 上做确定性推理。
+- selector 只在 train split 上训练；默认 target 为 `lower-error`，即当 candidate 的角度误差严格小于 ToT 时标记为 1，否则保守选择 ToT。
+- validation split 用于选择 threshold，也用于决定是否启用 selector。脚本会把 `primary_only` 也作为候选策略，因此如果 selector 没有带来验证集收益，会自动退回 ToT baseline。
+- test split 只做最终报告，不参与 selector 训练、阈值选择或策略选择。
+- 输出 primary-only、candidate-only、selector thresholds 和 oracle 的 summary；per-class CSV 默认保留 primary、candidate、oracle 和 validation-selected strategy，重点观察 30 deg。
+
+服务器命令：
+
+```bash
+cd /root/Timepix
+
+python scripts/evaluate_selector_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4_selector_fusion_seed42.json \
+  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+```
+
+决策备注：
+
+- A4b-4 是从 oracle 诊断进入“可学习选择”的第一步，不改变 A4/A4b-1 已训练模型。
+- 默认使用 logistic selector；如 logistic 选择器无法利用互补性，再考虑 `--selector-hidden-dim` 的小 MLP，但应把这作为后续变体并记录。
+- 该阶段比端到端 GMU/FiLM 更轻量。如果 A4b-4 不能超过 ToT baseline，而 oracle 上限仍很高，则说明当前仅基于 logits/confidence 的可观测特征不足以判断何时切换，需要再考虑图像/物理特征级 selector 或 gated model。
+
 ## 数据分析链路：数据集与近垂直分辨极限
 
 新增目的：

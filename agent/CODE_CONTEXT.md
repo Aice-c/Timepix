@@ -367,6 +367,14 @@ python scripts/evaluate_oracle_complementarity.py --mode tot-vs-candidate --tot-
 
 服务器重放旧 `a2_best_3seed` 时必须传 `--data-root /root/autodl-tmp/Alpha_100`，因为历史 run 配置仍记录 `/root/autodl-tmp/Alpha`。同时应把 `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json` 复制为旧默认名称 `outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json`，避免脚本自动生成新 split。
 
+A4b-4 frozen-logit selector fusion 入口：
+
+```powershell
+python scripts/evaluate_selector_fusion.py --tot-group a2_best_3seed --candidate-group a4b_toa_transform_seed42 --seed 42 --data-root /root/autodl-tmp/Alpha_100 --num-workers 4 --candidate-toa-transform relative_minmax --candidate-add-hit-mask false --selector-target lower-error --selector-epochs 500 --selector-lr 0.01 --selector-weight-decay 0.0001 --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv --output-json outputs/a4b_4_selector_fusion_seed42.json
+```
+
+该脚本不训练 ResNet，只基于冻结 checkpoint 的 train logits 训练轻量 selector，用 validation 选择 threshold/是否启用 selector，test 只做最终报告。
+
 B1 Proton/C 训练超参搜索入口：
 
 ```powershell

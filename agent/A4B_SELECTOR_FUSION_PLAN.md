@@ -73,11 +73,25 @@ Decision rule:
 - If ToT-vs-ToT oracle gain is close to ToT-vs-relative gain, treat much of the complementarity as seed/model-diversity effect.
 - If ToT-vs-relative is clearly higher, especially for 30 deg, then relative ToA gives stronger evidence of useful auxiliary information.
 
+Observed A4b-3 result:
+
+- ToT-vs-ToT seed-control oracle gain is small: about +2.33% on validation and +2.55% on test.
+- ToT-vs-ToT 30 deg oracle gain is also small: about +2.55% on validation and +1.15% on test.
+- ToT vs `relative_minmax/no mask` is much stronger: +10.19% oracle gain on validation and +11.03% on test.
+- For 30 deg, ToT vs `relative_minmax/no mask` gives +27.08% oracle gain on validation and +25.52% on test.
+- Therefore, the relative candidate's complementarity is larger than ordinary seed diversity and remains visible on validation. This supports moving to selector/gated fusion rather than stopping at oracle diagnostics.
+
 ## Stage 2: Frozen-Logit Selector Fusion
 
 Goal: test whether the oracle choice can be learned from model outputs without retraining ResNet experts.
 
 Add a script, recommended name:
+
+```text
+scripts/evaluate_selector_fusion.py
+```
+
+Implemented as:
 
 ```text
 scripts/evaluate_selector_fusion.py
@@ -119,24 +133,39 @@ Training protocol:
 - Report test metrics once.
 - Never use test to choose selector type, threshold, or feature set.
 
-Fusion modes:
+Implemented fusion mode:
 
 ```text
 hard_switch:
-  choose auxiliary prediction if selector_prob > threshold, otherwise primary
-
-soft_gate:
-  logits = (1 - g) * primary_logits + g * auxiliary_logits
-
-residual_gate:
-  logits = primary_logits + g * (auxiliary_logits - primary_logits)
+  choose auxiliary prediction if selector_prob >= threshold, otherwise primary
 ```
 
-Recommended first selector:
+`primary_only` is included as a validation-selectable fallback. If the selector does not improve validation performance, the script can select the ToT baseline rather than forcing a harmful switch.
 
-- LogisticRegression from scikit-learn.
-- Use `requirements-analysis.txt` dependency set.
-- Optional second selector: small MLP, only if logistic regression underfits.
+Current selector:
+
+- Torch logistic selector by default, so the server training environment does not need scikit-learn.
+- Optional small MLP via `--selector-hidden-dim`, only if the logistic selector underfits and that decision is logged as a new variant.
+
+Current default command:
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4_selector_fusion_seed42.json \
+  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+```
 
 Report:
 

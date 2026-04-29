@@ -119,6 +119,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/evaluate_logit_fusion.py` | Evaluate late logit fusion | Uses trained ToT/ToA single-modality checkpoints, selects alpha on validation, reports test metrics. |
 | `scripts/analyze_prediction_complementarity.py` | Analyze prediction complementarity | Reads existing `predictions.csv` files and computes overlap/oracle diagnostics for A4b. |
 | `scripts/evaluate_oracle_complementarity.py` | Evaluate oracle complementarity | Reloads checkpoints and recomputes deterministic train/val/test logits for A4b-3a/b ToT-vs-ToT and ToT-vs-candidate oracle controls. |
+| `scripts/evaluate_selector_fusion.py` | Evaluate selector fusion | A4b-4 frozen-logit selector: trains a lightweight selector on train logits, selects threshold on validation, reports test metrics. |
 | `scripts/analyze_datasets.py` | Dataset analysis | Generates dataset index, event features, summary tables, representative samples, and dataset-analysis report; defaults to full `Proton_C`, not training-only `Proton_C_7`. |
 | `scripts/analyze_resolution_limit.py` | Resolution-limit analysis | Analyzes full `Proton_C` near-vertical ToT separability with effect sizes, ML baselines, pairwise AUC, and figures. |
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
