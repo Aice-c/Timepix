@@ -51,7 +51,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 
 ## 当前状态
 
-当前日期：2026-04-29。
+当前日期：2026-04-30。
 
 - A1 结构适配实验已完成，用于确定 ResNet18 在 Timepix 稀疏矩阵上的结构适配方式。
 - A2 训练超参数搜索已完成，已得到后续实验统一使用的 A2 best base。
@@ -61,8 +61,9 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
 - A4b 后续选择性融合已形成完整阶段：`A4b-4e` rule selector 三 seed 稳定小幅提升，`A4b-5` frozen-expert sample-wise gated late fusion 是当前最强多模态融合结果，`A4b-6` residual fusion 有效但不如 A4b-5。
 - `A4c: End-to-end full bimodal fusion models` 第一阶段已完成，包含 `A4c-1 dual_stream_concat_aux`、`A4c-2 dual_stream_gmu_aux`、`A4c-3 toa_conditioned_film`。三者没有显著刷新 A4b-5 的最高 Test Acc，但均明显提升 Macro-F1，其中 `dual_stream_gmu_aux` 的 Test Macro-F1 达到 `0.691±0.009`，并显示 gate 约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA。第二批 `A4c-4 warm_started_expert_gate` 也已完成；`freeze_experts=true` 优于 ToT 但不超过 A4b-5/A4c-1/2，`freeze_experts=false` 不稳定。`A4c-5 mmtm_lite` 暂为选做。
+- A5 物理/手工标量特征融合方案已确定但暂未实现：不参考 `timepix/analysis/` 的既有特征实现；先使用 12 维合理保留候选特征；A5a 用 `RandomForest` / `LogisticRegression` / validation permutation importance 做筛选诊断，随后只做少量 A5b/A5c/A5d CNN 融合验证，避免全特征大网格。
 - 实验编号、阶段目的、完成状态和后续安排的权威索引见 `agent/EXPERIMENT_LOG.md` 中的“实验编号与阶段总览”。
-- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 三 seed 认证配置已新增，固定 B1-2 最佳组合并运行 `training.seed=42/43/44`。
+- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 初次三 seed 使用 `early_stopping_patience=5` 时发现早停过激，seed43/44 可能在后期恢复前被截断；正式重跑配置改为 `early_stopping_patience=8`，配置文件为 `configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -411,13 +412,13 @@ configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml
 
 B1-2 结果：`weight_decay=1e-4` 取得最高 `val_accuracy=93.84%`，`test_accuracy=93.97%`，`test_mae=0.574`，`test_f1=0.9563`。`weight_decay=0` 很接近但略低，`weight_decay=1e-5` 明显更差。因此当前 B1 最佳组合为 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`、`dropout=0.1`、`scheduler=cosine`、`eta_min=1e-7`。
 
-B1-best 配置已新增：
+B1-best patience=8 重跑配置已新增：
 
 ```text
-configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
+configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
 ```
 
-该配置不继承 B1-2，因为 B1-2 带有 `weight_decay` 搜索 grid；B1-best 独立写出固定配置，只展开 `training.seed=[42,43,44]`，用于报告 mean ± std。
+该配置不继承 B1-2，因为 B1-2 带有 `weight_decay` 搜索 grid；B1-best 独立写出固定配置，只展开 `training.seed=[42,43,44]`，用于报告 mean ± std。原 `configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，仅保留为早停过激的历史诊断配置。
 
 ## A4b 当前后续安排
 

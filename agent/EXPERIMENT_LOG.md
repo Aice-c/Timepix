@@ -90,7 +90,7 @@ Alpha 主线阶段：
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
 | `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
-| `A5` | 物理/手工特征融合 | 待定 | 建议用于 ToT image + ToT/ToA scalar physical features，不继续塞进 A4b。 |
+| `A5` | 物理/手工特征融合 | 方案已定，暂未实现 | 聚焦 ToT image + selected ToT/ToA scalar physical features；先做 A5a 随机森林/置换重要性筛选，再做少量 CNN 融合验证，避免全特征大网格。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
 
@@ -141,13 +141,99 @@ A4c 自由度收敛决策：
 - `A4c-2` 的 gate bias 初始化偏向 ToT；`A4c-3` 的 FiLM 最后一层 zero-init，使初始调制接近 identity。
 - `A4c-5 mmtm_lite` 暂缓，避免完整双模态部分膨胀成新大网格；A4c-4 已完成后，是否推进 MMTM 需要结合剩余时间和论文主线再决定。
 
+A5 计划命名：
+
+| 编号 | 名称 | 阶段目的 | 当前安排 |
+| --- | --- | --- | --- |
+| `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 方案已定，暂未实现；只用 train/validation，test 不参与筛选。 |
+| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 方案已定，暂未实现；统一使用 concat，避免同时搜索融合方式。 |
+| `A5c` | handcrafted fusion mode comparison | 只对 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated | 方案已定，暂未实现；不扩大特征集合。 |
+| `A5d` | best handcrafted fusion 3-seed verification | 对 A5c 选出的最佳 1-2 个设置做 `training.seed=42/43/44` 认证 | 方案已定，暂未实现；报告 mean ± std。 |
+
+A5 固定决策：
+
+- A5 不再作为 A4b 子阶段，不命名为 A4b-8；A5 是独立的物理/手工标量特征融合阶段。
+- A5 的核心问题是：低维物理标量特征是否能补充 CNN 图像特征，并提供更可解释的角度判别依据。
+- 主线固定为 `image input = ToT only`，避免与 A4/A4c 的 ToT+ToA 图像融合问题混在一起。
+- scalar feature source 可以读取 `ToT + ToA`，但图像分支只输入 ToT。
+- 后续实现需要解耦 `dataset.modalities` 与 `handcrafted_features.source_modalities`；否则写入 `modalities: [ToT, ToA]` 会让模型看到 ToA 图像通道，导致 A5 与 A4c 混淆。
+- 不参考 `timepix/analysis/` 数据分析链路里的既有特征实现；那条链路可能存在定义或实现偏差。A5 训练链路应重新实现、单独验证合理保留组的特征。
+- A5 先不做 25 维大特征池，也不做逐特征开关网格；第一版候选特征压缩为 12 维。
+- RandomForest / LogisticRegression / permutation importance 只作为 A5a 筛选与诊断，不作为 CNN 融合最终结论。
+- 特征选择只允许使用 train/validation；test set 只用于最终报告。
+
+A5 第一版候选特征池：
+
+```text
+Geometry:
+  active_pixel_count
+  bbox_long
+  bbox_short
+  bbox_fill_ratio
+  pca_major_axis
+  pca_minor_axis
+
+ToT:
+  total_ToT
+  ToT_density
+
+ToA:
+  ToA_span
+  ToA_p90_minus_p10
+
+Axis interaction:
+  ToA_major_axis_slope_abs
+  ToA_major_axis_corr_abs
+```
+
+A5 特征暂缓/不作为第一版主特征：
+
+```text
+bbox_area
+pca_eccentricity
+ToA_std
+ToA_iqr
+mean_ToT_nonzero
+std_ToT_nonzero
+p90_ToT_nonzero
+max_ToT_fraction
+top10_ToT_fraction
+ToT_ToA_corr_abs
+ToT_axis_asymmetry_abs
+ToA_axis_asymmetry_abs
+raw bbox_width / bbox_height
+PCA_angle
+raw ToA sum / mean / max / min
+```
+
+A5 分组递进方案：
+
+1. `A5a`：提取 12 维候选特征，训练 handcrafted-only `RandomForest` / `LogisticRegression`，使用 validation permutation importance 和 group permutation importance 筛选特征；test 不参与筛选。
+2. `A5b`：基于 A5a 选出的 6-8 个特征，跑少量 seed42 CNN concat 消融：
+   - `A5b-1`: CNN + selected Geometry
+   - `A5b-2`: CNN + selected Geometry + ToT
+   - `A5b-3`: CNN + selected ToA/Axis
+   - `A5b-4`: CNN + selected all
+3. `A5c`：只拿 A5b 最好的 1 个特征组比较融合方式：
+   - handcrafted-only MLP
+   - CNN + handcrafted concat
+   - CNN + handcrafted gated
+4. `A5d`：只对 A5c 最终选出的最佳 1-2 个设置做三 seed 认证。
+
+预期 CNN run 数量控制：
+
+- A5b: 约 4 个 seed42 run。
+- A5c: 约 1-2 个 seed42 run。
+- A5d: 约 3-6 个正式三 seed run，取决于最终保留 1 个还是 2 个设置。
+- A5a 为轻量传统模型/特征诊断，不计入主要深度训练预算。
+
 Proton/C 主线阶段：
 
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
 | --- | --- | --- | --- |
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
-| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 配置已撰写，待运行 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`，运行 `training.seed=42/43/44` 三 seed 认证。 |
+| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | patience=8 配置已撰写，待重跑 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；原 `early_stopping_patience=5` 对 seed43/44 过激，改为 8 后重跑 `training.seed=42/43/44`。 |
 | `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
@@ -166,7 +252,7 @@ Proton/C 主线阶段：
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
 3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
 4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
-5. A5/A6 等 A4c 和 B1 有初步结果后再展开。
+5. A5 方案已定但暂不实现；下一步如推进，应先做 A5a 特征筛选/诊断，再决定少量 A5b/A5c/A5d CNN 融合实验。
 
 ## A2 Best Base
 
@@ -1446,6 +1532,12 @@ eta_min       = 1e-7
 配置文件：
 
 ```text
+configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+```
+
+历史诊断配置：
+
+```text
 configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
 ```
 
@@ -1468,7 +1560,7 @@ configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
 - `scheduler=cosine`
 - `eta_min=1e-7`
 - `epochs=25`
-- `early_stopping_patience=5`
+- `early_stopping_patience=8`
 - AMP: enabled
 - Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
 
@@ -1486,22 +1578,24 @@ grid:
 
 - B1-best 配置不继承 B1-2 配置文件，因为 B1-2 自身包含 `training.weight_decay` 搜索 grid；直接继承会因深度合并而把旧搜索项带入 B1-best。
 - 因此 B1-best 使用独立 YAML 显式写出固定配置，只保留 `training.seed` 一个 grid 维度。
+- 2026-04-30 追加决策：原 `early_stopping_patience=5` 的 B1-best 运行表现不稳定。seed42 证明模型后期可以从低谷恢复到 93%+，但 seed43/44 在 epoch 10 左右被截断，可能尚未等到后期恢复。因此将正式 B1-best 重跑配置改为 `early_stopping_patience=8`。
+- 为避免覆盖或混淆已运行的 patience=5 结果，新增独立配置、独立 `experiment_group` 和独立汇总文件：`b1_proton_c7_resnet18_tot_best_patience8_3seed`。原 patience=5 结果仅作为“早停过激”的诊断记录，不作为 B1-best 最终三 seed 认证。
 - 运行后使用 `scripts/summarize.py` 输出逐 run 汇总，再使用 `scripts/aggregate_seeds.py` 计算 mean ± std。
 
 服务器 `tmux` 持久化运行：
 
 ```bash
 cd ~/Timepix
-tmux new -s b1_best
+tmux new -s b1_best_p8
 ```
 
 进入 `tmux` 后一次性运行完整链路：
 
 ```bash
-python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
-python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
-python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_3seed --out outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv && \
-python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_3seed_mean_std.csv
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_patience8_3seed --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_mean_std.csv
 ```
 
 `tmux` 使用：
@@ -1511,7 +1605,7 @@ python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_be
 Ctrl+b 然后按 d
 
 # 重新进入
-tmux attach -t b1_best
+tmux attach -t b1_best_p8
 ```
 
 ## 常用汇总命令

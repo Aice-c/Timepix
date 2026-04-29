@@ -585,7 +585,7 @@ eta_min       = 1e-7
 
 ### B1-best 三 seed 认证
 
-`configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 固定 B1-2 最佳组合，只展开训练随机种子：
+`configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml` 固定 B1-2 最佳组合，只展开训练随机种子：
 
 ```yaml
 training:
@@ -595,7 +595,7 @@ training:
   scheduler: cosine
   eta_min: 0.0000001
   epochs: 25
-  early_stopping_patience: 5
+  early_stopping_patience: 8
   mixed_precision: true
 
 grid:
@@ -604,20 +604,22 @@ grid:
 
 注意：B1-best 不继承 B1-2 配置文件，因为 B1-2 配置含有 `weight_decay` 搜索 grid；为了避免深度合并后误跑旧搜索项，B1-best 独立写出固定配置。
 
+2026-04-30 更新：原 `configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，B1-best 初次运行发现该 patience 对 Proton_C_7 训练过激。seed42 证明模型后期可以从低谷恢复到 93%+，但 seed43/44 在 epoch 10 左右被截断，可能还没等到后期恢复。因此正式重跑版本改为 `early_stopping_patience=8`，并使用独立 group `b1_proton_c7_resnet18_tot_best_patience8_3seed`，避免覆盖 patience=5 诊断结果。
+
 服务器 `tmux` 持久化运行：
 
 ```bash
 cd ~/Timepix
-tmux new -s b1_best
+tmux new -s b1_best_p8
 ```
 
 进入 `tmux` 后一次性运行训练、逐 run 汇总和三 seed 聚合：
 
 ```bash
-python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
-python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
-python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_3seed --out outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv && \
-python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_3seed_mean_std.csv
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_patience8_3seed --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_mean_std.csv
 ```
 
 ### B1-1 20 epoch 结果续跑到 25 epoch
@@ -1088,3 +1090,85 @@ python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate
 ```bash
 tmux attach -t a4c_warm_gate
 ```
+
+## A5 physical handcrafted feature fusion plan
+
+A5 暂未实现配置或脚本。本节记录已确认的实验设计决策；正式新增 A5 配置时，必须同步补充服务器运行命令、汇总命令和 mean/std 聚合命令。
+
+A5 不再塞进 A4b，也不作为新的 ToT/ToA 图像融合实验。A5 的问题是：
+
+```text
+低维物理标量特征是否能补充 ToT CNN 图像特征，并提供更可解释的角度判别依据？
+```
+
+关键固定决策：
+
+- Dataset: `Alpha_100`
+- image input: `ToT only`
+- scalar feature source: `ToT + ToA`
+- split: 复用 `Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- backbone: `resnet18_no_maxpool`
+- training config: A2 best
+- loss/label: `cross_entropy` + `onehot`
+- test set 只做最终报告，不参与特征筛选、模型选择或融合方式选择。
+
+实现注意：
+
+- 当前训练链路只注册了 `total_energy` 这一个手工特征。
+- A5 不参考 `timepix/analysis/` 中的数据分析特征实现；A5 训练特征需要重新实现并单独验证。
+- A5 需要解耦 `dataset.modalities` 和 `handcrafted_features.source_modalities`。图像输入必须保持 `dataset.modalities: [ToT]`，但手工特征可以读取 ToT 与 ToA；否则会把 ToA 图像通道混入模型，导致 A5 与 A4c 混淆。
+
+第一版候选特征池控制为 12 维：
+
+```text
+Geometry:
+  active_pixel_count
+  bbox_long
+  bbox_short
+  bbox_fill_ratio
+  pca_major_axis
+  pca_minor_axis
+
+ToT:
+  total_ToT
+  ToT_density
+
+ToA:
+  ToA_span
+  ToA_p90_minus_p10
+
+Axis interaction:
+  ToA_major_axis_slope_abs
+  ToA_major_axis_corr_abs
+```
+
+暂缓或不作为第一版主特征：
+
+```text
+bbox_area
+pca_eccentricity
+ToA_std / ToA_iqr
+mean/std/p90_ToT_nonzero
+max_ToT_fraction / top10_ToT_fraction
+ToT_ToA_corr_abs
+axis_asymmetry_abs
+raw bbox_width / bbox_height
+PCA_angle
+raw ToA sum / mean / max / min
+```
+
+A5 子阶段命名：
+
+```text
+A5a: handcrafted feature screening
+A5b: CNN + selected feature group ablation
+A5c: handcrafted fusion mode comparison
+A5d: best handcrafted fusion 3-seed verification
+```
+
+计划流程：
+
+1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、`LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
+2. `A5b`：只用 A5a 选出的 6-8 个特征，跑少量 seed42 `concat` 消融，包括 selected Geometry、Geometry+ToT、ToA/Axis、selected all。
+3. `A5c`：只拿 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated。
+4. `A5d`：只对 A5c 最优 1-2 个设置做 `training.seed=42/43/44` 认证并报告 mean ± std。
