@@ -944,3 +944,65 @@ for seed in 42 43 44; do
     --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
 done
 ```
+
+Aggregate A4b-5:
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed43_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed44_summary.csv \
+  --out outputs/a4b_5_gated_late_fusion_mean_std.csv
+```
+
+## A4b-6 Residual Gated Fusion
+
+A4b-6 does not retrain ResNet experts. It treats the candidate as a constrained
+correction to the ToT logits:
+
+```text
+logits_final = logits_tot + residual_weight * (logits_candidate - logits_tot)
+```
+
+Seed42:
+
+```bash
+python scripts/evaluate_residual_gated_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_6_residual_gated_fusion_seed42.json \
+  --output-summary outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_6_residual_gated_fusion_seed42_by_class.csv
+```
+
+Three-seed run after A4b-4e:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_residual_gated_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_6_residual_gated_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_6_residual_gated_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_6_residual_gated_fusion_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed43_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed44_summary.csv \
+  --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
+```

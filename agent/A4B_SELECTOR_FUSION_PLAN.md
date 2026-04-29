@@ -265,7 +265,7 @@ This is the active A4b numbering after the A4b-4 results.
 | A4b-4d | Switch diagnostics | Next | Explain which selected samples are beneficial, harmful, neutral, or missed. No training. |
 | A4b-4e | Three-seed selector confirmation | Implemented config | Rerun only the key candidate for seeds 43/44 and report mean/std with the existing seed42 candidate. |
 | A4b-5 | Sample-wise gated late fusion | Implemented script | Compare entropy soft gate, learned scalar gates, class-aware gate, and conservative gate over frozen logits. |
-| A4b-6 | Constrained residual interpolation | Planned | Keep ToT primary and move logits only partly toward the candidate. |
+| A4b-6 | Constrained residual interpolation | Implemented script | Keep ToT primary and move logits only partly toward the candidate. |
 | A4b-7 | ToA-only relative controls | Later | Isolate whether relative ToA itself carries independent angle information. |
 | A4b-8 | ToT image plus ToA scalar features | Later | Physically interpretable ToA feature route for the thesis narrative. |
 | A4b-9 | GMU/gated expert model | Optional | End-to-end feature gate only after simpler selector/gate diagnostics. |
@@ -528,13 +528,79 @@ python scripts/aggregate_selector_fusion.py \
 
 Goal: test whether the candidate should partially correct ToT rather than fully replace it.
 
-Recommended first variant:
+Implemented script:
+
+```text
+scripts/evaluate_residual_gated_fusion.py
+```
+
+Core formula:
 
 ```text
 logits_final = logits_tot + g * beta * (logits_candidate - logits_tot)
 ```
 
-Use the A4b-4a entropy gate for `g`; choose `beta` from a small validation grid such as `[0.1, 0.2, 0.3, 0.5, 1.0]`.
+Implemented variants:
+
+| ID | Variant | Fit/selection |
+| --- | --- | --- |
+| A4b-6a | scalar beta residual | validation grid over beta |
+| A4b-6b | per-class beta residual | validation grid over class-wise beta vector |
+| A4b-6c | learned sample gate + scalar beta | train-fit and val-CV |
+| A4b-6d | learned sample gate + per-class beta | train-fit and val-CV |
+| A4b-6e | conservative residual | entropy-constrained residual grid plus conservative learned scalar residual |
+
+The candidate is always used as a correction to ToT, not as an equal expert. The
+summary records `residual_weight_mean`, high-residual rate, true-30 residual
+weight, beneficial high-residual count, and harmful high-residual count.
+
+Seed42 command:
+
+```bash
+cd /root/Timepix
+
+python scripts/evaluate_residual_gated_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_6_residual_gated_fusion_seed42.json \
+  --output-summary outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_6_residual_gated_fusion_seed42_by_class.csv
+```
+
+Three-seed command after A4b-4e candidates finish:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_residual_gated_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_6_residual_gated_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_6_residual_gated_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_6_residual_gated_fusion_seed${seed}_by_class.csv"
+done
+```
+
+Aggregate residual summaries:
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed43_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed44_summary.csv \
+  --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
+```
 
 ## A4b-7: ToA-Only Relative Controls
 

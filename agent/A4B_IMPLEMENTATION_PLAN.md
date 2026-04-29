@@ -255,3 +255,30 @@ It supports both `train` and `val-cv` gate fitting modes. Train-fit results are
 kept as exploratory/optimistic references; validation-CV and validation-grid
 variants are the stricter evidence. The script selects the best A4b-5 variant
 on validation only and reports test metrics once.
+
+A4b-6 implementation:
+
+```text
+scripts/evaluate_residual_gated_fusion.py
+```
+
+This phase keeps ToT as the primary answer and treats the
+`relative_minmax/no mask` candidate as a residual correction:
+
+```text
+logits_final = logits_tot + residual_weight * (logits_candidate - logits_tot)
+```
+
+The script compares:
+
+- A4b-6a scalar beta residual, selected on validation.
+- A4b-6b per-class beta residual, selected on validation.
+- A4b-6c learned sample gate plus scalar beta, with train-fit and val-CV modes.
+- A4b-6d learned sample gate plus per-class beta, with train-fit and val-CV modes.
+- A4b-6e conservative residual, including entropy-constrained beta grids and
+  ToT-biased learned scalar residual.
+
+Like A4b-5, ResNet experts are frozen. Validation selects the residual variant;
+test is only reported after selection. The script writes summary, by-class, and
+JSON outputs and can be aggregated across seeds by
+`scripts/aggregate_selector_fusion.py`.

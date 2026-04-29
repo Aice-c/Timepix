@@ -1145,47 +1145,47 @@ python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_moda
 python scripts/summarize.py --all --out outputs/experiment_summary.csv
 ```
 
-## A4b planning update after selector results
+## A4b selector 结果后的计划更新
 
-Date: 2026-04-29.
+记录日期：2026-04-29。
 
-Context:
-- A4b-4a rule selector, A4b-4b train-logit selector, and A4b-4c validation-CV selector have been reported.
-- A4b-4a and A4b-4b show small real test gains over ToT, but A4b-4c does not beat ToT.
-- Oracle remains far higher than all practical selectors, so the bottleneck is no longer proving complementarity; it is explaining and improving switch reliability.
+背景：
+- A4b-4a `rule selector`、A4b-4b `train-logit selector` 和 A4b-4c `validation-CV selector` 已经有结果。
+- A4b-4a 和 A4b-4b 在 test set 上相对 ToT 有小幅真实提升，但 A4b-4c 未超过 ToT。
+- `oracle` 结果仍明显高于所有实际 selector，因此当前瓶颈不再是证明互补性存在，而是解释并提高 switch 的可靠性。
 
-Current interpretation:
-- A4b-4a is the cleanest positive baseline because the rule is selected on validation and test is final-only.
-- A4b-4b is exploratory because it trains on expert outputs from the train split, where frozen experts may be overconfident.
-- A4b-4c is the stricter learned-selector result and is currently negative/neutral.
-- Therefore, A4b should not jump directly to complex end-to-end fusion. The next step is switch diagnostics and then low-cost soft-gate/residual variants.
+当前解释：
+- A4b-4a 是当前最干净的正结果，因为规则由 validation set 选择，test set 只做最终报告。
+- A4b-4b 作为探索性对照，因为它使用 train split 上的 expert 输出训练 selector，而冻结 expert 在 train split 上可能过度自信。
+- A4b-4c 是更严格的 learned-selector 结果，目前属于负面或中性结果。
+- 因此 A4b 不应直接跳到复杂的 end-to-end fusion。下一步先做 switch diagnostics，再做低成本的 soft-gate 和 residual 变体。
 
-Updated A4b numbering:
-- A4b-4d: switch diagnostics for the A4b-4a selected rule `entropy_adv_0p03`. No training. Report switch precision, switch recall, harmful/neutral switch rates, per-class switch behavior, and score distributions.
-- A4b-4e: optional three-seed confirmation for the A4b-4a result. Only rerun the key `relative_minmax/no mask` candidate for seeds 43 and 44; reuse existing `a2_best_3seed` ToT baselines.
-- A4b-5: entropy soft gate based on the A4b-4a entropy advantage signal, with validation-selected threshold/slope.
-- A4b-6: constrained residual interpolation using the same entropy gate and a validation-selected beta grid.
-- A4b-7: compact ToA-only relative controls.
-- A4b-8: ToT image plus ToA scalar physical features.
-- A4b-9: optional end-to-end gated expert fusion after low-cost selectors are understood.
+更新后的 A4b 编号：
+- A4b-4d：对 A4b-4a 选出的规则 `entropy_adv_0p03` 做 switch diagnostics。不训练新模型，报告 switch precision、switch recall、harmful/neutral switch rate、per-class switch 行为和 score distribution。
+- A4b-4e：对 A4b-4a 的小幅正结果做可选三 seed 确认。只补跑关键 candidate `relative_minmax/no mask` 的 seed43 和 seed44，ToT baseline 复用已有 `a2_best_3seed`。
+- A4b-5：基于 A4b-4a 的 entropy advantage 信号做 `entropy soft gate`，阈值和 slope 只在 validation set 上选择。
+- A4b-6：做 constrained residual interpolation，使用 validation-selected `beta` grid 控制 candidate 对 ToT logits 的修正幅度。
+- A4b-7：做紧凑的 ToA-only relative controls。
+- A4b-8：做 ToT image plus ToA scalar physical features。
+- A4b-9：在低成本 selector/gate 分析清楚后，再考虑可选的 end-to-end gated expert fusion。
 
-Deferred:
-- GMU, FiLM, MMTM, ordinary feature concat, and larger mask/transform grids are deferred until A4b-4d/A4b-5/A4b-6 clarify whether selector/gate signals are reliable.
+暂缓内容：
+- GMU、FiLM、MMTM、ordinary feature concat 和更大的 mask/transform grid 暂缓，等 A4b-4d/A4b-5/A4b-6 说明 selector/gate 信号是否可靠后再决定。
 
-### A4b-4d switch diagnostics implementation
+### A4b-4d switch diagnostics 实现
 
-Implemented script:
+实现脚本：
 
 ```text
 scripts/analyze_selector_switches.py
 ```
 
-Purpose:
-- Reproduce the fixed A4b-4a validation-selected rule `entropy_adv_0p03`.
-- Explain whether the small A4b-4a gain is limited by low switch precision, low switch recall, harmful switches, missed 30 deg beneficial samples, or overlapping selector-score distributions.
-- This is a no-training diagnostic; it does not select a new rule or threshold.
+目的：
+- 复现 A4b-4a 在 validation set 上选出的固定规则 `entropy_adv_0p03`。
+- 解释 A4b-4a 的小幅收益是否受限于 switch precision 偏低、switch recall 偏低、harmful switch、遗漏 30 deg beneficial samples，或 selector score distribution 高度重叠。
+- 这是一个不训练新模型的诊断实验，不重新选择 rule 或 threshold。
 
-Rule definition used by the existing selector implementation:
+当前 selector 实现中的规则定义：
 
 ```text
 entropy_adv_0p03 switches to candidate when:
@@ -1193,7 +1193,7 @@ entropy_adv_0p03 switches to candidate when:
   candidate_entropy <= primary_entropy - 0.03
 ```
 
-Server command:
+服务器命令：
 
 ```bash
 cd /root/Timepix
@@ -1214,39 +1214,39 @@ python scripts/analyze_selector_switches.py \
   --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
 ```
 
-Outputs:
-- summary CSV: overall switch precision/recall, harmful/neutral switch rate, final metrics, oracle metrics.
-- by-class CSV: same diagnostics per true angle class, especially 30 deg.
-- samples CSV: per-sample predictions, errors, selected flag, oracle-beneficial flag, and switch outcome.
-- distribution CSV: score distributions for selected-beneficial, selected-harmful, selected-neutral, missed-beneficial, and no-benefit groups.
+输出文件：
+- summary CSV：总体 switch precision/recall、harmful/neutral switch rate、最终指标和 oracle 指标。
+- by-class CSV：按真实角度类别统计同类诊断指标，重点关注 30 deg。
+- samples CSV：逐样本记录 predictions、errors、selected flag、oracle-beneficial flag 和 switch outcome。
+- distribution CSV：记录 selected-beneficial、selected-harmful、selected-neutral、missed-beneficial 和 no-benefit 分组的 score distribution。
 
-Local verification:
+本地验证：
 - `python scripts\analyze_selector_switches.py --help`
 - `python -m py_compile scripts\analyze_selector_switches.py`
-- Small synthetic helper smoke test for switch precision/recall calculations.
+- 使用小型 synthetic helper 数据完成 switch precision/recall 计算 smoke test。
 
-## B1-1 epoch-20 recovery plan
+## B1-1 epoch-20 中继恢复方案
 
-Date: 2026-04-29.
+记录日期：2026-04-29。
 
-Issue:
-- B1-1 was accidentally run with the older 20-epoch setup.
-- The intended B1-1 budget is now 25 epochs with `early_stopping_patience=5`.
-- Re-running the full 9-run grid from scratch is expensive.
+问题：
+- B1-1 误用了旧的 20 epoch 配置运行。
+- 当前计划中的 B1-1 训练预算已经调整为 25 epochs，`early_stopping_patience=5`。
+- 从头重跑完整 9 组 grid 成本较高。
 
-Decision:
-- If each old run has `last_checkpoint.pth`, it can be continued from that checkpoint with `training.epochs=25`.
-- This continuation is valid as an epoch-budget rescue, but it is not perfectly identical to a fresh 25-epoch run from scratch, because the cosine scheduler had already followed the 20-epoch schedule before the resume. Record this as `from20` continuation rather than pretending it was originally trained with `T_max=25`.
-- Runs that already triggered early stopping before epoch 20 should usually be skipped, because increasing `max_epochs` from 20 to 25 would not have changed a run that had already stopped by patience.
-- Keep the old 20-epoch group intact and copy resumed runs into a new group to avoid mixing old and rescued results.
+决策：
+- 如果旧 run 中存在 `last_checkpoint.pth`，可以从该 checkpoint 继续训练，并将 `training.epochs` 改为 25。
+- 这种方式可作为 epoch budget 补救，但不等同于从头训练的 25 epoch 结果，因为 cosine scheduler 在恢复前已经按照 20 epoch 的 schedule 运行过。结果必须标记为 `from20` continuation，不能伪装成原生 `T_max=25` 训练。
+- 已经在 epoch 20 之前触发 early stopping 的 run 通常应跳过，因为即使把 `max_epochs` 增加到 25，已经因 patience 停止的 run 也不会继续训练。
+- 保留旧 20 epoch group 不动，将恢复后的 run 复制到新 group，避免旧结果和补救结果混在一起。
 
-Implemented support:
+实现支持：
 
 ```text
 scripts/extend_runs.py
 ```
 
-Recommended server dry-run:
+推荐服务器 dry-run：
 
 ```bash
 cd /root/Timepix
@@ -1262,7 +1262,7 @@ python scripts/extend_runs.py \
   --dry-run
 ```
 
-Recommended server execution:
+推荐服务器正式执行：
 
 ```bash
 python scripts/extend_runs.py \
@@ -1276,7 +1276,7 @@ python scripts/extend_runs.py \
   --continue-on-error
 ```
 
-Summary command:
+汇总命令：
 
 ```bash
 python scripts/summarize.py \
@@ -1284,33 +1284,33 @@ python scripts/summarize.py \
   --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_from20_runs.csv
 ```
 
-Local verification:
+本地验证：
 - `python scripts\extend_runs.py --help`
 - `python -m py_compile scripts\extend_runs.py`
-- `D:\Program\Anaconda\envs\timepix-local\python.exe scripts\extend_runs.py ... --dry-run` on local B1 outputs.
+- 使用本地 B1 outputs 运行 `D:\Program\Anaconda\envs\timepix-local\python.exe scripts\extend_runs.py ... --dry-run`。
 
-## A4b-4e three-seed selector confirmation
+## A4b-4e 三 seed selector 确认
 
-Date: 2026-04-29.
+记录日期：2026-04-29。
 
-Purpose:
-- A4b-4a produced a small positive seed42 result, but the gain is only about +0.50% test accuracy.
-- To use it as more than a diagnostic, we need a three-seed confirmation.
-- The expensive part is the candidate expert; ToT seed42/43/44 already exist in `a2_best_3seed`.
+目的：
+- A4b-4a 在 seed42 上得到小幅正结果，但 test accuracy 提升只有约 +0.50%。
+- 如果要把它作为正式方法而不只是诊断结果，需要做三 seed 确认。
+- 主要成本在 candidate expert；ToT 的 seed42/43/44 已经存在于 `a2_best_3seed`。
 
-Decision:
-- Do not retrain the seed42 candidate. Reuse the existing `a4b_toa_transform_seed42` run for `relative_minmax/no mask`.
-- Train only the key candidate `ToT + relative_minmax ToA, no mask` for seeds 43 and 44.
-- Then evaluate oracle complementarity and A4b-4a rule selector for seeds 42/43/44.
+决策：
+- 不重训 seed42 candidate，直接复用已有 `a4b_toa_transform_seed42` 中的 `relative_minmax/no mask` run。
+- 只补训关键 candidate `ToT + relative_minmax ToA, no mask` 的 seed43 和 seed44。
+- 随后对 seed42/43/44 统一评估 oracle complementarity 和 A4b-4a rule selector。
 
-New files:
+新增文件：
 
 ```text
 configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
 scripts/aggregate_selector_fusion.py
 ```
 
-Candidate training:
+candidate 训练：
 
 ```bash
 cd /root/Timepix
@@ -1328,7 +1328,7 @@ python scripts/summarize.py \
   --out outputs/a4b_4e_relative_minmax_no_mask_seed43_44_runs.csv
 ```
 
-Three-seed oracle confirmation:
+三 seed oracle 确认：
 
 ```bash
 python scripts/evaluate_oracle_complementarity.py \
@@ -1346,7 +1346,7 @@ python scripts/evaluate_oracle_complementarity.py \
   --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
 ```
 
-Three-seed rule-selector confirmation:
+三 seed rule-selector 确认：
 
 ```bash
 for seed in 42 43 44; do
@@ -1366,7 +1366,7 @@ for seed in 42 43 44; do
 done
 ```
 
-Aggregate selector result:
+selector 聚合命令：
 
 ```bash
 python scripts/aggregate_selector_fusion.py \
@@ -1377,52 +1377,52 @@ python scripts/aggregate_selector_fusion.py \
   --out outputs/a4b_4e_rule_selector_mean_std.csv
 ```
 
-Interpretation:
-- If the validation-selected rule selector improves mean test accuracy, MAE, and macro-F1 over `primary_only`, A4b-4a can be reported as a small but stable selector baseline.
-- If the mean improvement disappears or variance is high, A4b-4a remains a seed42 diagnostic; the stronger conclusion is still the oracle-level complementarity, not a reliable deployed fusion gain.
+解释口径：
+- 如果 validation-selected rule selector 相对 `primary_only` 提高了 mean test accuracy、MAE 和 macro-F1，A4b-4a 可以作为小幅但较稳定的 selector baseline 汇报。
+- 如果 mean improvement 消失或方差较高，A4b-4a 仍只作为 seed42 诊断结果；更强的结论仍是 oracle-level complementarity，而不是可靠可部署的 fusion gain。
 
 ## A4b-5 sample-wise gated late fusion
 
-Date: 2026-04-29.
+记录日期：2026-04-29。
 
-Decision:
-- A4b-5 and A4b-6 are no longer treated as sequential "whether to continue" checks.
-- They are formal selective-fusion comparison families. Soft/constrained variants are diagnostic ablations, and learned variants are compared in the same run.
-- A4b-5 is implemented first because it is a direct extension of A4b-4: replace hard selection/global alpha with a sample-wise gate.
+决策：
+- A4b-5 和 A4b-6 不再作为“是否继续”的前置判断，而是作为正式的 selective-fusion 对比系列。
+- soft/constrained variants 定位为诊断性 ablation，learned variants 在同一个脚本中一起比较。
+- 先实现 A4b-5，因为它是 A4b-4 的直接扩展：用 sample-wise gate 替代 hard selection 或 global alpha。
 
-Implementation:
+实现脚本：
 
 ```text
 scripts/evaluate_gated_late_fusion.py
 ```
 
-Fixed constraints:
-- Dataset/split: `Alpha_100`, paired split `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`.
-- Primary expert: ToT baseline from `a2_best_3seed`.
-- Candidate expert: `ToT + relative_minmax ToA, no mask`.
-- Primary/candidate ResNet experts are frozen; only the gate is trained/calibrated.
-- Test set is not used for choosing gate type, threshold, slope, fit mode, or regularization.
+固定约束：
+- Dataset/split：`Alpha_100`，paired split 为 `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`。
+- Primary expert：来自 `a2_best_3seed` 的 ToT baseline。
+- Candidate expert：`ToT + relative_minmax ToA, no mask`。
+- Primary/candidate ResNet experts 全部冻结，只训练或校准 gate。
+- Test set 不用于选择 gate type、threshold、slope、fit mode 或 regularization。
 
-Implemented A4b-5 variants:
+已实现的 A4b-5 变体：
 - A4b-5a: entropy soft gate, probability fusion.
 - A4b-5b: learned scalar gate, probability fusion.
 - A4b-5c: learned scalar gate, logit fusion.
 - A4b-5d: class-aware probability gate.
 - A4b-5e: conservative scalar probability gate, initialized toward ToT and penalized for high mean gate.
 
-Gate features:
-- ToT logits, candidate logits, logit differences.
-- ToT probabilities, candidate probabilities, probability differences.
-- Top1 confidence, top1-top2 margin, entropy for each expert.
-- Disagreement flag and predicted angle difference.
-- ToT-predicts-30 and candidate-predicts-30 flags.
+Gate features：
+- ToT logits、candidate logits、logit differences。
+- ToT probabilities、candidate probabilities、probability differences。
+- 每个 expert 的 top1 confidence、top1-top2 margin 和 entropy。
+- Disagreement flag 和 predicted angle difference。
+- ToT-predicts-30 flag 和 candidate-predicts-30 flag。
 
-Gate fitting:
-- `train`: exploratory/optimistic reference, because expert outputs on train can be overconfident.
-- `val-cv`: stricter variant using validation cross-fitting for validation metrics and final validation fit for test reporting.
-- A4b-5a uses validation-grid selection over entropy threshold and sigmoid slope.
+Gate fitting：
+- `train`：探索性/偏乐观参考，因为 expert 在 train split 上的输出可能过度自信。
+- `val-cv`：更严格的设置，用 validation cross-fitting 得到 validation 指标，并用完整 validation fit 生成 test 报告。
+- A4b-5a 使用 validation-grid selection 选择 entropy threshold 和 sigmoid slope。
 
-Seed42 command:
+seed42 命令：
 
 ```bash
 cd /root/Timepix
@@ -1440,7 +1440,7 @@ python scripts/evaluate_gated_late_fusion.py \
   --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
 ```
 
-Three-seed command after A4b-4e candidate seeds are available:
+A4b-4e candidate seeds 可用后的三 seed 命令：
 
 ```bash
 for seed in 42 43 44; do
@@ -1466,12 +1466,98 @@ python scripts/aggregate_selector_fusion.py \
   --out outputs/a4b_5_gated_late_fusion_mean_std.csv
 ```
 
-Output:
-- Summary CSV includes ToT baseline, candidate-only, A4b-4a rule, all A4b-5 variants, and oracle.
-- Per-class CSV includes baselines, rule, selected A4b-5 variant, and oracle.
-- Summary rows include validation/test Acc, MAE, P90, macro-F1, mean gate, high-gate rate, true-30 mean gate, beneficial high-gate count, and harmful high-gate count.
+输出内容：
+- Summary CSV 包含 ToT baseline、candidate-only、A4b-4a rule、所有 A4b-5 variants 和 oracle。
+- Per-class CSV 包含 baselines、rule、selected A4b-5 variant 和 oracle。
+- Summary rows 包含 validation/test Acc、MAE、P90、macro-F1、mean gate、high-gate rate、true-30 mean gate、beneficial high-gate count 和 harmful high-gate count。
 
-Local verification:
+本地验证：
 - `python scripts\evaluate_gated_late_fusion.py --help`
 - `python -m py_compile scripts\evaluate_gated_late_fusion.py`
-- Synthetic logits smoke test using `D:\Program\Anaconda\envs\timepix-local\python.exe`.
+- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成 synthetic logits smoke test。
+
+## A4b-6 residual gated fusion
+
+记录日期：2026-04-29。
+
+决策：
+- A4b-6 实现为 frozen-expert post-processing 实验，而不是新的 ResNet 训练任务。
+- ToT 仍是 primary expert；`relative_minmax/no mask` candidate 只负责将 logits 从 ToT 向 candidate 方向做部分修正。
+- Validation set 用于选择 residual beta/gate variants；test set 只在选择完成后报告一次。
+
+实现脚本：
+
+```text
+scripts/evaluate_residual_gated_fusion.py
+```
+
+核心公式：
+
+```text
+logits_final = logits_tot + residual_weight * (logits_candidate - logits_tot)
+```
+
+已实现的 A4b-6 变体：
+- A4b-6a: scalar beta residual, validation beta grid.
+- A4b-6b: per-class beta residual, validation class-wise beta grid.
+- A4b-6c: learned sample gate plus scalar beta, train-fit and val-CV.
+- A4b-6d: learned sample gate plus per-class beta, train-fit and val-CV.
+- A4b-6e: conservative residual, including entropy-constrained residual grids and ToT-biased learned scalar residual.
+
+seed42 命令：
+
+```bash
+cd /root/Timepix
+
+python scripts/evaluate_residual_gated_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_6_residual_gated_fusion_seed42.json \
+  --output-summary outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_6_residual_gated_fusion_seed42_by_class.csv
+```
+
+A4b-4e candidates 可用后的三 seed 命令：
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_residual_gated_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_6_residual_gated_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_6_residual_gated_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_6_residual_gated_fusion_seed${seed}_by_class.csv"
+done
+```
+
+residual 结果聚合命令：
+
+```bash
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed43_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed44_summary.csv \
+  --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
+```
+
+输出内容：
+- Summary CSV 包含 ToT baseline、candidate-only、A4b-4a rule、所有 A4b-6 variants 和 oracle。
+- Per-class CSV 包含 baselines、rule、selected A4b-6 variant 和 oracle。
+- Summary rows 包含 validation/test Acc、MAE、P90、macro-F1、residual-weight mean/high-rate、true-30 residual weight、beneficial high-residual count 和 harmful high-residual count。
+
+本地验证：
+- `python scripts\evaluate_residual_gated_fusion.py --help`
+- `python -m py_compile scripts\evaluate_residual_gated_fusion.py`
+- 使用 `D:\Program\Anaconda\envs\timepix-local\python.exe` 完成 synthetic logits smoke test。
