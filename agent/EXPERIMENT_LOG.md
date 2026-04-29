@@ -1134,3 +1134,83 @@ python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_moda
 ```bash
 python scripts/summarize.py --all --out outputs/experiment_summary.csv
 ```
+
+## A4b planning update after selector results
+
+Date: 2026-04-29.
+
+Context:
+- A4b-4a rule selector, A4b-4b train-logit selector, and A4b-4c validation-CV selector have been reported.
+- A4b-4a and A4b-4b show small real test gains over ToT, but A4b-4c does not beat ToT.
+- Oracle remains far higher than all practical selectors, so the bottleneck is no longer proving complementarity; it is explaining and improving switch reliability.
+
+Current interpretation:
+- A4b-4a is the cleanest positive baseline because the rule is selected on validation and test is final-only.
+- A4b-4b is exploratory because it trains on expert outputs from the train split, where frozen experts may be overconfident.
+- A4b-4c is the stricter learned-selector result and is currently negative/neutral.
+- Therefore, A4b should not jump directly to complex end-to-end fusion. The next step is switch diagnostics and then low-cost soft-gate/residual variants.
+
+Updated A4b numbering:
+- A4b-4d: switch diagnostics for the A4b-4a selected rule `entropy_adv_0p03`. No training. Report switch precision, switch recall, harmful/neutral switch rates, per-class switch behavior, and score distributions.
+- A4b-4e: optional three-seed confirmation for the A4b-4a result. Only rerun the key `relative_minmax/no mask` candidate for seeds 43 and 44; reuse existing `a2_best_3seed` ToT baselines.
+- A4b-5: entropy soft gate based on the A4b-4a entropy advantage signal, with validation-selected threshold/slope.
+- A4b-6: constrained residual interpolation using the same entropy gate and a validation-selected beta grid.
+- A4b-7: compact ToA-only relative controls.
+- A4b-8: ToT image plus ToA scalar physical features.
+- A4b-9: optional end-to-end gated expert fusion after low-cost selectors are understood.
+
+Deferred:
+- GMU, FiLM, MMTM, ordinary feature concat, and larger mask/transform grids are deferred until A4b-4d/A4b-5/A4b-6 clarify whether selector/gate signals are reliable.
+
+### A4b-4d switch diagnostics implementation
+
+Implemented script:
+
+```text
+scripts/analyze_selector_switches.py
+```
+
+Purpose:
+- Reproduce the fixed A4b-4a validation-selected rule `entropy_adv_0p03`.
+- Explain whether the small A4b-4a gain is limited by low switch precision, low switch recall, harmful switches, missed 30 deg beneficial samples, or overlapping selector-score distributions.
+- This is a no-training diagnostic; it does not select a new rule or threshold.
+
+Rule definition used by the existing selector implementation:
+
+```text
+entropy_adv_0p03 switches to candidate when:
+  primary prediction and candidate prediction disagree
+  candidate_entropy <= primary_entropy - 0.03
+```
+
+Server command:
+
+```bash
+cd /root/Timepix
+
+python scripts/analyze_selector_switches.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --rule entropy_adv_0p03 \
+  --output-json outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42.json \
+  --output-summary outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_summary.csv \
+  --output-by-class outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_by_class.csv \
+  --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
+  --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
+```
+
+Outputs:
+- summary CSV: overall switch precision/recall, harmful/neutral switch rate, final metrics, oracle metrics.
+- by-class CSV: same diagnostics per true angle class, especially 30 deg.
+- samples CSV: per-sample predictions, errors, selected flag, oracle-beneficial flag, and switch outcome.
+- distribution CSV: score distributions for selected-beneficial, selected-harmful, selected-neutral, missed-beneficial, and no-benefit groups.
+
+Local verification:
+- `python scripts\analyze_selector_switches.py --help`
+- `python -m py_compile scripts\analyze_selector_switches.py`
+- Small synthetic helper smoke test for switch precision/recall calculations.

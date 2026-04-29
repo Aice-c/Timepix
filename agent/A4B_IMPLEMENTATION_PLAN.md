@@ -171,12 +171,50 @@ oracle complementarity is not yet reliably learnable from frozen logits alone.
 
 ## Later Phases
 
-Phase 5 can add ToA scalar physical features such as `toa_span`, `toa_std`,
-`toa_valid_count`, and `toa_p90_minus_p10`. This likely requires separating
-loaded modalities from image modalities so ToA can provide scalar features
-without also being passed as an image channel.
+The active order after the A4b-4 results is intentionally conservative:
 
-Phase 6 can add trainable multimodal models such as dual-stream feature concat
-or GMU. This should use a new model-level key such as `multimodal_fusion` rather
-than overloading the existing `fusion_mode`, which currently means CNN feature
-plus handcrafted-feature fusion.
+1. A4b-4d switch diagnostics. No training. Recompute the selected A4b-4a rule
+   and report switch precision, switch recall, harmful/neutral switch rates,
+   per-class switch behavior, and selector-score distributions.
+2. A4b-4e three-seed selector confirmation, if the A4b-4a result is promoted
+   from diagnostic evidence to a formal positive method. Only the key
+   `relative_minmax/no mask` candidate needs seeds 43 and 44; ToT three-seed
+   baselines already exist.
+3. A4b-5 entropy soft gate. Use the A4b-4a entropy advantage signal to build a
+   validation-selected sample-wise soft interpolation; do not train a large gate
+   first.
+4. A4b-6 constrained residual interpolation. Keep ToT primary and move logits
+   partly toward the candidate with a small validation-selected beta grid.
+5. A4b-7 ToA-only relative controls. Run only compact `relative_minmax` and
+   `relative_rank` no-mask ToA-only diagnostics unless new evidence requires a
+   larger grid.
+6. A4b-8 ToT image plus ToA scalar physical features. Candidate features include
+   `toa_span`, `toa_std`, `toa_valid_count`, `toa_p90_minus_p10`, `toa_iqr`,
+   `toa_relative_mean`, `toa_relative_std`, `toa_major_axis_slope_abs`, and
+   `toa_major_axis_corr_abs`. This likely requires separating loaded modalities
+   from image modalities so ToA can provide scalar features without also being
+   passed as an image channel.
+7. A4b-9 optional end-to-end gated expert fusion. Use a new model-level key such
+   as `multimodal_fusion` rather than overloading the existing `fusion_mode`,
+   which currently means CNN feature plus handcrafted-feature fusion.
+
+Deferred for now:
+
+- GMU and FiLM until low-cost selector/gate variants are better understood.
+- MMTM, ordinary feature concat, and larger mask/transform grids.
+
+A4b-4d implementation:
+
+```text
+scripts/analyze_selector_switches.py
+```
+
+Default rule:
+
+```text
+entropy_adv_0p03
+```
+
+The script reloads the same frozen experts as A4b-4, applies the fixed rule
+without selecting any new threshold on test, and writes JSON plus summary,
+per-class, per-sample, and score-distribution CSV files.

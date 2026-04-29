@@ -795,3 +795,31 @@ python scripts/train.py \
 新的 checkpoint 会保存训练配置，因此恢复命令可以不再重复写 `--config`。如果是旧 checkpoint，或者服务器上的数据路径变了，可以显式加上 `--config` 和 `--data-root`。
 
 更完整说明见 `agent/SERVER_TRAINING.md`。
+
+## A4b-4d Selector Switch Diagnostics
+
+Use this after A4b-4a/4b/4c to explain selector behavior. It does not train new
+ResNet checkpoints and does not choose a new test-set rule. It applies the fixed
+A4b-4a validation-selected rule `entropy_adv_0p03` and writes overall,
+per-class, per-sample, and score-distribution diagnostics.
+
+Server command:
+
+```bash
+cd /root/Timepix
+
+python scripts/analyze_selector_switches.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --rule entropy_adv_0p03 \
+  --output-json outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42.json \
+  --output-summary outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_summary.csv \
+  --output-by-class outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_by_class.csv \
+  --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
+  --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
+```

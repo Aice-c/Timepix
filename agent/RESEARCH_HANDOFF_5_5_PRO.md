@@ -387,6 +387,25 @@ batch_size    = [64, 128, 256]
 
 备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。
 
+## A4b 当前后续安排
+
+A4b-4 结果已经将问题从“是否存在互补性”推进到“能否可靠识别何时切换”：
+
+- A4b-4a rule selector：`entropy_adv_0p03`，Test Acc 70.97%，相对 ToT +0.50%，MAE/F1 同时略有改善。
+- A4b-4b train-logit selector：Test Acc 71.17%，相对 ToT +0.70%，但因使用 train split expert logits 训练 selector，只作为探索性对照。
+- A4b-4c validation-CV selector：Test Acc 70.38%，未超过 ToT，是更严格但负面/中性的 learned-selector 结果。
+- Oracle 仍为 81.51%，说明互补性存在但当前选择器远未充分利用。
+
+最新编号和状态：
+
+- A4b-4d：switch diagnostics，已实现为 `scripts/analyze_selector_switches.py`，不训练，只分析 A4b-4a 规则切换的 precision/recall、harmful switch、per-class 行为和 score distributions。
+- A4b-4e：可选三 seed 确认。如果要把 A4b-4a 写成正式正结果，应补跑 `relative_minmax/no mask` candidate 的 seed43/44，ToT 三 seed 已存在。
+- A4b-5：entropy soft gate，把 A4b-4a hard switch 改为 validation-selected sample-wise soft interpolation。
+- A4b-6：constrained residual interpolation，保持 ToT 主模型，只用小 beta 将 logits 向 candidate 修正。
+- A4b-7：ToA-only relative controls。
+- A4b-8：ToT image + ToA scalar physical features。
+- GMU/FiLM/MMTM 暂缓，等 A4b-4d/A4b-5/A4b-6 解释清楚后再决定。
+
 ## 当前可讲的论文故事线
 
 建议主线：

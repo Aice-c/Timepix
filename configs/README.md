@@ -542,6 +542,35 @@ model:
   name: resnet18_original
 ```
 
+## A4b-4d selector switch diagnostics
+
+A4b-4d is a no-training diagnostic for the A4b-4a selected rule
+`entropy_adv_0p03`. It reloads the frozen ToT expert and the
+`relative_minmax/no mask` candidate, applies the fixed rule, and reports switch
+precision/recall, harmful switches, per-class switch behavior, per-sample
+outcomes, and score distributions.
+
+Server command:
+
+```bash
+cd /root/Timepix
+
+python scripts/analyze_selector_switches.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --rule entropy_adv_0p03 \
+  --output-json outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42.json \
+  --output-summary outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_summary.csv \
+  --output-by-class outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_by_class.csv \
+  --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
+  --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
+```
+
 `resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
 
 `resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：

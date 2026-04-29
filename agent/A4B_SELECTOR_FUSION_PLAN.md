@@ -238,7 +238,124 @@ Interpretation:
 - The stricter validation-CV selector does not beat the ToT baseline, so the most rigorous selector result is negative/neutral.
 - There remains a large gap to oracle, so later gated/residual or physical-feature selectors should be framed as attempts to make the complementarity more reliably learnable, not as already proven performance improvements.
 
-## Stage 3: ToA-Only Relative Controls
+## Revised A4b Status And Next Steps
+
+This is the active A4b numbering after the A4b-4 results.
+
+| ID | Name | Status | Role |
+| --- | --- | --- | --- |
+| A4 | Modality baseline | Done | ToT, ToA, and raw/log1p ToT+ToA comparison. |
+| A4b-1 | Relative ToA early fusion | Done | Tests relative ToA image transforms; improves raw early fusion but does not beat ToT. |
+| A4b-2 | Fixed late logit fusion | Done | Validation selects alpha=0, so global fixed ToA weight is not reliable. |
+| A4b-2.5 | Prediction complementarity | Done | Test-only oracle diagnostic from existing predictions. |
+| A4b-3a | ToT-vs-ToT seed oracle control | Done | Shows ordinary seed diversity is much smaller than ToT-vs-relative complementarity. |
+| A4b-3b | Val/test oracle check | Done | Confirms ToT vs `relative_minmax/no mask` complementarity on both validation and test. |
+| A4b-4a | Rule selector | Done | Formal positive selector baseline; validation chooses `entropy_adv_0p03`. |
+| A4b-4b | Train-logit selector | Done | Exploratory result because train logits may be overconfident. |
+| A4b-4c | Validation-CV selector | Done | More rigorous learned selector; does not beat ToT. |
+| A4b-4d | Switch diagnostics | Next | Explain which selected samples are beneficial, harmful, neutral, or missed. No training. |
+| A4b-4e | Three-seed selector confirmation | Optional next | If A4b-4a is used as a formal positive method, rerun the key candidate for seeds 43/44 and report mean/std. |
+| A4b-5 | Entropy soft gate | Planned | Convert A4b-4a hard switch into validation-selected sample-wise soft interpolation. |
+| A4b-6 | Constrained residual interpolation | Planned | Keep ToT primary and move logits only partly toward the candidate. |
+| A4b-7 | ToA-only relative controls | Later | Isolate whether relative ToA itself carries independent angle information. |
+| A4b-8 | ToT image plus ToA scalar features | Later | Physically interpretable ToA feature route for the thesis narrative. |
+| A4b-9 | GMU/gated expert model | Optional | End-to-end feature gate only after simpler selector/gate diagnostics. |
+
+Current decision:
+
+- Do not immediately implement GMU, FiLM, MMTM, or ordinary feature concat.
+- First explain A4b-4a/4b/4c with A4b-4d switch diagnostics.
+- Then try low-cost validation-selected soft-gate/residual variants before any new end-to-end multimodal network.
+- If the A4b-4a +0.50% result is presented as a formal positive method, add a three-seed confirmation by training only the key `relative_minmax/no mask` candidate for seeds 43 and 44; the ToT three-seed baseline already exists in `a2_best_3seed`.
+
+## A4b-4d: Switch Diagnostics
+
+Goal: explain why the current selectors remain far below the oracle upper bound.
+
+Implemented script:
+
+```text
+scripts/analyze_selector_switches.py
+```
+
+Primary target:
+
+```text
+A4b-4a selected rule = entropy_adv_0p03
+primary expert       = ToT seed42 from a2_best_3seed
+candidate expert     = ToT + relative_minmax ToA, no mask, seed42
+```
+
+Rule definition from the implemented selector script:
+
+```text
+entropy_adv_0p03 selects candidate only when:
+  primary prediction and candidate prediction disagree
+  candidate_entropy <= primary_entropy - 0.03
+```
+
+Required diagnostics:
+
+- switch precision: among switched samples, how often the candidate has lower angle error.
+- switch recall: among oracle-beneficial samples, how often the selector switches.
+- harmful switch rate: switched samples where candidate angle error is larger.
+- neutral switch rate: switched samples where the angle error is unchanged.
+- per-class switch statistics, especially 30 deg.
+- score distributions for beneficial, harmful, neutral, missed-beneficial, and no-benefit groups.
+- per-sample CSV for later plotting or manual inspection.
+
+Interpretation target:
+
+- A4b-4a switches at a similar rate to the oracle, but gains far less. A4b-4d should determine whether the bottleneck is low switch precision, missed 30 deg beneficial samples, or overlapping entropy-score distributions.
+
+Server command:
+
+```bash
+cd /root/Timepix
+
+python scripts/analyze_selector_switches.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --rule entropy_adv_0p03 \
+  --output-json outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42.json \
+  --output-summary outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_summary.csv \
+  --output-by-class outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_by_class.csv \
+  --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
+  --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
+```
+
+## A4b-5: Entropy Soft Gate
+
+Goal: test whether the A4b-4a hard switch is too brittle.
+
+Recommended first variant:
+
+```text
+entropy_adv = primary_entropy - candidate_entropy
+g = sigmoid(k * (entropy_adv - threshold))
+p_final = (1 - g) * p_tot + g * p_candidate
+```
+
+Validation chooses `threshold` and `k`; test is reported once. This keeps the experiment aligned with A4b-4a and avoids adding a large learned gate before the switch diagnostics are understood.
+
+## A4b-6: Constrained Residual Interpolation
+
+Goal: test whether the candidate should partially correct ToT rather than fully replace it.
+
+Recommended first variant:
+
+```text
+logits_final = logits_tot + g * beta * (logits_candidate - logits_tot)
+```
+
+Use the A4b-4a entropy gate for `g`; choose `beta` from a small validation grid such as `[0.1, 0.2, 0.3, 0.5, 1.0]`.
+
+## A4b-7: ToA-Only Relative Controls
 
 Goal: isolate whether relative ToA itself is stronger than raw ToA.
 
@@ -263,7 +380,7 @@ Interpretation:
 - If ToA-only relative improves over raw ToA, relative time representation is useful by itself.
 - If ToA-only remains weak but ToT+relative is complementary, ToA likely needs ToT spatial context.
 
-## Stage 4: ToT Image + ToA Scalar Features
+## A4b-8: ToT Image + ToA Scalar Features
 
 Goal: test a physically interpretable ToA representation.
 
@@ -310,7 +427,7 @@ handcrafted_features:
       - toa_major_axis_corr_abs
 ```
 
-## Stage 5: End-to-End Gated Expert Fusion
+## A4b-9: End-to-End Gated Expert Fusion
 
 Only start this after Stage 1/2.
 
