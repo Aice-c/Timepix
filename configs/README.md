@@ -529,6 +529,39 @@ eta_min       = 1e-7
 weight_decay = [0, 1e-5, 1e-4]
 ```
 
+### B1-2 weight decay 搜索
+
+`configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml` 是 B1-2 配置。它继承 B1-1 的 `Proton_C_7 + ToT + resnet18_no_maxpool + conv1 2/1/0 + CE one-hot + AMP + 25 epochs` 设置，固定 B1-1 最佳组合：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+```
+
+只搜索：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0003
+  training.batch_size:
+    - 128
+  training.weight_decay:
+    - 0.0
+    - 0.00001
+    - 0.0001
+```
+
+注意：因为该配置继承 B1-1，必须在 `grid` 中显式写入单值 `training.learning_rate` 和 `training.batch_size`，否则会继承父配置的 `learning_rate × batch_size` 网格，错误扩展为 27 组。
+
+运行与汇总：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_weight_decay_ep25 --out outputs/b1_proton_c7_resnet18_tot_weight_decay_ep25_runs.csv
+```
+
 ### B1-1 20 epoch 结果续跑到 25 epoch
 
 如果 B1-1 已经用旧的 20 epoch 预算跑完，且每个 run 都保留了

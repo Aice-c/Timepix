@@ -146,7 +146,7 @@ Proton/C 主线阶段：
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
 | --- | --- | --- | --- |
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
-| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 待执行 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay`。 |
+| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 配置已撰写，待运行 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待定 | B1 搜索结束后做。 |
 | `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
@@ -1301,6 +1301,75 @@ python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_to
 python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
 python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_runs.csv
 ```
+
+### B1-2 weight decay 搜索
+
+配置文件：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml
+```
+
+实验目的：
+
+- 在 B1-1 已确定 `learning_rate=3e-4`、`batch_size=128` 的基础上，只搜索 `weight_decay`。
+- 得到后续 Proton_C_7 消融和对比实验的默认训练配置。
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Task: classification
+- Backbone: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss/label: `cross_entropy` + `onehot`
+- Handcrafted: disabled
+- Fusion: `none`
+- `learning_rate=3e-4`
+- `batch_size=128`
+- `dropout=0.1`
+- Scheduler: `cosine`
+- `eta_min=1e-7`
+- `epochs=25`
+- `early_stopping_patience=5`
+- AMP: enabled
+- Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
+
+搜索项：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0003
+  training.batch_size:
+    - 128
+  training.weight_decay:
+    - 0.0
+    - 0.00001
+    - 0.0001
+```
+
+决策备注：
+
+- B1-2 配置继承 B1-1，因此需要在 `grid` 中显式把 `training.learning_rate` 限定为 `[0.0003]`、`training.batch_size` 限定为 `[128]`，避免继承 B1-1 的 `learning_rate × batch_size` 网格。
+- B1-2 是单 seed 超参搜索，选择标准仍为 `val_accuracy`；test 指标只作最终报告和辅助记录。
+- B1-2 不做 `aggregate_seeds.py`，因为它不是多 seed 验证；运行后用 `scripts/summarize.py` 输出 3 组结果即可。
+
+服务器命令：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_weight_decay_ep25 --out outputs/b1_proton_c7_resnet18_tot_weight_decay_ep25_runs.csv
+```
+
+本地验证：
+
+- `python scripts\run_grid.py --config configs\experiments\b1_proton_c7_resnet18_tot_weight_decay.yaml --dry-run`
+- dry-run 通过，规划 3 个 run：
+  - `weight_decay=0.0`
+  - `weight_decay=1e-5`
+  - `weight_decay=1e-4`
 
 ## 常用汇总命令
 

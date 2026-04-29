@@ -401,6 +401,14 @@ eta_min       = 1e-7
 
 备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。B1-2 将固定 `learning_rate=3e-4` 和 `batch_size=128` 后搜索 `weight_decay = [0, 1e-5, 1e-4]`。
 
+B1-2 配置已新增：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml
+```
+
+该配置显式将 `training.learning_rate` grid 限定为 `[0.0003]`、`training.batch_size` grid 限定为 `[128]`，只让 `training.weight_decay` 展开为 `0`、`1e-5`、`1e-4` 三组，避免继承 B1-1 的 `learning_rate × batch_size` 网格。
+
 ## A4b 当前后续安排
 
 A4b-4 结果已经将问题从“是否存在互补性”推进到“能否可靠识别何时切换”：

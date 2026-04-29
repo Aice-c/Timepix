@@ -1,0 +1,19 @@
+base: b1_proton_c7_resnet18_tot_lr_batch.yaml
+
+experiment_name: b1_proton_c7_resnet18_tot_weight_decay_ep25
+experiment_group: b1_proton_c7_resnet18_tot_weight_decay_ep25
+
+training:
+  learning_rate: 0.0003
+  batch_size: 128
+  weight_decay: 0.0001
+
+grid:
+  training.learning_rate:
+    - 0.0003
+  training.batch_size:
+    - 128
+  training.weight_decay:
+    - 0.0
+    - 0.00001
+    - 0.0001
