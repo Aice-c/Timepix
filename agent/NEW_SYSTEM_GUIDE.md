@@ -505,6 +505,26 @@ python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out 
 
 B2a/B2b 都只做 seed42 诊断，暂不使用 `aggregate_seeds.py`。只有当某个设置明确优于 B1-best seed42，或改善中高角度类别 F1/MAE 时，才进入可选 B2c 三 seed 认证。
 
+B3a Proton_C_7 有序角度损失 seed42 筛选：
+
+```bash
+tmux new -s b3a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3a_proton_c7_ordinal_loss_seed42 --out outputs/b3a_proton_c7_ordinal_loss_seed42_runs.csv
+```
+
+B3a 固定 `Proton_C_7 + ToT`、`resnet18_no_maxpool`、B1-best patience=8 训练配置和 `split.seed=42`，只比较 loss/label strategy。当前矩阵包含：
+
+- `cross_entropy + gaussian` soft target，`gaussian_sigma = 5, 10, 15`，sigma 单位为真实角度度数。
+- `ce_expected_mae`，即 CE 主项加 expected-angle MAE 辅助项，`expected_mae_weight = 0.05, 0.10, 0.20`。
+- `ce_emd`，即 CE 主项加 angle-weighted CDF/EMD 辅助项，`emd_weight = 0.05, 0.10, 0.20`。
+
+不做 pure EMD：`Proton_C_7` 的 B1-best CE baseline 已有很高 exact classification accuracy，pure EMD 可能让输出分布变宽并牺牲 exact accuracy。B3a 的目标是保留 CE 分类边界，同时用有序角度辅助项降低相邻角度误差。
+
+B3a 结果需要和 B1-best patience=8 三 seed baseline 对照。B3a 只做 seed42 screening，不运行 `aggregate_seeds.py`。若某个方法在 validation 上表现最好，或在 validation MAE / high-angle Macro-F1 上形成明确物理误差优势，再进入 B3b 三 seed 认证。
+
 比较 FP32 与 CUDA AMP 混合精度：
 
 ```bash

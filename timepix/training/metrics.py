@@ -62,6 +62,17 @@ def classification_metrics(logits: np.ndarray, y_true: np.ndarray, angle_values:
         f1_values.append(f1)
         per_class.append({"class_index": cls, "precision": precision, "recall": recall, "f1": f1})
 
+    def pair_confusions(a: float, b: float) -> int:
+        matches_a = np.where(np.isclose(angles, a))[0]
+        matches_b = np.where(np.isclose(angles, b))[0]
+        if matches_a.size == 0 or matches_b.size == 0:
+            return 0
+        i = int(matches_a[0])
+        j = int(matches_b[0])
+        return int(cm[i, j] + cm[j, i])
+
+    high_angle_f1 = [f1 for f1, angle in zip(f1_values, angles) if angle >= 45.0]
+
     return {
         "accuracy": accuracy,
         "mae_argmax": mae_argmax,
@@ -69,6 +80,10 @@ def classification_metrics(logits: np.ndarray, y_true: np.ndarray, angle_values:
         "p90_error": p90_error(abs_errors_argmax),
         "p90_error_weighted": p90_error(abs_errors_weighted),
         "macro_f1": float(np.mean(f1_values)),
+        "high_angle_macro_f1": float(np.mean(high_angle_f1)) if high_angle_f1 else 0.0,
+        "confusion_45_50": pair_confusions(45.0, 50.0),
+        "confusion_60_70": pair_confusions(60.0, 70.0),
+        "far_error_rate_abs_ge_20": float(np.mean(abs_errors_argmax >= 20.0)),
         "confusion_matrix": cm.tolist(),
         "per_class": per_class,
     }

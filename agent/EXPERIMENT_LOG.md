@@ -770,9 +770,145 @@ B2a seed42 结果记录：
 - B2a-1 `geometry_lowcorr` 是弱正结果：Test Acc 从 94.09% 到 94.26%，MAE 从 0.562 到 0.545，Macro-F1 从 0.958 到 0.959；但幅度非常小，不足以单独证明手工几何特征显著提升 Proton_C_7。
 - B2a-1 对中高角度的改善有限，主要是 `60 deg F1 +0.003`、`70 deg F1 +0.004`，同时 `45 deg` 和 `50 deg` 略降。主要混淆仍集中在相邻大角度，尤其 `60 deg <-> 70 deg`。
 - B2a-2 `tot_lowcorr` 明显变差，尤其 `60 deg F1` 从 0.893 降到 0.836；说明 `ToT_density` 在 Proton_C_7 上可能与 CNN 已学到的信息冲突，或引入不稳定性，不建议继续。
-- B2b gated 仍值得跑一组 seed42，与 A5 保持一致，检查 gated 是否能比 concat 更稳地使用几何标量、或抑制 `ToT_density` 的负面影响。
-- B2c 三 seed 不优先推进。论文口径建议写作：可迁移 ToT-only 几何标量在 Proton_C_7 上只有极小增益，说明 Proton_C_7 的 ToT 图像形态已经被 CNN 充分利用，手工特征主要与 CNN 表征冗余。
-- 若 B2b gated 也只有极小增益或无增益，则 B2 主线结束；若 B2b-1 明确优于 B1-best seed42 且改善 MAE/中高角度 F1，可以只对 `geometry_lowcorr_gated` 补一个 B2c 三 seed；不建议再包含 `ToT_density`。
+- B2b gated 后续已经完成，见下一节。B2a 的主要价值是确认 `geometry_lowcorr` 只有极小正收益，而 `ToT_density` 在 concat 下会明显破坏结果。
+
+B2b seed42 gated 结果记录：
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- image input: `ToT only`
+- scalar feature source: `ToT only`
+- model: `resnet18_no_maxpool`
+- fusion: `gated`
+- training config: B1-best patience=8
+- seed: `42`
+
+主结果表：
+
+| 方法 | Fusion | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Macro-F1 |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | none | none | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| B2a-1 `geometry_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio` | 24/25 | 否 | 94.28% | 94.26% | 0.545 | 0.0 | 0.959 |
+| B2a-2 `tot_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio; ToT_density` | 8/16 | 是 | 91.43% | 91.63% | 0.807 | 0.0 | 0.939 |
+| B2b-1 `geometry_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio` | 25/25 | 否 | 94.21% | 94.17% | 0.554 | 0.0 | 0.958 |
+| B2b-2 `tot_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio; ToT_density` | 25/25 | 否 | 94.22% | 94.13% | 0.561 | 0.0 | 0.958 |
+
+相对 B1-best seed42：
+
+| 方法 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| B2a concat `geometry_lowcorr` | +0.40 pp | +0.17 pp | -0.017 | +0.001 |
+| B2a concat `tot_lowcorr` | -2.45 pp | -2.46 pp | +0.246 | -0.019 |
+| B2b gated `geometry_lowcorr` | +0.33 pp | +0.09 pp | -0.008 | +0.000 |
+| B2b gated `tot_lowcorr` | +0.34 pp | +0.04 pp | -0.000 | +0.001 |
+
+Gated 相对 Concat：
+
+| 特征组 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr` | -0.07 pp | -0.09 pp | +0.009 | -0.001 |
+| `tot_lowcorr` | +2.79 pp | +2.50 pp | -0.246 | +0.019 |
+
+每类 F1：
+
+| 方法 | 10 deg | 20 deg | 30 deg | 45 deg | 50 deg | 60 deg | 70 deg |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | 1.000 | 0.999 | 0.996 | 0.952 | 0.934 | 0.893 | 0.929 |
+| B2a concat `geometry_lowcorr` | 1.000 | 1.000 | 0.997 | 0.951 | 0.933 | 0.896 | 0.933 |
+| B2a concat `tot_lowcorr` | 0.999 | 0.999 | 0.995 | 0.935 | 0.903 | 0.836 | 0.906 |
+| B2b gated `geometry_lowcorr` | 0.999 | 0.999 | 0.997 | 0.951 | 0.933 | 0.894 | 0.931 |
+| B2b gated `tot_lowcorr` | 1.000 | 0.999 | 0.996 | 0.954 | 0.939 | 0.892 | 0.928 |
+
+阶段判断：
+
+- B2b 证明 `gated` 可以抑制 `ToT_density` 在 concat 下带来的负面影响：B2a `tot_lowcorr` 的 Test Acc 从 91.63% 恢复到 B2b `tot_lowcorr_gated` 的 94.13%，接近 B1-best seed42。
+- B2b 没有证明手工特征能显著提升 Proton_C_7。`geometry_lowcorr_gated` 仅比 B1-best seed42 高 +0.09 pp，`tot_lowcorr_gated` 仅高 +0.04 pp，基本属于同水平波动。
+- B2 系列当前最好的单 seed 结果仍是 B2a-1 `geometry_lowcorr concat`，Test Acc 94.26%，但相对 B1-best seed42 也只有 +0.17 pp，不足以优先推进 B2c 三 seed。
+- B2 的论文口径应写作：可迁移 ToT-only 几何标量在 Proton_C_7 上至多只有极小增益；`gated` 可提高融合鲁棒性、抑制坏特征，但 Proton_C_7 的 ToT 图像形态总体已被 CNN 充分利用，手工特征主要与 CNN 表征冗余。
+- 暂不推进 B2c 三 seed。若论文后期需要补一个极小几何收益的稳定性确认，只考虑 `geometry_lowcorr concat` 或 `geometry_lowcorr gated` 中更合适的一组，不再包含 `ToT_density`。
+
+## B3a Proton_C_7 有序角度损失 seed42 筛选
+
+### 阶段目的
+
+B3a 从 B2 收口后开始，研究 `Proton_C_7` 剩余错误是否能通过角度有序性相关的 loss / label strategy 改善。B2a/B2b 显示手工特征在 Proton_C_7 上只有极小收益，且主要困难仍然是相邻大角度混淆，例如 `45°↔50°`、`60°↔70°`。因此 B3 不再混入 handcrafted features，而是固定 B1-best 主模型和训练配置，只比较损失函数与标签策略。
+
+### 固定设置
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Handcrafted: disabled
+- Fusion: none
+- Training config: B1-best patience=8
+  - `learning_rate=3e-4`
+  - `batch_size=128`
+  - `weight_decay=1e-4`
+  - `dropout=0.1`
+  - `scheduler=cosine`
+  - `eta_min=1e-7`
+  - `epochs=25`
+  - `early_stopping_patience=8`
+- Split: `outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json`
+- Screening seed: `training.seed=42`
+
+### 实验矩阵
+
+配置文件：
+
+```text
+configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml
+```
+
+B3a 共 9 个 seed42 run：
+
+1. `cross_entropy + gaussian` soft target:
+   - `gaussian_sigma=5.0`
+   - `gaussian_sigma=10.0`
+   - `gaussian_sigma=15.0`
+2. `ce_expected_mae`:
+   - `expected_mae_weight=0.05`
+   - `expected_mae_weight=0.10`
+   - `expected_mae_weight=0.20`
+3. `ce_emd`:
+   - `emd_weight=0.05`
+   - `emd_weight=0.10`
+   - `emd_weight=0.20`
+
+### 关键实现决策
+
+- 不做 pure EMD。原因是 `Proton_C_7` 的 B1-best CE baseline 已有很高 exact classification accuracy，pure EMD 可能让输出分布变宽，降低精确分类准确率。B3a 采用 CE 主导策略，即保留 CE 分类边界，再加入有序角度辅助项。
+- `cross_entropy + gaussian` 已在 `timepix/losses.py` 中适配为真正的 soft-target CE。旧实现中 `cross_entropy` 会直接调用 `nn.CrossEntropyLoss()`，因此 `label_encoding=gaussian` 不会生效；本次已修正。
+- 新增 `ce_expected_mae`：`CE + lambda * |expected_angle - true_angle| / angle_range`。
+- 新增 `ce_emd`：`CE + lambda * angle-weighted CDF/EMD`，其中角度间隔使用真实角度值 `[10, 20, 30, 45, 50, 60, 70]`，不是类别 index 距离。
+- `summarize.py` 已加入 B3 需要的辅助字段：`high_angle_macro_f1`、`confusion_45_50`、`confusion_60_70`、`far_error_rate_abs_ge_20` 等。
+
+### 选择规则
+
+- B3a 只做 seed42 screening，不作为最终三 seed 结论。
+- 模型选择仍只使用 validation，不使用 test。
+- Primary: `Val Acc`
+- Tie-break: `Val MAE`
+- 额外关注：`high_angle_macro_f1`、`confusion_45_50`、`confusion_60_70`、`far_error_rate_abs_ge_20`
+- 若某方法在 validation 上整体最好，或虽然 Val Acc 小幅下降但 Val MAE / high-angle Macro-F1 具有明确物理误差优势，则进入 B3b 三 seed 认证。
+
+### 服务器命令
+
+```bash
+tmux new -s b3a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3a_proton_c7_ordinal_loss_seed42 --out outputs/b3a_proton_c7_ordinal_loss_seed42_runs.csv
+```
+
+### 本地验证
+
+- `python -m compileall timepix scripts` 通过。
+- `python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --dry-run` 通过，计划 9 个实验。
+- 本地默认 shell 没有可用 `torch`，且 `conda` 命令不可见，因此 loss 前向计算需要在服务器或已激活的本地 `timepix` 环境中验证。
 
 Proton/C 主线阶段：
 
@@ -781,8 +917,8 @@ Proton/C 主线阶段：
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 已完成 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；正式版本使用 `early_stopping_patience=8`，旧 patience=5 只作早停过激诊断。 |
-| `B2` | Proton_C_7 手工特征低成本验证 | B2a concat 已完成；B2b gated 配置已撰写 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置。B2a 显示几何标量仅带来极小正收益，`ToT_density` 明显变差；B2b 镜像 B2a 特征组并改用 `gated`，与 A5 保持一致。 |
-| `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
+| `B2` | Proton_C_7 手工特征低成本验证 | B2a concat 与 B2b gated 均已完成 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置。B2a 显示几何标量仅带来极小正收益，`ToT_density` concat 明显变差；B2b gated 可抑制 `ToT_density` 的负面影响，但没有形成显著提升。 |
+| `B3` | Proton_C_7 损失/近角度分类策略 | B3a 配置已完成，待运行 | 与 A6 对齐，特别关注角度有序性。B3a 先做 seed42 loss/label strategy screening；若有明确候选，再进入 B3b 三 seed 认证。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
 
 数据分析链路：
@@ -799,7 +935,7 @@ Proton/C 主线阶段：
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
 3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
 4. B1 已完成 patience=8 正式 B1-best，可作为 Proton_C_7 baseline。
-5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。B2a 已完成 concat，B2b 新增 gated 对照以保持与 A5 的实验逻辑一致。
+5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。B2a concat 与 B2b gated 均已完成，结论是 Proton_C_7 手工标量收益极小，gated 主要体现为抑制 `ToT_density` 坏特征的鲁棒性。
 
 ## A2 Best Base
 

@@ -58,7 +58,16 @@ SECTION_KEYS = {
         "film",
         "expert_gate",
     },
-    "loss": {"name", "label_encoding", "emd_p", "gaussian_sigma"},
+    "loss": {
+        "name",
+        "label_encoding",
+        "emd_p",
+        "emd_weight",
+        "emd_angle_weighted",
+        "expected_mae_weight",
+        "gaussian_sigma",
+        "normalize_by_angle_range",
+    },
     "training": {
         "epochs",
         "batch_size",
@@ -103,7 +112,7 @@ SUPPORTED_MODELS = {
     "warm_started_expert_gate",
 }
 SUPPORTED_TASKS = {"classification", "regression"}
-SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd"}
+SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd", "ce_expected_mae", "ce_emd"}
 SUPPORTED_REGRESSION_LOSSES = {"mse", "smooth_l1"}
 SUPPORTED_LABEL_ENCODINGS = {"onehot", "gaussian"}
 SUPPORTED_SCHEDULERS = {"none", "cosine"}
@@ -231,6 +240,14 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
         errors.append(f"loss.name for regression must be one of {sorted(SUPPORTED_REGRESSION_LOSSES)}")
     if loss_cfg.get("label_encoding", "onehot") not in SUPPORTED_LABEL_ENCODINGS:
         errors.append(f"loss.label_encoding must be one of {sorted(SUPPORTED_LABEL_ENCODINGS)}")
+    for key in ("gaussian_sigma", "emd_weight", "expected_mae_weight"):
+        if key in loss_cfg:
+            _check_float(loss_cfg[key], f"loss.{key}", errors, min_value=0.0)
+    if "emd_p" in loss_cfg:
+        _check_positive_int(loss_cfg["emd_p"], "loss.emd_p", errors)
+    for key in ("emd_angle_weighted", "normalize_by_angle_range"):
+        if key in loss_cfg:
+            _check_bool(loss_cfg[key], f"loss.{key}", errors)
 
     training_cfg = _require_mapping(cfg.get("training", {}), "training", errors) or {}
     for key in ("epochs", "batch_size"):

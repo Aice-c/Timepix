@@ -76,7 +76,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
 | `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, A4c warm-started expert gate, and A5 handcrafted-only MLP. |
 | `timepix/models/handcrafted.py` | Handcrafted-only model | Optional `handcrafted_mlp` baseline for A5; ignores image tensors and trains on standardized scalar features only. Current formal A5c does not run this branch. |
-| `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
+| `timepix/losses.py` | New loss module | Supports hard/soft CE, pure EMD, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD for ordered-angle experiments such as B3a. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
 
@@ -123,6 +123,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Completed seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups; geometry gives only a tiny positive result, while adding `ToT_density` hurts. |
 | `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
 | `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
+| `configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml` | B3a Proton_C_7 ordered-loss screening | Seed42 grid over Gaussian soft-target CE, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD. Pure EMD is intentionally excluded because Proton_C_7 already has high exact accuracy under CE. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

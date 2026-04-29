@@ -1,0 +1,88 @@
+experiment_name: b3a_proton_c7_ordinal_loss_seed42
+experiment_group: b3a_proton_c7_ordinal_loss_seed42
+
+dataset:
+  config: ../datasets/proton_c_7.yaml
+  modalities: [ToT]
+
+task:
+  type: classification
+  primary_metric: val_accuracy
+  max_angle: 90.0
+
+model:
+  name: resnet18_no_maxpool
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: none
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+training:
+  epochs: 25
+  batch_size: 128
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  scheduler: cosine
+  eta_min: 0.0000001
+  early_stopping_patience: 8
+  seed: 42
+  num_workers: 4
+  pin_memory: true
+  progress_bar: true
+  save_last_checkpoint: true
+  mixed_precision: true
+  mixed_precision_dtype: float16
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Proton_C_7_ToT_seed42_0.8_0.1_0.1.json
+
+data:
+  crop_size: 0
+  dtype: float32
+
+normalization:
+  ToT:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+
+augmentation:
+  rotation_90: true
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}
+
+output:
+  root: outputs/experiments
+
+grid:
+  loss:
+    # B3a-1: soft-target CE. Sigma is in physical degrees, not class-index units.
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 5.0}
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 10.0}
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 15.0}
+
+    # B3a-2: keep CE as the main objective and add expected-angle MAE.
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.05, normalize_by_angle_range: true}
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.10, normalize_by_angle_range: true}
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.20, normalize_by_angle_range: true}
+
+    # B3a-3: CE plus an angle-weighted CDF/EMD auxiliary term. Pure EMD is intentionally excluded.
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.05, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.10, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.20, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}

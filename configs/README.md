@@ -1550,7 +1550,7 @@ python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted
 python scripts/summarize.py --group b2_proton_c7_handcrafted_lowcorr_seed42 --out outputs/b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv
 ```
 
-B2a/B2b 都是 seed42 快速验证，暂不聚合 mean/std。只有当 B2a/B2b 明显优于 B1-best seed42，或改善 `45°/50°/60°/70°` per-class F1 / MAE 时，再填充 `b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` 并做三 seed B2c。
+B2a/B2b 都是 seed42 快速验证，暂不聚合 mean/std。当前 B2a/B2b 已完成，尚未形成足够大的正收益，因此不优先填充 `b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` 做三 seed B2c。
 
 B2b 服务器 `tmux` 持久化运行：
 
@@ -1567,7 +1567,7 @@ python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted
 python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out outputs/b2_proton_c7_handcrafted_gated_seed42_runs.csv
 ```
 
-说明：B2b 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。如果进入 B2c 三 seed 认证，再补充 `aggregate_seeds.py` 命令。
+说明：B2b 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。如果后续为了论文补 B2c 三 seed，再补充 `aggregate_seeds.py` 命令。
 
 B2a seed42 结果：
 
@@ -1589,6 +1589,60 @@ B2a seed42 结果：
 - B2a-1 `geometry_lowcorr` 是弱正结果，Test Acc 从 94.09% 到 94.26%，MAE 从 0.562 到 0.545，但幅度太小，不足以单独证明手工几何特征显著提升 Proton_C_7。
 - B2a-1 对主要弱类的改善很小：`60 deg F1 +0.003`、`70 deg F1 +0.004`，同时 `45 deg`、`50 deg` 略降。
 - B2a-2 `tot_lowcorr` 明显变差，不建议继续；`ToT_density` 可能与 CNN 已学到的信息冲突，或引入不稳定性。
-- B2b gated 仍值得跑一组 seed42，与 A5 保持一致，检查 gated 是否能比 concat 更稳地使用几何标量，或抑制 `ToT_density` 的负面影响。
-- B2c 三 seed 不优先推进。论文中可将 B2a/B2b 写成：可迁移 ToT-only 几何标量在 Proton_C_7 上至多只有极小增益，说明 Proton_C_7 的 ToT 图像形态已经被 CNN 充分利用，手工特征主要与 CNN 表征冗余。
-- 如果后续需要更稳妥确认极小几何收益是否稳定，可以只对 `geometry_lowcorr` 或 `geometry_lowcorr_gated` 中更好的一个补 B2c 三 seed；不建议再包含 `ToT_density`。
+- B2b gated 已完成，见下表。它证明 gated 可以抑制 `ToT_density` 在 concat 下带来的负面影响，但没有证明手工特征能显著提升 Proton_C_7。
+
+B2b seed42 结果：
+
+| 方法 | Fusion | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Macro-F1 |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | none | none | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| B2a-1 `geometry_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio` | 24/25 | 否 | 94.28% | 94.26% | 0.545 | 0.0 | 0.959 |
+| B2a-2 `tot_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio; ToT_density` | 8/16 | 是 | 91.43% | 91.63% | 0.807 | 0.0 | 0.939 |
+| B2b-1 `geometry_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio` | 25/25 | 否 | 94.21% | 94.17% | 0.554 | 0.0 | 0.958 |
+| B2b-2 `tot_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio; ToT_density` | 25/25 | 否 | 94.22% | 94.13% | 0.561 | 0.0 | 0.958 |
+
+相对 B1-best seed42：
+
+| 方法 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| B2a concat `geometry_lowcorr` | +0.40 pp | +0.17 pp | -0.017 | +0.001 |
+| B2a concat `tot_lowcorr` | -2.45 pp | -2.46 pp | +0.246 | -0.019 |
+| B2b gated `geometry_lowcorr` | +0.33 pp | +0.09 pp | -0.008 | +0.000 |
+| B2b gated `tot_lowcorr` | +0.34 pp | +0.04 pp | -0.000 | +0.001 |
+
+阶段判断：
+
+- B2b gated 把 B2a `tot_lowcorr` 的 Test Acc 从 91.63% 恢复到 94.13%，说明 gated 能抑制 `ToT_density` 这类坏特征的负面影响。
+- B2b gated 的两个组相对 B1-best seed42 只有 +0.09 pp 和 +0.04 pp，基本属于同水平波动，不能证明手工特征显著提升 Proton_C_7。
+- 当前 B2 最好的单 seed 结果仍是 B2a-1 `geometry_lowcorr concat`，但相对 B1-best seed42 也只有 +0.17 pp，不足以优先推进 B2c 三 seed。
+- 论文中可将 B2a/B2b 写成：可迁移 ToT-only 几何标量在 Proton_C_7 上至多只有极小增益，说明 Proton_C_7 的 ToT 图像形态已经被 CNN 充分利用；gated 的价值主要是提高融合鲁棒性，而不是带来新的显著性能增益。
+
+### B3a Proton_C_7 有序损失筛选
+
+B3a 固定 B1-best patience=8 主模型与训练配置，只比较 loss / label strategy。它不启用 handcrafted features，也不改变架构。
+
+配置文件：
+
+```text
+configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+tmux new -s b3a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3a_proton_c7_ordinal_loss_seed42 --out outputs/b3a_proton_c7_ordinal_loss_seed42_runs.csv
+```
+
+矩阵：
+
+- `cross_entropy + gaussian` soft target: `gaussian_sigma = 5, 10, 15`
+- `ce_expected_mae`: `expected_mae_weight = 0.05, 0.10, 0.20`
+- `ce_emd`: `emd_weight = 0.05, 0.10, 0.20`
+
+不做 pure EMD。原因是 Proton_C_7 的 B1-best CE baseline 已经有很高 exact classification accuracy；pure EMD 可能让输出分布变宽，降低精确分类准确率。B3a 采用 CE 主导策略，在保留 CE 分类边界的同时，用有序角度辅助项尝试降低相邻大角度混淆。
+
+B3a 是 seed42 screening，只需要 `summarize.py`。如有候选进入 B3b 三 seed，再补充 `aggregate_seeds.py` 命令。
