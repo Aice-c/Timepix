@@ -90,7 +90,7 @@ Alpha 主线阶段：
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
 | `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
-| `A5` | 物理/手工特征融合 | A5a 已完成，A5b 低冗余配置已撰写 | 聚焦 ToT image + selected ToT/ToA scalar physical features；A5a 已完成传统模型/置换重要性筛选，A5b 只跑少量低冗余 CNN concat 验证，避免全特征大网格。 |
+| `A5` | 物理/手工特征融合 | A5a 与 A5b 已完成；A5c gated 诊断配置已撰写 | 聚焦 ToT image + selected ToT/ToA scalar physical features；A5a 完成传统模型/置换重要性筛选，A5b 完成低冗余 CNN concat pilot，A5c 镜像 A5b 特征组并只比较 gated 是否改善 concat 弱/负结果。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
 
@@ -146,8 +146,8 @@ A5 计划命名：
 | 编号 | 名称 | 阶段目的 | 当前安排 |
 | --- | --- | --- | --- |
 | `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 已完成；只用 train/validation，test 未参与筛选。 |
-| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 正式低冗余配置已撰写；统一使用 concat，避免同时搜索融合方式。 |
-| `A5c` | handcrafted fusion mode comparison | 只对 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated | 模板已撰写，待 A5b 结果；不扩大特征集合。 |
+| `A5b` | CNN + low-redundancy feature pilot | 用少量 seed42 CNN run 检查低冗余精选特征是否补充 ToT CNN；主线是 `Geometry -> Geometry+ToT -> Geometry+ToT+ToA` 递进，另设 `ToA-only` 诊断组 | 已完成；统一使用 concat，避免同时搜索融合方式。 |
+| `A5c` | handcrafted gated diagnostic | 镜像 A5b 的 4 个低冗余特征组，只把融合方式改为 `gated`，检查 gated 是否能改善 simple concat 的弱/负结果 | 正式 seed42 配置已撰写；不再按完整“特征组 × 融合方式”大网格推进。 |
 | `A5d` | best handcrafted fusion 3-seed verification | 对 A5c 选出的最佳 1-2 个设置做 `training.seed=42/43/44` 认证 | 模板已撰写，待 A5c 结果；报告 mean ± std。 |
 
 A5 固定决策：
@@ -210,24 +210,22 @@ PCA_angle
 raw ToA sum / mean / max / min
 ```
 
-A5 分组递进方案：
+A5 低冗余实验组织：
 
 1. `A5a`：提取 12 维候选特征，训练 handcrafted-only `RandomForest` / `LogisticRegression`，使用 validation permutation importance 和 group permutation importance 筛选特征；test 不参与筛选。
-2. `A5b`：基于 A5a 的 validation importance 与相关矩阵，跑 4 个 seed42 CNN concat 低冗余消融：
+2. `A5b`：基于 A5a 的 validation importance 与相关矩阵，跑 4 个 seed42 CNN concat 低冗余 pilot。它不是纯粹的三类独立组对比，也不是完整递进消融；准确结构是：
    - `A5b-1`: `geometry_lowcorr`
-   - `A5b-2`: `tot_lowcorr`
-   - `A5b-3`: `toa_lowcorr`
-   - `A5b-4`: `selected_lowcorr_all`
-3. `A5c`：只拿 A5b 最好的 1 个特征组比较融合方式：
-   - handcrafted-only MLP
-   - CNN + handcrafted concat
-   - CNN + handcrafted gated
-4. `A5d`：只对 A5c 最终选出的最佳 1-2 个设置做三 seed 认证。
+   - `A5b-2`: `geometry_plus_tot_lowcorr`，历史短标签为 `tot_lowcorr`
+   - `A5b-3`: `toa_lowcorr_diagnostic`，历史短标签为 `toa_lowcorr`
+   - `A5b-4`: `geometry_plus_tot_plus_toa_lowcorr`，历史短标签为 `selected_lowcorr_all`
+3. `A5b` 的主线是 `Geometry -> Geometry+ToT -> Geometry+ToT+ToA`，用于观察新增 ToT/ToA 标量是否带来增益；`ToA-only` 是 side diagnostic，用于单独检查 ToA 标量是否有局部补充信息，尤其是 30 deg 类别。
+4. `A5c`：不展开完整 `feature group × fusion mode` 网格；正式安排为镜像 A5b 的 4 个低冗余特征组，并只把 `model.fusion_mode` 从 `concat` 改为 `gated`。这样 A5b 回答 “concat 行不行”，A5c 回答 “同一批特征用 gated 是否能避免 simple concat 的干扰”。
+5. `A5d`：只对 A5c 最终选出的最佳 1-2 个设置做三 seed 认证。
 
 预期 CNN run 数量控制：
 
 - A5b: 约 4 个 seed42 run。
-- A5c: 约 1-2 个 seed42 run。
+- A5c: 4 个 seed42 run，逐一对应 A5b 的 4 个特征组。
 - A5d: 约 3-6 个正式三 seed run，取决于最终保留 1 个还是 2 个设置。
 - A5a 为轻量传统模型/特征诊断，不计入主要深度训练预算。
 
@@ -235,10 +233,12 @@ A5a 当前实现与命令：
 
 - 训练链路新增 12 个 A5 手工特征，并保留旧 `total_energy` 用法兼容。
 - 新增 `handcrafted_features.source_modalities`，使图像输入 `dataset.modalities` 和手工特征读取来源解耦。
-- 新增 `handcrafted_mlp`，用于 A5c 的 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。
+- 新增 `handcrafted_mlp`，用于后续如果需要 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。当前正式 A5c 不启用该分支。
 - 新增脚本 `scripts/screen_handcrafted_features.py`，只做特征抽取、`RandomForest` / one-vs-rest `LogisticRegression`、validation permutation importance 和 group permutation importance；不训练 CNN。
 - A5a 配置：`configs/experiments/a5a_alpha_handcrafted_screening.yaml`。
-- A5b 已提供正式配置 `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml`；A5c/A5d 和 B2 继续保留 `*_TEMPLATE.yaml`，等 A5b 结果后再填入正式 feature list。
+- A5b 已完成，正式配置为 `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml`。
+- A5c 已新增正式 seed42 gated 诊断配置 `configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml`。
+- A5d 继续保留 `*_TEMPLATE.yaml`，等 A5c 结果后再决定是否进入三 seed。
 
 服务器 `tmux` 持久化运行：
 
@@ -297,22 +297,24 @@ A5b-1 geometry_lowcorr:
   active_pixel_count
   bbox_fill_ratio
 
-A5b-2 tot_lowcorr:
+A5b-2 geometry_plus_tot_lowcorr (`tot_lowcorr`):
   active_pixel_count
   bbox_fill_ratio
   ToT_density
 
-A5b-3 toa_lowcorr:
+A5b-3 toa_lowcorr_diagnostic (`toa_lowcorr`):
   ToA_span
   ToA_major_axis_corr_abs
 
-A5b-4 selected_lowcorr_all:
+A5b-4 geometry_plus_tot_plus_toa_lowcorr (`selected_lowcorr_all`):
   active_pixel_count
   bbox_fill_ratio
   ToT_density
   ToA_span
   ToA_major_axis_corr_abs
 ```
+
+说明：A5b 的 `ToA-only` 组不是递进链条中的中间步骤，而是额外诊断组。它的目的不是构成 `Geometry -> ToA -> All` 的递进消融，而是回答 ToA 标量在不依赖 Geometry/ToT 标量时是否独立携带局部角度信息。
 
 A5b 服务器 `tmux` 持久化运行：
 
@@ -353,9 +355,9 @@ A5b seed42 结果记录：
 | 组别 | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | P90 | Macro-F1 |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
 | A5b-1 `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 22/25 | 否 | 68.73% | 70.38% | 5.905 | 15.0 | 0.644 |
-| A5b-2 `tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 4/12 | 是 | 66.33% | 70.08% | 6.098 | 15.0 | 0.630 |
-| A5b-3 `toa_lowcorr` | `ToA_span; ToA_major_axis_corr_abs` | 18/25 | 否 | 70.93% | 69.28% | 6.098 | 15.0 | 0.646 |
-| A5b-4 `selected_lowcorr_all` | `active_pixel_count; bbox_fill_ratio; ToT_density; ToA_span; ToA_major_axis_corr_abs` | 11/19 | 是 | 70.13% | 69.58% | 6.039 | 15.0 | 0.645 |
+| A5b-2 `geometry_plus_tot_lowcorr` (`tot_lowcorr`) | `active_pixel_count; bbox_fill_ratio; ToT_density` | 4/12 | 是 | 66.33% | 70.08% | 6.098 | 15.0 | 0.630 |
+| A5b-3 `toa_lowcorr_diagnostic` (`toa_lowcorr`) | `ToA_span; ToA_major_axis_corr_abs` | 18/25 | 否 | 70.93% | 69.28% | 6.098 | 15.0 | 0.646 |
+| A5b-4 `geometry_plus_tot_plus_toa_lowcorr` (`selected_lowcorr_all`) | `active_pixel_count; bbox_fill_ratio; ToT_density; ToA_span; ToA_major_axis_corr_abs` | 11/19 | 是 | 70.13% | 69.58% | 6.039 | 15.0 | 0.645 |
 
 A2 seed42 baseline:
 
@@ -367,9 +369,80 @@ A2 seed42 baseline:
 
 - A5b 没有证明 `CNN + handcrafted concat` 能稳定提升 Alpha ToT CNN。
 - `geometry_lowcorr` 的 Test Acc 比 A2 seed42 低 0.10 pp，但 MAE 从 5.964 降到 5.905，说明几何低维特征可能对角度误差有轻微帮助，但不是稳定正结果。
-- `tot_lowcorr` 明显不优于 baseline，提示 `ToT_density` 与 CNN 已学到的信息可能冗余，或简单 concat 引入噪声。
-- `toa_lowcorr` 的 Val Acc 最高，且 30 deg recall 从 0.297 提升到 0.386，但 Test Acc 降到 69.28%；说明 ToA 标量确有互补信息，但简单 concat 没有稳定转化为总体收益。
-- 因此 A5c 不应直接进入三 seed；如果继续 A5c，应定位为“融合方式是否能改善 A5b 中 simple concat 的负/弱结果”，优先只选 `geometry_lowcorr` 与 `toa_lowcorr` 做少量 seed42 对照。
+- `geometry_plus_tot_lowcorr` / `tot_lowcorr` 明显不优于 baseline，提示 `ToT_density` 与 CNN 已学到的信息可能冗余，或简单 concat 引入噪声。
+- `toa_lowcorr_diagnostic` / `toa_lowcorr` 的 Val Acc 最高，且 30 deg recall 从 0.297 提升到 0.386，但 Test Acc 降到 69.28%；说明 ToA 标量确有互补信息，但简单 concat 没有稳定转化为总体收益。
+- 因此 A5c 不应直接进入三 seed；A5c 定位为“融合方式是否能改善 A5b 中 simple concat 的负/弱结果”。为保持解释闭环，A5c 镜像 A5b 的 4 个低冗余特征组，只把 `fusion_mode` 改为 `gated`。
+
+A5c seed42 gated 诊断配置：
+
+```text
+configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml
+```
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- image input: `ToT only`
+- scalar feature source: `ToT + ToA`
+- model: `resnet18_no_maxpool`
+- fusion: `gated`
+- training config: A2 best
+- seed: `42`
+
+A5c 特征组：
+
+```text
+A5c-1 geometry_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+
+A5c-2 geometry_plus_tot_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+
+A5c-3 toa_lowcorr_diagnostic_gated:
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5c-4 geometry_plus_tot_plus_toa_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+决策说明：
+
+- 不再运行 `handcrafted-only MLP`，因为 A5a 已经通过 `RandomForest` / `logistic_regression_ovr` 证明手工特征单独弱于 CNN；如论文需要神经网络版 handcrafted-only 对照，再启用 `a5c_alpha_handcrafted_only_TEMPLATE.yaml`。
+- 不重复 A5b 的 `concat`，因为 A5b 已经完成；A5c 只检查 gated 是否比 simple concat 更适合低维标量特征。
+- A5c 仍为 seed42 诊断；只有当某个 gated 组明确优于 A2 seed42 baseline 或在 MAE/Macro-F1/30 deg 上有明确价值时，才进入 A5d 三 seed 认证。
+
+A5c 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5c_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5c_alpha_handcrafted_gated_seed42 --out outputs/a5c_alpha_handcrafted_gated_seed42_runs.csv
+```
+
+说明：A5c 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。如果进入 A5d 三 seed 认证，再补充 `aggregate_seeds.py` 命令。
+
+本地配置检查：
+
+```powershell
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root "D:\Project\Timepix\Data\Alpha_100" --dry-run
+```
+
+检查结果：通过，计划 4 个 run，分别对应 `geometry_lowcorr_gated`、`geometry_plus_tot_lowcorr_gated`、`toa_lowcorr_diagnostic_gated`、`geometry_plus_tot_plus_toa_lowcorr_gated`。
 
 B2 决策影响：
 

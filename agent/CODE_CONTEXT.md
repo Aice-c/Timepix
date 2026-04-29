@@ -260,7 +260,7 @@ gated   拼接后做 feature-wise gate，再分类
 
 旧代码里的“注意力机制”在新系统中命名为 `gated`，更准确地说是门控式特征重标定，不是 Transformer attention。
 
-此外，A5c 新增 `model.name: handcrafted_mlp`，用于 handcrafted-only 诊断。该模型忽略图像输入，只使用标准化后的手工标量。
+此外，A5 支持 `model.name: handcrafted_mlp`，用于需要 handcrafted-only 神经网络对照时使用。当前正式 A5c 不启用该分支；A5c 镜像 A5b 的四个低冗余特征组，只把 `model.fusion_mode` 从 `concat` 改为 `gated`，用于诊断 gated 是否能改善 simple concat 的弱/负结果。
 
 ## 8. 损失函数与指标
 

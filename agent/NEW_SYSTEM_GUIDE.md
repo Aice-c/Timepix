@@ -180,6 +180,23 @@ python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out o
 
 A5b 是 seed42 筛选实验，暂不做 `aggregate_seeds.py`；A5d 三 seed 认证阶段再聚合 mean/std。
 
+A5c 镜像 A5b 的四个低冗余特征组，只把融合方式改为 `gated`。服务器建议使用 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5c_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5c_alpha_handcrafted_gated_seed42 --out outputs/a5c_alpha_handcrafted_gated_seed42_runs.csv
+```
+
+A5c 仍是 seed42 诊断实验，只需要 `summarize.py`；若后续进入 A5d 三 seed 认证，再使用 `scripts/aggregate_seeds.py` 聚合 mean/std。
+
 C/质子 ToT：
 
 ```bash

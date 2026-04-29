@@ -1,4 +1,8 @@
-# TEMPLATE ONLY. Fill handcrafted_features.features after A5b selects the best group.
+# TEMPLATE ONLY.
+# The official A5c seed42 diagnostic is:
+#   configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml
+# Keep this template only if a later write-up needs an explicit concat/gated
+# fusion-mode comparison for a single selected feature group.
 base: alpha_tot_a2_best_base.yaml
 
 experiment_name: a5c_alpha_handcrafted_fusion_mode
@@ -16,7 +20,7 @@ handcrafted_features:
   enabled: true
   standardize: true
   source_modalities: [ToT, ToA]
-  # Fill with the best A5b feature group before running.
+  # Fill with one selected A5 feature group before running.
   features: []
 
 grid:

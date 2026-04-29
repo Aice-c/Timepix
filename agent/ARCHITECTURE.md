@@ -139,6 +139,11 @@ In this example the CNN receives only the ToT image, while scalar features may
 load ToT and ToA matrices. This is used by A5 to avoid mixing ToA image-channel
 fusion with physical scalar-feature fusion.
 
+Current A5 CNN experiments use this separation as follows: A5b runs seed42
+`concat` pilots over four low-redundancy feature groups, while A5c mirrors the
+same groups with `fusion_mode: gated`. A5c is a diagnostic of the fusion
+mechanism, not a new feature-selection grid.
+
 ## Model Interface
 
 The expected model contract is:

@@ -23,9 +23,11 @@ handcrafted_features:
   features: []
 
 # Suggested post-A5a grid shape:
+# - Main progression: Geometry -> Geometry+ToT -> Geometry+ToT+ToA
+# - ToA-only is a side diagnostic, not the middle step of the progression.
 # grid:
 #   handcrafted_features.features:
 #     - [selected_geometry_features]
 #     - [selected_geometry_features, selected_tot_features]
-#     - [selected_toa_axis_features]
-#     - [selected_all_features]
+#     - [selected_toa_axis_features]  # side diagnostic
+#     - [selected_geometry_features, selected_tot_features, selected_toa_axis_features]

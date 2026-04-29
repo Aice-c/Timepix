@@ -1,7 +1,7 @@
 base: alpha_tot_a2_best_base.yaml
 
-experiment_name: a5b_alpha_handcrafted_group_ablation
-experiment_group: a5b_alpha_handcrafted_group_ablation
+experiment_name: a5c_alpha_handcrafted_gated_seed42
+experiment_group: a5c_alpha_handcrafted_gated_seed42
 
 dataset:
   modalities: [ToT]
@@ -12,7 +12,7 @@ split:
   path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
 
 model:
-  fusion_mode: concat
+  fusion_mode: gated
 
 handcrafted_features:
   enabled: true
@@ -22,13 +22,13 @@ handcrafted_features:
 
 grid:
   handcrafted_features.features:
-    # A5b-1 geometry_lowcorr
+    # A5c-1 geometry_lowcorr_gated
     - [active_pixel_count, bbox_fill_ratio]
-    # A5b-2 geometry_plus_tot_lowcorr / historical short label: tot_lowcorr
+    # A5c-2 geometry_plus_tot_lowcorr_gated / mirrors A5b tot_lowcorr
     - [active_pixel_count, bbox_fill_ratio, ToT_density]
-    # A5b-3 toa_lowcorr_diagnostic / Alpha-only side diagnostic
+    # A5c-3 toa_lowcorr_diagnostic_gated / Alpha-only side diagnostic
     - [ToA_span, ToA_major_axis_corr_abs]
-    # A5b-4 geometry_plus_tot_plus_toa_lowcorr / historical short label: selected_lowcorr_all
+    # A5c-4 geometry_plus_tot_plus_toa_lowcorr_gated / mirrors A5b selected_lowcorr_all
     - [active_pixel_count, bbox_fill_ratio, ToT_density, ToA_span, ToA_major_axis_corr_abs]
   training.seed:
     - 42

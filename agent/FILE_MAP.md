@@ -75,7 +75,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/data/features.py` | Training handcrafted features | A5 feature registry and scaler; intentionally separate from `timepix/analysis/` feature code. Supports `source_modalities` for image-ToT plus scalar ToT/ToA experiments. |
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
 | `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, A4c warm-started expert gate, and A5 handcrafted-only MLP. |
-| `timepix/models/handcrafted.py` | Handcrafted-only model | `handcrafted_mlp` baseline for A5c; ignores image tensors and trains on standardized scalar features only. |
+| `timepix/models/handcrafted.py` | Handcrafted-only model | Optional `handcrafted_mlp` baseline for A5; ignores image tensors and trains on standardized scalar features only. Current formal A5c does not run this branch. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -113,9 +113,10 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4c_warm_started_expert_gate.yaml` | A4c-4 warm-started expert gate | Three-seed comparison of frozen vs fine-tuned warm-start expert gate using automatically discovered ToT primary and relative-minmax candidate checkpoints. |
 | `configs/experiments/a4c_warm_started_expert_gate_seed42.yaml` | A4c-4 quick comparison | Single-seed-42 shortcut for the warm-started expert gate. |
 | `configs/experiments/a5a_alpha_handcrafted_screening.yaml` | A5a feature screening config | Alpha_100 ToT image plus ToT/ToA scalar source config for `scripts/screen_handcrafted_features.py`; no CNN training and no test-based selection. |
-| `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml` | A5b low-correlation group ablation | Seed42 CNN+handcrafted concat comparison over low-redundancy Geometry, ToT-transferable, ToA-only, and selected-all feature groups. |
+| `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml` | A5b low-redundancy pilot | Seed42 CNN+handcrafted concat pilot; main progression is Geometry -> Geometry+ToT -> Geometry+ToT+ToA, with a ToA-only side diagnostic. |
 | `configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml` | A5b template | Placeholder CNN + selected handcrafted feature-group ablation config; fill feature lists after A5a validation importance results. |
-| `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder CNN + selected handcrafted features with `concat`/`gated` fusion comparison. |
+| `configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml` | A5c gated diagnostic | Seed42 CNN+handcrafted gated diagnostic mirroring the four A5b low-redundancy feature groups. |
+| `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder for future explicit `concat`/`gated` comparison on one selected feature group; not the official current A5c run. |
 | `configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml` | A5c handcrafted-only template | Placeholder `handcrafted_mlp` diagnostic config for selected A5 feature groups. |
 | `configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` | A5d template | Placeholder final 3-seed verification config for the best A5 handcrafted setting. |
 | `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups. |
