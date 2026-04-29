@@ -339,7 +339,7 @@ scripts/evaluate_oracle_complementarity.py
 
 当前结果：ToT-vs-ToT seed control 的 oracle gain 很小，validation 为 +2.33% ± 0.15%，test 为 +2.55% ± 0.06%；30 deg oracle gain 也只有 validation +2.55% ± 0.80%、test +1.15% ± 0.80%。相对地，ToT vs `relative_minmax/no mask` 的 oracle gain 在 validation/test 分别为 +10.19% 和 +11.03%，30 deg oracle gain 分别为 +27.08% 和 +25.52%。这说明 A4b-2.5 的互补性远大于普通随机 seed 多样性，后续问题应转为 selector/gate 能否从 validation 可用信息中学会何时信 candidate。
 
-阶段 4：frozen-logit selector fusion。
+阶段 4：selector fusion。
 
 脚本：
 
@@ -347,7 +347,7 @@ scripts/evaluate_oracle_complementarity.py
 scripts/evaluate_selector_fusion.py
 ```
 
-该阶段不训练新的 ResNet，而是冻结 ToT baseline 与 `relative_minmax/no mask` candidate。脚本在 train split 的 logits/probabilities/confidence/margin/entropy/disagreement 等特征上训练轻量 selector，validation 选择 threshold 和是否启用 selector，test 只做最终报告。若 validation 不支持 selector，脚本可以选择 `primary_only` 退回 ToT baseline。
+该阶段不训练新的 ResNet，而是冻结 ToT baseline 与 `relative_minmax/no mask` candidate。当前重新编号为：A4b-4a rule-based selector；A4b-4b train-logit selector；A4b-4c validation-CV selector。旧的未编号 A4b-4 初版结果作废，后续按 4a/4b/4c 重新运行。所有版本都由 validation 选择规则/阈值/是否启用 selector，test 只做最终报告；若 validation 不支持 selector，脚本可以选择 `primary_only` 退回 ToT baseline。
 
 ### B1 Proton/C 训练超参搜索
 

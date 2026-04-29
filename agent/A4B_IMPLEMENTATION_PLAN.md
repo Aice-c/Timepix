@@ -137,7 +137,7 @@ Conclusion: the relative candidate's complementarity is larger than ordinary
 seed diversity, so the next question is whether a selector/gate can learn when
 to use it.
 
-## Phase 4: Frozen-Logit Selector
+## Phase 4: Selector Fusion
 
 Implemented as:
 
@@ -146,9 +146,17 @@ scripts/evaluate_selector_fusion.py
 ```
 
 This phase freezes the trained ToT and `relative_minmax/no mask` checkpoints.
-It trains a lightweight selector on train-split logits/probabilities/confidence
-features, selects the threshold on validation, and reports test metrics once.
-`primary_only` is included as a validation-selectable fallback.
+It has three numbered variants:
+
+- A4b-4a: rule-based selector, selected on validation.
+- A4b-4b: train-logit selector, trained on train split and selected on
+  validation; exploratory because train logits may be overconfident.
+- A4b-4c: validation-CV selector, using validation cross-fitting for threshold
+  selection and final validation fit for test reporting.
+
+`primary_only` is included as a validation-selectable fallback in every variant.
+The earlier unnumbered A4b-4 selector output is discarded and should be rerun
+under A4b-4a/4b/4c.
 
 ## Later Phases
 

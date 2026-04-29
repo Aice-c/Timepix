@@ -386,10 +386,35 @@ python scripts/evaluate_oracle_complementarity.py \
 
 A4b-3 当前结果显示，ToT-vs-ToT 随机 seed control 的 oracle gain 很小：validation/test 分别约为 +2.33% 和 +2.55%，30 deg 上仅约 +2.55% 和 +1.15%。而 ToT vs `relative_minmax/no mask` 的 oracle gain 在 validation/test 分别为 +10.19% 和 +11.03%，30 deg 上达到 +27.08% 和 +25.52%。因此该互补性不能简单归因于随机 seed 差异，后续应进入 selector/gate 融合验证。
 
-A4b-4 使用 frozen-logit selector 验证互补性是否可学习。该脚本不训练新的 ResNet，只重新加载 ToT 与 `relative_minmax/no mask` checkpoint，在 train split 的 logits/probabilities/confidence/margin/entropy/disagreement 特征上训练轻量 selector；validation 选择 threshold 和是否启用 selector；test 只做最终报告：
+A4b-4 使用 selector 验证互补性是否可学习。该脚本不训练新的 ResNet，只重新加载 ToT 与 `relative_minmax/no mask` checkpoint。旧的泛称 A4b-4 初版结果作废，后续按三个编号重新运行：
+
+- A4b-4a：`--selector-mode rule`，不训练模型，只在 validation 上选择简单规则。
+- A4b-4b：`--selector-mode trained --selector-fit train`，在 train logits 上训练 logistic selector，作为探索性对照。
+- A4b-4c：`--selector-mode trained --selector-fit val-cv`，在 validation 内做 cross-fitting 并选择 threshold，是更严格的 selector 版本。
+
+A4b-4a：
 
 ```bash
 python scripts/evaluate_selector_fusion.py \
+  --selector-mode rule \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4a_rule_selector_seed42.json \
+  --output-summary outputs/a4b_4a_rule_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4a_rule_selector_seed42_by_class.csv
+```
+
+A4b-4b：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit train \
   --tot-group a2_best_3seed \
   --candidate-group a4b_toa_transform_seed42 \
   --seed 42 \
@@ -401,12 +426,35 @@ python scripts/evaluate_selector_fusion.py \
   --selector-epochs 500 \
   --selector-lr 0.01 \
   --selector-weight-decay 0.0001 \
-  --output-json outputs/a4b_4_selector_fusion_seed42.json \
-  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
-  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+  --output-json outputs/a4b_4b_train_logit_selector_seed42.json \
+  --output-summary outputs/a4b_4b_train_logit_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4b_train_logit_selector_seed42_by_class.csv
 ```
 
-脚本会同时输出 `primary_only`、`candidate_only`、不同 selector threshold 和 `oracle`。`primary_only` 也参与 validation 策略选择，因此 selector 无效时会退回 ToT baseline。
+A4b-4c：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit val-cv \
+  --cv-folds 5 \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4c_val_cv_selector_seed42.json \
+  --output-summary outputs/a4b_4c_val_cv_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4c_val_cv_selector_seed42_by_class.csv
+```
+
+脚本会同时输出 `primary_only`、`candidate_only`、规则/selector 候选和 `oracle`。`primary_only` 也参与 validation 策略选择，因此 selector 无效时会退回 ToT baseline。
 
 ## B1 Proton/C 训练超参搜索
 

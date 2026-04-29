@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-"""Train a lightweight selector over frozen logits for A4b-4.
+"""Evaluate rule-based or lightweight selectors over frozen logits for A4b-4.
 
 The script reloads two trained checkpoints, recomputes deterministic logits on
-train/val/test, trains a small selector on train only, selects the threshold on
-validation, and reports the final test metrics. ResNet experts stay frozen.
+train/val/test, selects all thresholds/rules on validation, and reports the
+final test metrics. ResNet experts stay frozen.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ DEFAULT_THRESHOLDS = ",".join(f"{value / 100:.2f}" for value in range(5, 100, 5)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="A4b-4 frozen-logit selector fusion")
+    parser = argparse.ArgumentParser(description="A4b-4 selector fusion over frozen logits")
     parser.add_argument("--root", default=str(DEFAULT_EXPERIMENT_ROOT), help="Experiment output root")
     parser.add_argument("--tot-group", action="append", default=None, help="Group containing ToT runs")
     parser.add_argument("--candidate-group", action="append", default=None, help="Group containing candidate runs")
@@ -58,6 +58,19 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Use CUDA autocast for inference. auto follows each source config.",
     )
+    parser.add_argument(
+        "--selector-mode",
+        choices=["trained", "rule"],
+        default="trained",
+        help="Use a trained selector or validation-selected hand rules",
+    )
+    parser.add_argument(
+        "--selector-fit",
+        choices=["train", "val-cv"],
+        default="train",
+        help="For trained mode: fit selector on train logits or use validation cross-fitting",
+    )
+    parser.add_argument("--cv-folds", type=int, default=5, help="Number of validation folds for --selector-fit val-cv")
     parser.add_argument(
         "--selector-target",
         choices=["lower-error", "candidate-correct-primary-wrong"],
@@ -457,6 +470,147 @@ def _predict_selector(model, features: np.ndarray) -> np.ndarray:
         return torch.sigmoid(logits).cpu().numpy()
 
 
+def _make_stratified_folds(target: np.ndarray, n_folds: int, seed: int) -> list[np.ndarray]:
+    n_folds = max(2, min(int(n_folds), int(target.shape[0])))
+    rng = np.random.default_rng(seed)
+    folds: list[list[int]] = [[] for _ in range(n_folds)]
+    for value in [0.0, 1.0]:
+        indices = np.where(target == value)[0]
+        rng.shuffle(indices)
+        for offset, index in enumerate(indices.tolist()):
+            folds[offset % n_folds].append(index)
+    return [np.asarray(sorted(fold), dtype=int) for fold in folds if fold]
+
+
+def _fit_train_selector_probs(
+    raw_features: dict[str, np.ndarray],
+    raw_targets: dict[str, np.ndarray],
+    args: argparse.Namespace,
+) -> tuple[dict[str, np.ndarray], dict[str, Any], dict[str, Any]]:
+    train_features, [val_features, test_features], feature_scaler = _standardize(
+        raw_features["train"],
+        raw_features["val"],
+        raw_features["test"],
+    )
+    selector, selector_info = _train_selector(train_features, raw_targets["train"], args)
+    selector_info.update(
+        {
+            "mode": "trained",
+            "fit": "train",
+            "target": args.selector_target,
+            "hidden_dim": int(args.selector_hidden_dim),
+            "epochs": int(args.selector_epochs),
+            "lr": float(args.selector_lr),
+            "weight_decay": float(args.selector_weight_decay),
+        }
+    )
+    return (
+        {
+            "train": _predict_selector(selector, train_features),
+            "val": _predict_selector(selector, val_features),
+            "test": _predict_selector(selector, test_features),
+        },
+        selector_info,
+        feature_scaler,
+    )
+
+
+def _fit_val_cv_selector_probs(
+    raw_features: dict[str, np.ndarray],
+    raw_targets: dict[str, np.ndarray],
+    args: argparse.Namespace,
+) -> tuple[dict[str, np.ndarray], dict[str, Any], dict[str, Any]]:
+    val_features = raw_features["val"]
+    val_target = raw_targets["val"]
+    folds = _make_stratified_folds(val_target, int(args.cv_folds), int(args.selector_seed))
+    oof_probs = np.zeros(val_target.shape[0], dtype=np.float32)
+    fold_infos = []
+    for fold_index, heldout_idx in enumerate(folds):
+        train_idx = np.setdiff1d(np.arange(val_target.shape[0]), heldout_idx, assume_unique=True)
+        fold_train, [fold_heldout], _ = _standardize(val_features[train_idx], val_features[heldout_idx])
+        selector, fold_info = _train_selector(fold_train, val_target[train_idx], args)
+        oof_probs[heldout_idx] = _predict_selector(selector, fold_heldout)
+        fold_infos.append(
+            {
+                "fold": fold_index,
+                "train_count": int(train_idx.shape[0]),
+                "heldout_count": int(heldout_idx.shape[0]),
+                "heldout_positive_rate": float(val_target[heldout_idx].mean()) if heldout_idx.size else 0.0,
+                "final_loss": fold_info.get("final_loss"),
+            }
+        )
+
+    full_val_features, [train_features, test_features], feature_scaler = _standardize(
+        raw_features["val"],
+        raw_features["train"],
+        raw_features["test"],
+    )
+    selector, selector_info = _train_selector(full_val_features, val_target, args)
+    selector_info.update(
+        {
+            "mode": "trained",
+            "fit": "val-cv",
+            "target": args.selector_target,
+            "hidden_dim": int(args.selector_hidden_dim),
+            "epochs": int(args.selector_epochs),
+            "lr": float(args.selector_lr),
+            "weight_decay": float(args.selector_weight_decay),
+            "cv_folds": int(len(folds)),
+            "cv_fold_info": fold_infos,
+            "validation_probabilities": "out_of_fold",
+            "final_fit": "full_validation",
+        }
+    )
+    return (
+        {
+            "train": _predict_selector(selector, train_features),
+            "val": oof_probs,
+            "test": _predict_selector(selector, test_features),
+        },
+        selector_info,
+        feature_scaler,
+    )
+
+
+def _rule_masks(
+    primary_logits: np.ndarray,
+    candidate_logits: np.ndarray,
+    angle_values: list[float],
+) -> dict[str, np.ndarray]:
+    primary_probs = _softmax(primary_logits)
+    candidate_probs = _softmax(candidate_logits)
+    primary_preds = primary_probs.argmax(axis=1)
+    candidate_preds = candidate_probs.argmax(axis=1)
+    angles = np.asarray(angle_values, dtype=float)
+    primary_conf = primary_probs.max(axis=1)
+    candidate_conf = candidate_probs.max(axis=1)
+    primary_margin = _margin(primary_probs).squeeze(1)
+    candidate_margin = _margin(candidate_probs).squeeze(1)
+    primary_entropy = _entropy(primary_probs).squeeze(1)
+    candidate_entropy = _entropy(candidate_probs).squeeze(1)
+    disagree = primary_preds != candidate_preds
+    candidate_is_30 = np.isclose(angles[candidate_preds], 30.0)
+    primary_low_grid = [0.40, 0.45, 0.50, 0.55, 0.60]
+    advantage_grid = [0.00, 0.03, 0.05, 0.10, 0.15]
+    masks: dict[str, np.ndarray] = {}
+    for delta in advantage_grid:
+        tag = str(delta).replace(".", "p")
+        masks[f"rule_conf_adv_{tag}"] = disagree & (candidate_conf >= primary_conf + delta)
+        masks[f"rule_margin_adv_{tag}"] = disagree & (candidate_margin >= primary_margin + delta)
+        masks[f"rule_entropy_adv_{tag}"] = disagree & (candidate_entropy <= primary_entropy - delta)
+        masks[f"rule_30_conf_adv_{tag}"] = candidate_is_30 & disagree & (candidate_conf >= primary_conf + delta)
+        masks[f"rule_30_margin_adv_{tag}"] = candidate_is_30 & disagree & (candidate_margin >= primary_margin + delta)
+    for threshold in primary_low_grid:
+        tag = str(threshold).replace(".", "p")
+        masks[f"rule_primary_low_{tag}_cand_higher"] = disagree & (primary_conf <= threshold) & (
+            candidate_conf >= primary_conf
+        )
+        masks[f"rule_30_primary_low_{tag}_cand_higher"] = candidate_is_30 & disagree & (
+            primary_conf <= threshold
+        ) & (candidate_conf >= primary_conf)
+    return {name: mask.astype(bool) for name, mask in masks.items()}
+
+
 def _metrics_from_preds(preds: np.ndarray, labels: np.ndarray, angle_values: list[float]) -> dict[str, Any]:
     num_classes = len(angle_values)
     if labels.size == 0:
@@ -528,6 +682,11 @@ def _strategy_preds(
         if selector_probs is None or threshold is None:
             raise ValueError("selector strategy requires selector probabilities and a threshold")
         select = selector_probs >= threshold
+        return np.where(select, candidate_preds, primary_preds), select
+    if strategy.startswith("rule:"):
+        if selector_probs is None:
+            raise ValueError("rule strategy requires a precomputed selection mask")
+        select = selector_probs.astype(bool)
         return np.where(select, candidate_preds, primary_preds), select
     raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -616,6 +775,9 @@ def _row_from_metrics(
         "strategy": strategy,
         "threshold": threshold,
         "selected_by_val": selected,
+        "selector_mode": selector_info.get("mode"),
+        "selector_fit": selector_info.get("fit"),
+        "selector_target": selector_info.get("target"),
         "selector_positive_rate": selector_info.get("positive_rate"),
         "selector_final_loss": selector_info.get("final_loss"),
         "primary": _run_label(primary_run),
@@ -679,7 +841,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _default_outputs(args: argparse.Namespace) -> tuple[Path, Path, Path]:
-    stem = f"a4b_4_selector_fusion_seed{args.seed}"
+    suffix = args.selector_mode if args.selector_mode == "rule" else f"trained_{args.selector_fit}"
+    stem = f"a4b_4_selector_fusion_{suffix}_seed{args.seed}"
     json_path = Path(args.output_json) if args.output_json else Path("outputs") / f"{stem}.json"
     summary_path = Path(args.output_summary) if args.output_summary else Path("outputs") / f"{stem}_summary.csv"
     by_class_path = Path(args.output_by_class) if args.output_by_class else Path("outputs") / f"{stem}_by_class.csv"
@@ -721,49 +884,54 @@ def main() -> int:
             "labels": primary["splits"][split]["labels"],
         }
 
-    train_features = _selector_features(
-        split_data["train"]["primary_logits"],
-        split_data["train"]["candidate_logits"],
-        angle_values,
-    )
-    val_features = _selector_features(
-        split_data["val"]["primary_logits"],
-        split_data["val"]["candidate_logits"],
-        angle_values,
-    )
-    test_features = _selector_features(
-        split_data["test"]["primary_logits"],
-        split_data["test"]["candidate_logits"],
-        angle_values,
-    )
-    train_features, [val_features, test_features], feature_scaler = _standardize(
-        train_features,
-        val_features,
-        test_features,
-    )
-    train_target = _selector_target(
-        split_data["train"]["primary_logits"],
-        split_data["train"]["candidate_logits"],
-        split_data["train"]["labels"],
-        angle_values,
-        args.selector_target,
-    )
-    selector, selector_info = _train_selector(train_features, train_target, args)
-    selector_info["target"] = args.selector_target
-    selector_info["hidden_dim"] = int(args.selector_hidden_dim)
-    selector_info["epochs"] = int(args.selector_epochs)
-    selector_info["lr"] = float(args.selector_lr)
-    selector_info["weight_decay"] = float(args.selector_weight_decay)
-
-    selector_probs = {
-        "train": _predict_selector(selector, train_features),
-        "val": _predict_selector(selector, val_features),
-        "test": _predict_selector(selector, test_features),
+    raw_features = {
+        split: _selector_features(
+            split_data[split]["primary_logits"],
+            split_data[split]["candidate_logits"],
+            angle_values,
+        )
+        for split in ["train", "val", "test"]
+    }
+    raw_targets = {
+        split: _selector_target(
+            split_data[split]["primary_logits"],
+            split_data[split]["candidate_logits"],
+            split_data[split]["labels"],
+            angle_values,
+            args.selector_target,
+        )
+        for split in ["train", "val", "test"]
     }
 
-    thresholds = _parse_thresholds(args.thresholds)
-    strategies: list[tuple[str, float | None]] = [("primary_only", None), ("candidate_only", None)]
-    strategies.extend(("selector", threshold) for threshold in thresholds)
+    selector_probs: dict[str, np.ndarray] = {}
+    rule_masks_by_split: dict[str, dict[str, np.ndarray]] = {}
+    feature_scaler: dict[str, Any] = {}
+    if args.selector_mode == "trained":
+        if args.selector_fit == "train":
+            selector_probs, selector_info, feature_scaler = _fit_train_selector_probs(raw_features, raw_targets, args)
+        else:
+            selector_probs, selector_info, feature_scaler = _fit_val_cv_selector_probs(raw_features, raw_targets, args)
+        thresholds = _parse_thresholds(args.thresholds)
+        strategies: list[tuple[str, float | None]] = [("primary_only", None), ("candidate_only", None)]
+        strategies.extend(("selector", threshold) for threshold in thresholds)
+    else:
+        selector_info = {
+            "mode": "rule",
+            "fit": "validation_rule_selection",
+            "target": "none",
+            "positive_rate": None,
+            "final_loss": None,
+        }
+        for split in ["train", "val", "test"]:
+            rule_masks_by_split[split] = _rule_masks(
+                split_data[split]["primary_logits"],
+                split_data[split]["candidate_logits"],
+                angle_values,
+            )
+        thresholds = []
+        rule_names = sorted(rule_masks_by_split["val"])
+        strategies = [("primary_only", None), ("candidate_only", None)]
+        strategies.extend((f"rule:{name}", None) for name in rule_names)
     strategies.append(("oracle", None))
 
     metrics_by_strategy: dict[tuple[str, float | None], dict[str, dict[str, Any]]] = {}
@@ -771,6 +939,12 @@ def main() -> int:
         key = (strategy, threshold)
         metrics_by_strategy[key] = {}
         for split in ["train", "val", "test"]:
+            strategy_probs = None
+            if strategy == "selector":
+                strategy_probs = selector_probs[split]
+            elif strategy.startswith("rule:"):
+                rule_name = strategy.split(":", 1)[1]
+                strategy_probs = rule_masks_by_split[split][rule_name].astype(np.float32)
             metrics_by_strategy[key][split] = _evaluate_strategy(
                 split,
                 strategy,
@@ -778,12 +952,15 @@ def main() -> int:
                 split_data[split]["candidate_logits"],
                 split_data[split]["labels"],
                 angle_values,
-                selector_probs=selector_probs[split],
+                selector_probs=strategy_probs,
                 threshold=threshold,
             )
 
     selectable = [("primary_only", None), ("candidate_only", None)]
-    selectable.extend(("selector", threshold) for threshold in thresholds)
+    if args.selector_mode == "trained":
+        selectable.extend(("selector", threshold) for threshold in thresholds)
+    else:
+        selectable.extend((strategy, threshold) for strategy, threshold in strategies if strategy.startswith("rule:"))
     selected_key = max(
         selectable,
         key=lambda item: _score(
@@ -822,9 +999,12 @@ def main() -> int:
         "candidate_run": str(candidate_run),
         "primary": _run_label(primary_run),
         "candidate": _run_label(candidate_run),
+        "selector_mode": args.selector_mode,
+        "selector_fit": args.selector_fit if args.selector_mode == "trained" else "validation_rule_selection",
         "selector": selector_info,
         "feature_scaler": feature_scaler,
         "thresholds": thresholds,
+        "rules": sorted(rule_masks_by_split["val"]) if args.selector_mode == "rule" else [],
         "selected_strategy": selected_strategy_key,
         "selection_rule": "max validation accuracy, then lower validation MAE, then higher macro-F1, then lower candidate selection rate",
         "summary": summary_rows,

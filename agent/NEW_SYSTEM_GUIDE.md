@@ -315,10 +315,31 @@ python scripts/evaluate_oracle_complementarity.py \
 
 A4b-3 当前结果：ToT-vs-ToT seed-control oracle gain 只有 validation +2.33%、test +2.55%，30 deg 上只有 validation +2.55%、test +1.15%；ToT vs `relative_minmax/no mask` 则达到 validation +10.19%、test +11.03%，30 deg 上达到 +27.08% 和 +25.52%。这支持继续做 selector/gate，而不是把互补性解释为普通 seed 波动。
 
-A4b-4 frozen-logit selector fusion：
+A4b-4 selector fusion 分为三版。旧的泛称 A4b-4 初版结果作废，后续重新按 A4b-4a/4b/4c 运行。
+
+A4b-4a rule-based selector：
 
 ```bash
 python scripts/evaluate_selector_fusion.py \
+  --selector-mode rule \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4a_rule_selector_seed42.json \
+  --output-summary outputs/a4b_4a_rule_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4a_rule_selector_seed42_by_class.csv
+```
+
+A4b-4b train-logit selector：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit train \
   --tot-group a2_best_3seed \
   --candidate-group a4b_toa_transform_seed42 \
   --seed 42 \
@@ -330,12 +351,35 @@ python scripts/evaluate_selector_fusion.py \
   --selector-epochs 500 \
   --selector-lr 0.01 \
   --selector-weight-decay 0.0001 \
-  --output-json outputs/a4b_4_selector_fusion_seed42.json \
-  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
-  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+  --output-json outputs/a4b_4b_train_logit_selector_seed42.json \
+  --output-summary outputs/a4b_4b_train_logit_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4b_train_logit_selector_seed42_by_class.csv
 ```
 
-该脚本不重新训练 ResNet。它在 train split 上训练轻量 selector，在 validation 上选择 threshold 和是否启用 selector，并只在 test 上做最终报告。若 validation 不支持 selector，脚本会选择 `primary_only`，即退回 ToT baseline。
+A4b-4c validation-CV selector：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit val-cv \
+  --cv-folds 5 \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4c_val_cv_selector_seed42.json \
+  --output-summary outputs/a4b_4c_val_cv_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4c_val_cv_selector_seed42_by_class.csv
+```
+
+该脚本不重新训练 ResNet。规则、阈值和是否启用 selector 都只由 validation 决定，test 只做最终报告。若 validation 不支持 selector，脚本会选择 `primary_only`，即退回 ToT baseline。
 
 B1 Proton/C 训练超参搜索：
 

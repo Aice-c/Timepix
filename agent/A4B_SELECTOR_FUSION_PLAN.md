@@ -81,7 +81,7 @@ Observed A4b-3 result:
 - For 30 deg, ToT vs `relative_minmax/no mask` gives +27.08% oracle gain on validation and +25.52% on test.
 - Therefore, the relative candidate's complementarity is larger than ordinary seed diversity and remains visible on validation. This supports moving to selector/gated fusion rather than stopping at oracle diagnostics.
 
-## Stage 2: Frozen-Logit Selector Fusion
+## Stage 2: Rule And Frozen-Logit Selector Fusion
 
 Goal: test whether the oracle choice can be learned from model outputs without retraining ResNet experts.
 
@@ -128,8 +128,9 @@ Selector labels:
 
 Training protocol:
 
-- Train selector on train split only.
-- Select threshold and fusion type on validation split only.
+- A4b-4a: rule-based selector. No model training; select the rule on validation only.
+- A4b-4b: train-logit selector. Train selector on train split; select threshold on validation. This is exploratory because expert train logits can be overconfident.
+- A4b-4c: validation-CV selector. Use validation cross-fitting to get out-of-fold selector scores, select threshold on validation, then fit the final selector on full validation.
 - Report test metrics once.
 - Never use test to choose selector type, threshold, or feature set.
 
@@ -147,10 +148,31 @@ Current selector:
 - Torch logistic selector by default, so the server training environment does not need scikit-learn.
 - Optional small MLP via `--selector-hidden-dim`, only if the logistic selector underfits and that decision is logged as a new variant.
 
-Current default command:
+Current commands:
+
+A4b-4a:
 
 ```bash
 python scripts/evaluate_selector_fusion.py \
+  --selector-mode rule \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4a_rule_selector_seed42.json \
+  --output-summary outputs/a4b_4a_rule_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4a_rule_selector_seed42_by_class.csv
+```
+
+A4b-4b:
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit train \
   --tot-group a2_best_3seed \
   --candidate-group a4b_toa_transform_seed42 \
   --seed 42 \
@@ -162,9 +184,32 @@ python scripts/evaluate_selector_fusion.py \
   --selector-epochs 500 \
   --selector-lr 0.01 \
   --selector-weight-decay 0.0001 \
-  --output-json outputs/a4b_4_selector_fusion_seed42.json \
-  --output-summary outputs/a4b_4_selector_fusion_seed42_summary.csv \
-  --output-by-class outputs/a4b_4_selector_fusion_seed42_by_class.csv
+  --output-json outputs/a4b_4b_train_logit_selector_seed42.json \
+  --output-summary outputs/a4b_4b_train_logit_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4b_train_logit_selector_seed42_by_class.csv
+```
+
+A4b-4c:
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit val-cv \
+  --cv-folds 5 \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4c_val_cv_selector_seed42.json \
+  --output-summary outputs/a4b_4c_val_cv_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4c_val_cv_selector_seed42_by_class.csv
 ```
 
 Report:
