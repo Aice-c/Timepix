@@ -145,8 +145,8 @@ Proton/C 主线阶段：
 
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
 | --- | --- | --- | --- |
-| `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 进行中 | 固定 Alpha A1 最佳结构和 A2 风格训练设置；旧 20 epoch 结果只作诊断，当前中继到 25 epoch。 |
-| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 待 B1-1 后执行 | 固定 B1-1 最佳 `learning_rate + batch_size`，搜索 `weight_decay`。 |
+| `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
+| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 待执行 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待定 | B1 搜索结束后做。 |
 | `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
@@ -1218,6 +1218,82 @@ grid:
 - `batch_size=256` 保留在第一轮搜索中；服务器运行时建议使用 `--continue-on-error`，如果显存不足不会中断整组。
 - B1-2 将在 B1-1 选出最佳 `learning_rate + batch_size` 后，只搜索 `weight_decay = [0, 1e-5, 1e-4]`。
 
+当前结果记录（用户汇报）：
+
+B1-1 固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss/label: `cross_entropy` + `onehot`
+- `dropout=0.1`
+- `weight_decay=1e-4`
+- Scheduler: `cosine`
+- `eta_min=1e-7`
+- 搜索项：`learning_rate × batch_size`
+
+20 epoch 旧结果：
+
+| learning_rate | batch_size | best epoch | early stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 1e-4 | 64 | 19 | 否 | 93.64% | 93.81% | 0.586 | 0.955 |
+| 1e-4 | 128 | 20 | 否 | 93.34% | 93.64% | 0.601 | 0.954 |
+| 1e-4 | 256 | 20 | 否 | 93.04% | 93.32% | 0.629 | 0.952 |
+| 3e-4 | 64 | 6 | 是 | 89.79% | 89.91% | 0.963 | 0.930 |
+| 3e-4 | 128 | 20 | 否 | **93.94%** | **93.97%** | **0.566** | **0.957** |
+| 3e-4 | 256 | 3 | 是 | 89.90% | 89.64% | 0.972 | 0.925 |
+| 1e-3 | 64 | 2 | 是 | 86.20% | 86.77% | 1.242 | 0.904 |
+| 1e-3 | 128 | 5 | 是 | 80.94% | 81.04% | 1.634 | 0.840 |
+| 1e-3 | 256 | 3 | 是 | 88.53% | 88.38% | 1.110 | 0.916 |
+
+20 epoch 旧结果中，按 `Val Acc` 选择的最佳组合为：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+```
+
+该组合同时在 Test Acc、Test MAE 和 Test F1 上也是最优。
+
+from20 中继到 25 epoch 的结果：
+
+- 只有 4 组未早停 run 被继续训练，其余早停组合跳过。
+- 这些结果是 `from20` continuation，不能视作从一开始使用 `CosineAnnealingLR(T_max=25)` 的原生 25 epoch 结果。
+
+| learning_rate | batch_size | best epoch | early stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 1e-4 | 64 | 23 | 否 | 93.78% | **94.11%** | **0.558** | **0.957** |
+| 1e-4 | 128 | 22 | 否 | 93.39% | 93.79% | 0.586 | 0.955 |
+| 1e-4 | 256 | 22 | 否 | 93.11% | 93.44% | 0.618 | 0.953 |
+| 3e-4 | 128 | 20 | 是 | **93.94%** | 93.97% | 0.566 | 0.956 |
+
+20 epoch 与 from20 中继 25 epoch 的变化：
+
+| learning_rate | batch_size | Val Acc 变化 | Test Acc 变化 | MAE 变化 | F1 变化 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1e-4 | 64 | +0.14 percentage points | +0.30 percentage points | -0.028 | +0.0019 |
+| 1e-4 | 128 | +0.05 percentage points | +0.15 percentage points | -0.015 | +0.0007 |
+| 1e-4 | 256 | +0.07 percentage points | +0.12 percentage points | -0.011 | +0.0006 |
+| 3e-4 | 128 | 0 | 0 | 0 | 0 |
+
+最佳超参数决策：
+
+- 如果严格按实验规范使用 validation 指标选择超参数，20 epoch 旧结果和 from20 中继 25 epoch 结果的最佳组合不变。
+- B1-1 选择：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+weight_decay  = 1e-4
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+- from20 中继结果中 `1e-4, batch_size=64` 的 Test Acc/MAE 略好，但 Val Acc 低于 `3e-4, batch_size=128`，且该结果来自补救式 continuation。因此不改变 B1-1 的 validation-selected 结论。
+- B1-2 将固定 `learning_rate=3e-4`、`batch_size=128`，继续搜索 `weight_decay = [0, 1e-5, 1e-4]`。
+
 服务器命令：
 
 ```bash
@@ -1422,6 +1498,12 @@ python scripts/summarize.py \
   --group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
   --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_from20_runs.csv
 ```
+
+中继结果结论：
+
+- 4 组未早停 run 被继续到 25 epoch，其余早停组合跳过。
+- continuation 改善了 `1e-4` 系列的 test 指标，但按 validation 选择，最佳组合仍为 `learning_rate=3e-4`、`batch_size=128`。
+- 因此 B1-1 结论不受中继影响；B1-2 固定 `3e-4 + batch_size 128` 后搜索 `weight_decay`。
 
 本地验证：
 - `python scripts\extend_runs.py --help`

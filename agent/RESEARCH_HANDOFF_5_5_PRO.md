@@ -62,7 +62,7 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b 后续选择性融合已形成完整阶段：`A4b-4e` rule selector 三 seed 稳定小幅提升，`A4b-5` frozen-expert sample-wise gated late fusion 是当前最强多模态融合结果，`A4b-6` residual fusion 有效但不如 A4b-5。
 - `A4c: End-to-end full bimodal fusion models` 已开始实现，作为 A4b-5 后的完整端到端双模态补充验证；第一批代码和配置包含 `A4c-1 dual_stream_concat_aux`、`A4c-2 dual_stream_gmu_aux`、`A4c-3 toa_conditioned_film`，`A4c-4 warm_started_expert_gate` 放在第二批，`A4c-5 mmtm_lite` 暂为选做。
 - 实验编号、阶段目的、完成状态和后续安排的权威索引见 `agent/EXPERIMENT_LOG.md` 中的“实验编号与阶段总览”。
-- B1 Proton/C 第一轮训练超参搜索配置已准备；正式质子/C 数据集名称已切换为 `Proton_C_7`，固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`。当前正式 B1-1 使用 25 epoch，旧 20 epoch 结果只作为诊断记录。
+- B1 Proton/C 第一轮训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。下一步 B1-2 固定该组合后搜索 `weight_decay`。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -379,7 +379,7 @@ configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml
 - `epochs=25`
 - `early_stopping_patience=5`
 
-备注：B1-1 初版使用 20 epoch，但部分组合停止时准确率仍在上升，因此训练预算调整为 25 epoch，输出组改为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`，避免与旧结果混合。
+备注：B1-1 初版使用 20 epoch，但部分组合停止时准确率仍在上升，因此训练预算调整为 25 epoch。实际执行中用 `from20` continuation 方式只继续了 4 组未早停 run；该结果不等价于原生 `T_max=25` 训练，但足以判断 B1-1 的 validation-selected 最佳组合是否变化。
 
 B1-1 搜索：
 
@@ -388,7 +388,18 @@ learning_rate = [1e-4, 3e-4, 1e-3]
 batch_size    = [64, 128, 256]
 ```
 
-备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。
+结果：20 epoch 旧结果和 from20 中继 25 epoch 结果均选择：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+weight_decay  = 1e-4
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。B1-2 将固定 `learning_rate=3e-4` 和 `batch_size=128` 后搜索 `weight_decay = [0, 1e-5, 1e-4]`。
 
 ## A4b 当前后续安排
 

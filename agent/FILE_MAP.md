@@ -91,7 +91,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml` | Handcrafted concat experiment | Uses ToT `total_energy`. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_gated.yaml` | Handcrafted gated experiment | Uses gated feature fusion. |
 | `configs/experiments/proton_resnet18_tot.yaml` | C/proton ToT baseline | ToT-only by dataset constraint. |
-| `configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` | B1-1 Proton_C_7 search | First Proton/C 7-class training search over learning rate and batch size with fixed A1 ResNet18 stem; current formal group uses 25 epochs. |
+| `configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` | B1-1 Proton_C_7 search | First Proton/C 7-class training search over learning rate and batch size with fixed A1 ResNet18 stem; B1-1 selected `learning_rate=3e-4`, `batch_size=128`. |
 | `configs/experiments/b1_proton_resnet18_tot_lr_batch.yaml` | Legacy B1-1 wrapper | Compatibility wrapper that inherits the `Proton_C_7` B1-1 config. |
 | `configs/experiments/alpha_tot_a2_best_base.yaml` | A2 best base config | Fixed Alpha ToT CE one-hot setup with A2 best training hyperparameters. |
 | `configs/experiments/a1_resnet18_original_baseline.yaml` | A1 original ResNet18 baseline | Alpha ToT, CE, no handcrafted features; original 7x7/stride-2/maxpool stem. |

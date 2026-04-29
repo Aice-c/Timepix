@@ -509,6 +509,26 @@ python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --ou
 
 如果 `batch_size=256` 显存不足，`--continue-on-error` 会继续后面的组合；后续 B1-2 将基于 B1-1 最佳 `learning_rate + batch_size` 搜索 `weight_decay`。
 
+当前 B1-1 结果结论：
+
+- 20 epoch 旧结果中，validation-selected 最佳组合为 `learning_rate=3e-4`、`batch_size=128`，同时 Test Acc、Test MAE 和 Test F1 也最优。
+- from20 中继到 25 epoch 后，4 组未早停 run 被继续训练；`1e-4` 系列略有改善，但按 validation 选择的最佳组合仍然是 `learning_rate=3e-4`、`batch_size=128`。
+- 因此 B1-2 固定：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+并继续搜索：
+
+```text
+weight_decay = [0, 1e-5, 1e-4]
+```
+
 ### B1-1 20 epoch 结果续跑到 25 epoch
 
 如果 B1-1 已经用旧的 20 epoch 预算跑完，且每个 run 都保留了
