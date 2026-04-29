@@ -1,4 +1,7 @@
-# TEMPLATE ONLY. Fill handcrafted_features.features and model.fusion_mode after A5c.
+# TEMPLATE ONLY.
+# The official current A5d config is:
+#   configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
+# Keep this template for future single-setting A5 confirmation runs.
 base: alpha_tot_a2_best_base.yaml
 
 experiment_name: a5d_alpha_handcrafted_best_3seed

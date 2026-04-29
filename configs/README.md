@@ -1113,7 +1113,7 @@ tmux attach -t a4c_warm_gate
 
 ## A5 physical handcrafted feature fusion plan
 
-A5a 特征筛选已完成；A5b 已根据 validation importance 与训练集相关矩阵完成低冗余 seed42 CNN concat pilot。A5c 已新增正式 seed42 gated 诊断配置，用来镜像 A5b 的 4 个特征组并检查 `gated` 是否能改善 simple concat 的弱/负结果。A5d 继续保留模板，等待 A5c 结果后再决定是否进入三 seed。
+A5a 特征筛选已完成；A5b 已根据 validation importance 与训练集相关矩阵完成低冗余 seed42 CNN concat pilot。A5c seed42 gated 诊断也已完成，结果显示 `gated` 比 simple concat 更适合这批低维手工特征，其中五维 `geometry+ToT+ToA gated` 是 A5 当前最佳设置。A5d 继续保留模板，建议优先只认证该五维 gated 方案。
 
 A5 不再塞进 A4b，也不作为新的 ToT/ToA 图像融合实验。A5 的问题是：
 
@@ -1193,8 +1193,8 @@ A5d: best handcrafted fusion 3-seed verification
 
 1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、one-vs-rest `LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
 2. `A5b`：只用 A5a 选出的低冗余代表特征，跑 4 个 seed42 `concat` pilot。A5b 不是纯粹的三类独立组对比，也不是完整递进消融；主线是 `Geometry -> Geometry+ToT -> Geometry+ToT+ToA`，另设 `ToA-only` 诊断组。
-3. `A5c`：镜像 A5b 的 4 个低冗余特征组，只把融合方式改为 `gated`，检查 gated 是否能改善 simple concat 的弱/负结果；不再展开完整 `feature group × fusion mode` 大网格。
-4. `A5d`：只对 A5c 最优 1-2 个设置做 `training.seed=42/43/44` 认证并报告 mean ± std。
+3. `A5c`：镜像 A5b 的 4 个低冗余特征组，只把融合方式改为 `gated`，检查 gated 是否能改善 simple concat 的弱/负结果；已完成 seed42。
+4. `A5d`：正式对 A5c 的两组 gated 设置做 `training.seed=42/43/44` 认证并报告 mean ± std；五维 `geometry+ToT+ToA gated` 是 main，`ToA-only gated` 是 validation-best diagnostic。
 
 A5a 配置：
 
@@ -1210,6 +1210,7 @@ configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml
 configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml
+configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
 configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml
 ```
 
@@ -1382,6 +1383,80 @@ python scripts/summarize.py --group a5c_alpha_handcrafted_gated_seed42 --out out
 ```
 
 说明：A5c 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。A5d 进入三 seed 认证后再使用 mean/std 聚合。
+
+A5c seed42 结果：
+
+| 组别 | 手工特征 | Val Acc | Test Acc | Test MAE | P90 | Macro-F1 | Best/Stop |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 68.63% | 70.97% | 5.860 | 15.0 | 0.628 | 20/25 |
+| `geometry_plus_tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 68.93% | 70.87% | 5.860 | 15.0 | 0.635 | 22/25 |
+| `toa_lowcorr_diagnostic` | `ToA_span; ToA_major_axis_corr_abs` | 71.03% | 69.98% | 5.964 | 15.0 | 0.639 | 23/25 |
+| `geometry_plus_tot_plus_toa_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density; ToA_span; ToA_major_axis_corr_abs` | 70.53% | 71.07% | 5.651 | 15.0 | 0.652 | 21/25 |
+
+相对 A2 seed42 baseline：
+
+| 组别 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr_gated` | -0.90 pp | +0.50 pp | -0.104 | -0.018 |
+| `geometry_plus_tot_lowcorr_gated` | -0.60 pp | +0.40 pp | -0.104 | -0.011 |
+| `toa_lowcorr_diagnostic_gated` | +1.50 pp | -0.50 pp | +0.000 | -0.007 |
+| `geometry_plus_tot_plus_toa_lowcorr_gated` | +1.00 pp | +0.60 pp | -0.313 | +0.006 |
+
+A5b concat vs A5c gated：
+
+| 组别 | A5b Acc | A5c Acc | ΔAcc | A5b MAE | A5c MAE | ΔMAE | A5b F1 | A5c F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr` | 70.38% | 70.97% | +0.60 pp | 5.905 | 5.860 | -0.045 | 0.644 | 0.628 |
+| `geometry_plus_tot_lowcorr` | 70.08% | 70.87% | +0.80 pp | 6.098 | 5.860 | -0.239 | 0.630 | 0.635 |
+| `toa_lowcorr_diagnostic` | 69.28% | 69.98% | +0.70 pp | 6.098 | 5.964 | -0.134 | 0.646 | 0.639 |
+| `geometry_plus_tot_plus_toa_lowcorr` | 69.58% | 71.07% | +1.49 pp | 6.039 | 5.651 | -0.388 | 0.645 | 0.652 |
+
+阶段判断：
+
+- A5c 显示 `gated` 在所有四组低冗余特征上都比 A5b simple concat 有更高 Test Acc 和更低 MAE。
+- 五维 `geometry_plus_tot_plus_toa_lowcorr_gated` 是当前 A5 最好结果：Test Acc 71.07%，MAE 5.651，Macro-F1 0.652。
+- 该提升是小幅正结果：相对 A2 seed42，Test Acc +0.60 pp，MAE -0.313，Macro-F1 +0.006；不能夸大为决定性突破。
+- A5c 主要改善 `45 deg` 和 `60 deg`，没有真正解决 `30 deg`；五维 gated 的 30 deg F1 仍低于 A2 seed42。
+- A5d 已新增正式三 seed 配置，同时包含 main 与 diagnostic 两组：五维 `geometry_plus_tot_plus_toa_lowcorr_gated` 作为 main，`toa_lowcorr_diagnostic_gated` 作为 ToA-only validation-best 诊断组。
+
+A5d 三 seed 验证配置：
+
+```text
+configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
+```
+
+A5d 对比两组 `gated` 手工标量：
+
+```text
+A5d-main geometry_plus_tot_plus_toa_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5d-diagnostic toa_lowcorr_diagnostic_gated:
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5d_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5d_alpha_handcrafted_gated_3seed --out outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv --out outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
+```
+
+说明：A5d 是三 seed 正式验证，因此需要同时生成逐 run summary 和 mean/std 聚合表。旧的 `a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` 保留为未来单设置确认模板，不是当前正式 A5d 配置。
 
 ## B2 Proton_C_7 handcrafted transfer plan
 

@@ -195,7 +195,31 @@ python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_ga
 python scripts/summarize.py --group a5c_alpha_handcrafted_gated_seed42 --out outputs/a5c_alpha_handcrafted_gated_seed42_runs.csv
 ```
 
-A5c 仍是 seed42 诊断实验，只需要 `summarize.py`；若后续进入 A5d 三 seed 认证，再使用 `scripts/aggregate_seeds.py` 聚合 mean/std。
+A5c 仍是 seed42 诊断实验，只需要 `summarize.py`；A5d 三 seed 认证阶段再使用 `scripts/aggregate_seeds.py` 聚合 mean/std。
+
+A5d 正式三 seed 验证配置：
+
+```text
+configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
+```
+
+它包含两组 gated 手工标量：五维 `geometry_plus_tot_plus_toa_lowcorr` 作为 main，`toa_lowcorr_diagnostic` 作为 ToA-only 诊断组。服务器建议使用 `tmux`：
+
+```bash
+cd ~/Timepix
+tmux new -s a5d_gated
+```
+
+进入 `tmux` 后运行完整链路：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5d_alpha_handcrafted_gated_3seed --out outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv --out outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
+```
+
+A5d 是正式三 seed 验证，因此需要同时生成逐 run summary 和 mean/std 聚合表。
 
 C/质子 ToT：
 
