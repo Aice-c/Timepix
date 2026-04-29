@@ -1,0 +1,42 @@
+base: a4c_end_to_end_bimodal_fusion.yaml
+
+experiment_name: a4c_warm_started_expert_gate_alpha
+experiment_group: a4c_warm_started_expert_gate
+
+model:
+  name: warm_started_expert_gate
+  aux_loss:
+    enabled: true
+    weight_primary: 0.3
+    weight_candidate: 0.1
+  expert_gate:
+    hidden_dim: 256
+    dropout: 0.1
+    include_logits: true
+    init_bias_to_candidate: -2.0
+    strict_checkpoint_load: true
+    freeze_experts: true
+    primary_search:
+      group: a2_best_3seed
+      model: resnet18_no_maxpool
+      modalities: [ToT]
+    candidate_search:
+      groups:
+        - a4b_toa_transform_seed42
+        - a4b_4e_relative_minmax_no_mask_seed43_44
+      model: resnet18_no_maxpool
+      modalities: [ToT, ToA]
+      data:
+        toa_transform: relative_minmax
+        add_hit_mask: false
+
+grid:
+  model.name:
+    - warm_started_expert_gate
+  model.expert_gate.freeze_experts:
+    - true
+    - false
+  training.seed:
+    - 42
+    - 43
+    - 44

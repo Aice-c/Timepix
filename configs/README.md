@@ -562,6 +562,27 @@ python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_to
 python scripts/summarize.py --group b1_proton_c7_resnet18_tot_weight_decay_ep25 --out outputs/b1_proton_c7_resnet18_tot_weight_decay_ep25_runs.csv
 ```
 
+B1-2 当前结果结论：
+
+| `weight_decay` | Best epoch | Early stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 0 | 13 | 是 | 93.57% | 93.90% | 0.578 | 0.9561 |
+| 1e-5 | 7 | 是 | 92.56% | 92.42% | 0.715 | 0.9446 |
+| 1e-4 | 17 | 是 | 93.84% | 93.97% | 0.574 | 0.9563 |
+
+按 `val_accuracy` 选择，B1-2 最佳仍为：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+weight_decay  = 1e-4
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+`weight_decay=0` 与最佳组很接近，但 validation、test 和 MAE 均略低；`weight_decay=1e-5` 明显更差。下一步建议新增 `B1-best` 三 seed 认证配置，固定上述组合并运行 `training.seed=42/43/44`。
+
 ### B1-1 20 epoch 结果续跑到 25 epoch
 
 如果 B1-1 已经用旧的 20 epoch 预算跑完，且每个 run 都保留了
@@ -957,3 +978,55 @@ python scripts/train.py \
 ```
 
 新的 checkpoint 中保存了配置。旧 checkpoint 或数据路径变动时，可以额外传入 `--config` 和 `--data-root`。
+
+### A4c-4 warm-started expert gate
+
+`configs/experiments/a4c_warm_started_expert_gate.yaml` 是 A4c 第二批配置。它加载已有 expert checkpoint：
+
+```text
+Primary expert: A2 best ToT ResNet18 no-maxpool
+Candidate expert: ToT + relative_minmax ToA, no mask ResNet18 no-maxpool
+```
+
+runner 会根据 `outputs/experiments/*/metadata.json` 自动按 `training.seed` 查找 checkpoint，因此配置中不需要写死时间戳目录。该配置比较 `freeze_experts=true` 与 `freeze_experts=false` 两个受控变体。
+
+seed42 快速验证：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate_seed42 --out outputs/a4c_warm_started_expert_gate_seed42_runs.csv
+```
+
+正式三 seed：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a4c_warm_gate
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+重新进入会话：
+
+```bash
+tmux attach -t a4c_warm_gate
+```

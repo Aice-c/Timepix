@@ -89,7 +89,7 @@ Alpha 主线阶段：
 | `A3` | 主干模型对比 | 已完成 | 比较 ShallowCNN、ShallowResNet、ResNet18、DenseNet121、EfficientNet-B0、ConvNeXt-Tiny、ViT-Tiny；支持 `resnet18_no_maxpool` 作为当前主干。 |
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
-| `A4c` | End-to-end full bimodal fusion | 准备实现 | 研究完整端到端双模态模型是否能超过 A4b-5 的 frozen-expert gate；定位为 A4b 主线后的补充验证，不替代 A4b-5 当前主结果。 |
+| `A4c` | End-to-end full bimodal fusion | 第一批已实现，A4c-4 已适配 | 研究完整端到端双模态模型是否能超过 A4b-5 的 frozen-expert gate；定位为 A4b 主线后的补充验证，不替代 A4b-5 当前主结果。 |
 | `A5` | 物理/手工特征融合 | 待定 | 建议用于 ToT image + ToT/ToA scalar physical features，不继续塞进 A4b。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
@@ -116,7 +116,7 @@ A4c 计划命名：
 | `A4c-1` | `dual_stream_concat_aux` | 完整双流 feature fusion baseline | 第一批实现与运行。 |
 | `A4c-2` | `dual_stream_gmu_aux` | feature-level sample-wise gated fusion | 第一批实现与运行，重点模型之一。 |
 | `A4c-3` | `toa_conditioned_film` | ToA 作为辅助条件调制 ToT 特征 | 第一批实现与运行，重点模型之一。 |
-| `A4c-4` | `warm_started_expert_gate` | A4b-5 frozen expert gate 的端到端 warm-start 版本 | 第二批实现；涉及 checkpoint 映射、冻结/解冻 schedule，工程复杂度较高。 |
+| `A4c-4` | `warm_started_expert_gate` | A4b-5 frozen expert gate 的端到端 warm-start 版本 | 已实现第二批最小受控版；从 metadata 自动按 seed 查找 ToT primary 与 `relative_minmax/no mask` candidate checkpoint，对比 `freeze_experts=true/false`。 |
 | `A4c-5` | `mmtm_lite` | 中间层跨模态通道重标定 | 选做；仅在 A4c-1/2/3/4 后仍有时间和算力时考虑。 |
 
 A4c 固定决策：
@@ -136,7 +136,7 @@ A4c 自由度收敛决策：
 
 - `ToA` 不再使用 raw/log1p，也不再扩展更多 mask/transform 网格；`relative_minmax, no mask` 来自 A4b 互补性结果。
 - `A4c-1/2/3` 从头训练，不混入 checkpoint initialization 变量。
-- `A4c-4` 单独作为 warm-start expert gate，允许加载 ToT baseline 和 candidate checkpoint，并使用分阶段冻结/解冻。
+- `A4c-4` 单独作为 warm-start expert gate，加载 ToT baseline 和 candidate checkpoint；当前最小受控实现比较 `freeze_experts=true/false`，暂不加入更复杂的多阶段 schedule。
 - `A4c-1/2` 使用 auxiliary heads，建议初始权重为 `tot_aux=0.3`、`toa_aux=0.1`；`A4c-3` 中 ToA 是条件调制，不强制 ToA auxiliary head。
 - `A4c-2` 的 gate bias 初始化偏向 ToT；`A4c-3` 的 FiLM 最后一层 zero-init，使初始调制接近 identity。
 - `A4c-5 mmtm_lite` 暂缓，避免完整双模态部分膨胀成新大网格。
@@ -146,8 +146,8 @@ Proton/C 主线阶段：
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
 | --- | --- | --- | --- |
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
-| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 配置已撰写，待运行 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`。 |
-| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待定 | B1 搜索结束后做。 |
+| `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
+| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 待配置/待运行 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`，建议做 `training.seed=42/43/44` 三 seed 认证。 |
 | `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
@@ -164,7 +164,7 @@ Proton/C 主线阶段：
 
 1. A4b 已形成完整闭环：A4/A4b-1/A4b-3/A4b-4/A4b-5/A4b-6。
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
-3. A4c 第一批只实现 `A4c-1/2/3`；`A4c-4` 作为第二批；`A4c-5` 选做。
+3. A4c 第一批 `A4c-1/2/3` 已实现；第二批 `A4c-4 warm_started_expert_gate` 已适配；`A4c-5 mmtm_lite` 仍为选做，等待 A4c-4 结果后再决定。
 4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
 5. A5/A6 等 A4c 和 B1 有初步结果后再展开。
 
@@ -1371,6 +1371,76 @@ python scripts/summarize.py --group b1_proton_c7_resnet18_tot_weight_decay_ep25 
   - `weight_decay=1e-5`
   - `weight_decay=1e-4`
 
+当前结果记录（用户汇报）：
+
+B1-2 固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss/label: `cross_entropy` + `onehot`
+- `learning_rate=3e-4`
+- `batch_size=128`
+- `dropout=0.1`
+- `epochs=25`
+- `early_stopping_patience=5`
+- 搜索项：`weight_decay = [0, 1e-5, 1e-4]`
+- 选择标准：`val_accuracy`
+
+B1-2 `weight_decay` 搜索结果：
+
+| `weight_decay` | Best epoch | Early stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 0 | 13 | 是 | 93.57% | 93.90% | 0.578 | 0.9561 |
+| 1e-5 | 7 | 是 | 92.56% | 92.42% | 0.715 | 0.9446 |
+| 1e-4 | 17 | 是 | 93.84% | 93.97% | 0.574 | 0.9563 |
+
+相对 B1-2 最佳组的差异：
+
+| `weight_decay` | Δ Val Acc | Δ Test Acc | Δ Test MAE | Δ Test F1 |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | -0.27 percentage points | -0.07 percentage points | +0.0039 | -0.0002 |
+| 1e-5 | -1.28 percentage points | -1.55 percentage points | +0.1408 | -0.0117 |
+| 1e-4 | 0 | 0 | 0 | 0 |
+
+B1-1 与 B1-2 最佳对照：
+
+| 来源 | LR | Batch | WD | Best epoch | Val Acc | Test Acc | Test MAE | Test F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B1-1 old 20epoch | 3e-4 | 128 | 1e-4 | 20 | 93.94% | 93.97% | 0.566 | 0.9565 |
+| B1-1 ep25_from20 | 3e-4 | 128 | 1e-4 | 20 | 93.94% | 93.97% | 0.566 | 0.9565 |
+| B1-2 fresh ep25 | 3e-4 | 128 | 1e-4 | 17 | 93.84% | 93.97% | 0.574 | 0.9563 |
+
+B1-2 最佳组 per-class test 指标：
+
+| 角度 | Precision | Recall | F1 |
+| ---: | ---: | ---: | ---: |
+| 10 deg | 1.0000 | 1.0000 | 1.0000 |
+| 20 deg | 0.9987 | 0.9987 | 0.9987 |
+| 30 deg | 0.9955 | 0.9964 | 0.9959 |
+| 45 deg | 0.9342 | 0.9683 | 0.9509 |
+| 50 deg | 0.9277 | 0.9290 | 0.9283 |
+| 60 deg | 0.9085 | 0.8743 | 0.8911 |
+| 70 deg | 0.9236 | 0.9349 | 0.9292 |
+
+结论与决策：
+
+- B1-2 没有改变 B1 的最佳训练超参数。
+- `weight_decay=1e-4` 仍是当前 B1 最佳选择；`weight_decay=0` 很接近，但 validation、test 和 MAE 均略低；`weight_decay=1e-5` 明显更差，不建议继续使用。
+- 当前 B1 最佳组合固定为：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+weight_decay  = 1e-4
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+- 下一步建议进入 `B1-best`：固定上述组合，做 `training.seed=42/43/44` 三 seed 认证，并报告 mean ± std。
+
 ## 常用汇总命令
 
 A3:
@@ -2117,3 +2187,140 @@ python scripts\run_grid.py --config configs\experiments\a4c_end_to_end_bimodal_f
   - `dual_stream_concat_aux` 可完成 train/evaluate；
   - `dual_stream_gmu_aux` 可输出 `gate_tot`、`gate_toa` diagnostics；
   - `toa_conditioned_film` 可输出 `film_gamma_abs`、`film_beta_abs` diagnostics。
+
+### A4c-4 warm-started expert gate 实现
+
+记录日期：2026-04-29。
+
+阶段目的：
+
+- A4c-4 是 A4c 第二批实验，不扩展为新的大网格。
+- 它把 A4b-5 已证明有互补性的两个 expert 纳入训练框架：`ToT primary expert` 与 `ToT + relative_minmax ToA, no mask candidate expert`。
+- 目标是检验：继承已有 expert 权重后，feature/logit gate 是否能比从头训练的完整双模态模型更稳定地利用 candidate。
+
+关键决策：
+
+- A4c-5 `mmtm_lite` 继续保持选做，等待 A4c-4 结果后再决定是否推进。
+- A4c-4 只比较两个受控变体：`freeze_experts=true` 与 `freeze_experts=false`。
+- `freeze_experts=true`：冻结 primary/candidate，只训练 gate，定位为最保守的 warm-start gate。
+- `freeze_experts=false`：加载 checkpoint 后允许 primary/candidate 与 gate 一起 fine-tune，检验端到端微调是否有效。
+- gate 初始化偏向 primary：`init_bias_to_candidate=-2.0`，使初始 `gate_candidate≈0.12`，避免一开始破坏 ToT 主模态。
+- checkpoint 不写死时间戳路径；runner 根据 `outputs/experiments/<group>/*/metadata.json` 自动按 `training.seed`、`modalities`、`model.name`、`toa_transform` 和 `add_hit_mask` 找到对应 `best_model.pth`。
+- 服务器持久化方式统一使用 `tmux`，不再优先写 `nohup` 命令。
+
+新增模型：
+
+```text
+model.name: warm_started_expert_gate
+```
+
+结构：
+
+```text
+Primary branch: ToT -> ResNet18 no-maxpool -> logits_primary, features_primary
+Candidate branch: ToT + relative_minmax ToA -> ResNet18 no-maxpool -> logits_candidate, features_candidate
+Gate input: features_primary, features_candidate, logits_primary, logits_candidate
+g = sigmoid(MLP(...))
+logits_final = (1 - g) * logits_primary + g * logits_candidate
+```
+
+新增/更新代码：
+
+```text
+timepix/models/dual_stream.py
+timepix/models/registry.py
+timepix/training/runner.py
+timepix/config_validation.py
+scripts/summarize.py
+scripts/aggregate_seeds.py
+```
+
+新增配置：
+
+```text
+configs/experiments/a4c_warm_started_expert_gate.yaml
+configs/experiments/a4c_warm_started_expert_gate_seed42.yaml
+```
+
+checkpoint 搜索来源：
+
+```yaml
+primary_search:
+  group: a2_best_3seed
+  model: resnet18_no_maxpool
+  modalities: [ToT]
+
+candidate_search:
+  groups:
+    - a4b_toa_transform_seed42
+    - a4b_4e_relative_minmax_no_mask_seed43_44
+  model: resnet18_no_maxpool
+  modalities: [ToT, ToA]
+  data:
+    toa_transform: relative_minmax
+    add_hit_mask: false
+```
+
+seed42 快速验证命令：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate_seed42 --out outputs/a4c_warm_started_expert_gate_seed42_runs.csv
+```
+
+正式三 seed 命令：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+服务器 `tmux` 持久化命令：
+
+```bash
+cd ~/Timepix
+tmux new -s a4c_warm_gate
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+`tmux` 使用：
+
+```bash
+# 断开但保持运行
+Ctrl+b 然后按 d
+
+# 重新进入
+tmux attach -t a4c_warm_gate
+
+# 查看会话
+tmux ls
+```
+
+本地验证：
+
+```powershell
+python -m py_compile timepix\models\dual_stream.py timepix\models\registry.py timepix\training\runner.py timepix\config_validation.py scripts\summarize.py scripts\aggregate_seeds.py
+python scripts\run_grid.py --config configs\experiments\a4c_warm_started_expert_gate_seed42.yaml --dry-run
+python scripts\run_grid.py --config configs\experiments\a4c_warm_started_expert_gate.yaml --dry-run
+```
+
+验证结果：
+
+- `a4c_warm_started_expert_gate_seed42.yaml --dry-run` 规划 2 个 run。
+- `a4c_warm_started_expert_gate.yaml --dry-run` 规划 6 个 run。
+- 使用本地 `timepix-local` 环境验证 seed42/seed43/seed44 checkpoint 自动搜索与加载通过。
+- 使用 synthetic `2 x 100 x 100` batch 验证 forward/backward 通过。
+- `freeze_experts=true` 时 primary/candidate 保持 `eval()` 且不产生梯度，只有 gate 可训练。

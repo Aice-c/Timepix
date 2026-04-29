@@ -72,7 +72,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
 | `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
-| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, and A4c dual-stream ToT/ToA fusion models. |
+| `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, and A4c warm-started expert gate. |
 | `timepix/losses.py` | New loss module | CrossEntropy and EMD in first stage. |
 | `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
@@ -106,6 +106,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml` | A4b-4e key candidate config | Trains only the `relative_minmax/no mask` ToT+ToA candidate for seeds 43 and 44. |
 | `configs/experiments/a4c_end_to_end_bimodal_fusion.yaml` | A4c full bimodal fusion | Three-seed grid over `dual_stream_concat_aux`, `dual_stream_gmu_aux`, and `toa_conditioned_film` using `ToT + relative_minmax ToA, no mask`. |
 | `configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml` | A4c quick comparison | Single-seed-42 shortcut for the first A4c implementation batch. |
+| `configs/experiments/a4c_warm_started_expert_gate.yaml` | A4c-4 warm-started expert gate | Three-seed comparison of frozen vs fine-tuned warm-start expert gate using automatically discovered ToT primary and relative-minmax candidate checkpoints. |
+| `configs/experiments/a4c_warm_started_expert_gate_seed42.yaml` | A4c-4 quick comparison | Single-seed-42 shortcut for the warm-started expert gate. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

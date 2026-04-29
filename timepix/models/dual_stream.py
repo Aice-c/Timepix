@@ -9,7 +9,7 @@ from torchvision.models import ResNet18_Weights, resnet18
 
 from .base import ModelOutput
 from .fusion import FeatureFusion
-from .resnet import ResNet18Backbone
+from .resnet import ResNet18Backbone, ResNet18Timepix
 
 
 def _split_tot_toa(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -217,4 +217,135 @@ class ToAConditionedFiLMTimepix(nn.Module):
         if self.task == "regression":
             return ModelOutput(regression=torch.sigmoid(output).squeeze(-1), features=fused, diagnostics=diagnostics)
         return _classification_output(output, features=fused, diagnostics=diagnostics)
+
+
+class WarmStartedExpertGateTimepix(nn.Module):
+    """Gate warm-started ToT and ToT+relative-ToA experts for A4c-4."""
+
+    def __init__(
+        self,
+        input_channels: int,
+        num_classes: int,
+        task: str = "classification",
+        handcrafted_dim: int = 0,
+        fusion_mode: str = "none",
+        feature_dim: int = 256,
+        hidden_dim: int = 512,
+        dropout: float = 0.1,
+        kernel_size: int = 2,
+        stride: int = 1,
+        padding: int = 0,
+        pretrained: bool = False,
+        gate_hidden_dim: int = 256,
+        gate_dropout: float = 0.1,
+        gate_init_bias_to_candidate: float = -2.0,
+        gate_include_logits: bool = True,
+    ) -> None:
+        super().__init__()
+        if task != "classification":
+            raise ValueError("warm_started_expert_gate currently supports classification only")
+        if input_channels < 2:
+            raise ValueError("warm_started_expert_gate requires ToT+ToA input channels")
+
+        self.task = task
+        self.gate_include_logits = gate_include_logits
+        self._experts_frozen = False
+        self.primary = ResNet18Timepix(
+            1,
+            num_classes,
+            task=task,
+            handcrafted_dim=handcrafted_dim,
+            fusion_mode=fusion_mode,
+            feature_dim=feature_dim,
+            hidden_dim=hidden_dim,
+            dropout=dropout,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            pretrained=pretrained,
+        )
+        self.candidate = ResNet18Timepix(
+            input_channels,
+            num_classes,
+            task=task,
+            handcrafted_dim=handcrafted_dim,
+            fusion_mode=fusion_mode,
+            feature_dim=feature_dim,
+            hidden_dim=hidden_dim,
+            dropout=dropout,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            pretrained=pretrained,
+        )
+
+        gate_in_dim = feature_dim * 2 + (num_classes * 2 if gate_include_logits else 0)
+        self.gate = nn.Sequential(
+            nn.Linear(gate_in_dim, gate_hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(gate_dropout),
+            nn.Linear(gate_hidden_dim, 1),
+        )
+        last = self.gate[-1]
+        nn.init.zeros_(last.weight)
+        nn.init.constant_(last.bias, float(gate_init_bias_to_candidate))
+
+    def load_expert_states(
+        self,
+        primary_state: dict[str, torch.Tensor],
+        candidate_state: dict[str, torch.Tensor],
+        *,
+        strict: bool = True,
+    ) -> dict[str, object]:
+        primary_result = self.primary.load_state_dict(primary_state, strict=strict)
+        candidate_result = self.candidate.load_state_dict(candidate_state, strict=strict)
+        return {
+            "primary_missing_keys": list(primary_result.missing_keys),
+            "primary_unexpected_keys": list(primary_result.unexpected_keys),
+            "candidate_missing_keys": list(candidate_result.missing_keys),
+            "candidate_unexpected_keys": list(candidate_result.unexpected_keys),
+        }
+
+    def set_experts_trainable(self, trainable: bool) -> None:
+        self._experts_frozen = not trainable
+        for module in (self.primary, self.candidate):
+            for param in module.parameters():
+                param.requires_grad = trainable
+        for param in self.gate.parameters():
+            param.requires_grad = True
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if mode and self._experts_frozen:
+            self.primary.eval()
+            self.candidate.eval()
+        return self
+
+    def forward(self, image: torch.Tensor, handcrafted: torch.Tensor | None = None) -> ModelOutput:
+        x_tot, _ = _split_tot_toa(image)
+        if self._experts_frozen and self.training:
+            with torch.no_grad():
+                primary_output = self.primary(x_tot, handcrafted)
+                candidate_output = self.candidate(image, handcrafted)
+        else:
+            primary_output = self.primary(x_tot, handcrafted)
+            candidate_output = self.candidate(image, handcrafted)
+
+        gate_inputs = [primary_output.features, candidate_output.features]
+        if self.gate_include_logits:
+            gate_inputs.extend([primary_output.logits, candidate_output.logits])
+        gate_candidate = torch.sigmoid(self.gate(torch.cat(gate_inputs, dim=1)))
+        logits = (1.0 - gate_candidate) * primary_output.logits + gate_candidate * candidate_output.logits
+        features = (1.0 - gate_candidate) * primary_output.features + gate_candidate * candidate_output.features
+        aux_logits = {
+            "primary": primary_output.logits,
+            "candidate": candidate_output.logits,
+        }
+        diagnostics = {
+            "gate_primary": (1.0 - gate_candidate).squeeze(1),
+            "gate_candidate": gate_candidate.squeeze(1),
+            "gate_tot": (1.0 - gate_candidate).squeeze(1),
+            "gate_toa": gate_candidate.squeeze(1),
+        }
+        return _classification_output(logits, features=features, aux_logits=aux_logits, diagnostics=diagnostics)
 

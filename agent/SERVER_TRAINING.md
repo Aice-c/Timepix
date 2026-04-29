@@ -150,3 +150,33 @@ python scripts/run_grid.py \
 python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
 python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
 ```
+
+## A4c-4 tmux 示例
+
+A4c-4 `warm_started_expert_gate` 属于长时间三 seed 对比实验，建议使用专用 `tmux` 会话：
+
+```bash
+cd ~/Timepix
+tmux new -s a4c_warm_gate
+```
+
+进入会话后运行完整链路：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+断开但保持训练运行：
+
+```text
+Ctrl+b 然后按 d
+```
+
+重新进入：
+
+```bash
+tmux attach -t a4c_warm_gate
+```

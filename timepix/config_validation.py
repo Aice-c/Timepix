@@ -56,6 +56,7 @@ SECTION_KEYS = {
         "aux_loss",
         "gate",
         "film",
+        "expert_gate",
     },
     "loss": {"name", "label_encoding", "emd_p", "gaussian_sigma"},
     "training": {
@@ -98,6 +99,7 @@ SUPPORTED_MODELS = {
     "dual_stream_concat_aux",
     "dual_stream_gmu_aux",
     "toa_conditioned_film",
+    "warm_started_expert_gate",
 }
 SUPPORTED_TASKS = {"classification", "regression"}
 SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd"}

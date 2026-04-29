@@ -1,0 +1,13 @@
+base: a4c_warm_started_expert_gate.yaml
+
+experiment_name: a4c_warm_started_expert_gate_alpha_seed42
+experiment_group: a4c_warm_started_expert_gate_seed42
+
+grid:
+  model.name:
+    - warm_started_expert_gate
+  model.expert_gate.freeze_experts:
+    - true
+    - false
+  training.seed:
+    - 42

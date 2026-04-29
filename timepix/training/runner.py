@@ -6,10 +6,12 @@ import copy
 import csv
 import hashlib
 import importlib.metadata
+import json
 import platform
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -168,6 +170,126 @@ def load_config_from_checkpoint(path: str | Path) -> dict:
     if not isinstance(cfg, dict):
         raise ValueError(f"Checkpoint does not contain a config: {checkpoint_path}")
     return copy.deepcopy(cfg)
+
+
+def _checkpoint_state_dict(path: str | Path) -> dict[str, torch.Tensor]:
+    checkpoint_path = resolve_project_path(path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(checkpoint, Mapping) and "model_state" in checkpoint:
+        state = checkpoint["model_state"]
+    else:
+        state = checkpoint
+    if not isinstance(state, Mapping):
+        raise ValueError(f"Checkpoint does not contain a state dict: {checkpoint_path}")
+    return dict(state)
+
+
+def _matches_filter(value: Any, expected: Any) -> bool:
+    if expected is None:
+        return True
+    if isinstance(expected, list):
+        return list(value or []) == expected
+    return value == expected
+
+
+def _find_checkpoint_from_metadata(search_cfg: Mapping[str, Any], *, seed: int, output_root: Path) -> Path:
+    groups = search_cfg.get("groups", search_cfg.get("group"))
+    if groups is None:
+        raise ValueError("checkpoint search requires group or groups")
+    if isinstance(groups, str):
+        groups = [groups]
+
+    checkpoint_name = str(search_cfg.get("checkpoint_name", "best_model.pth"))
+    candidates: list[tuple[float, Path, Path]] = []
+    for group in groups:
+        group_root = output_root / str(group)
+        for metadata_path in sorted(group_root.glob("*/metadata.json")):
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
+            except Exception:
+                continue
+            training = metadata.get("training", {})
+            if int(training.get("seed", -1)) != int(seed):
+                continue
+            if "dataset_name" in search_cfg and not _matches_filter(metadata.get("dataset", {}).get("name"), search_cfg.get("dataset_name")):
+                continue
+            if "modalities" in search_cfg and not _matches_filter(metadata.get("dataset", {}).get("modalities"), search_cfg.get("modalities")):
+                continue
+            if "model" in search_cfg and not _matches_filter(metadata.get("model", {}).get("name"), search_cfg.get("model")):
+                continue
+            data_filters = search_cfg.get("data", {})
+            if isinstance(data_filters, Mapping):
+                data = metadata.get("data", {})
+                data_info = metadata.get("data_info", {})
+                if any(
+                    not _matches_filter(data_info.get(key, data.get(key)), expected)
+                    for key, expected in data_filters.items()
+                ):
+                    continue
+            checkpoint_path = metadata_path.parent / checkpoint_name
+            if checkpoint_path.exists():
+                val = metadata.get("metrics", {}).get("validation", {})
+                score = float(val.get("accuracy", 0.0) or 0.0)
+                candidates.append((score, metadata_path, checkpoint_path))
+
+    if not candidates:
+        raise FileNotFoundError(f"No checkpoint matched search config for seed={seed}: {dict(search_cfg)}")
+    candidates.sort(key=lambda item: (item[0], str(item[1])), reverse=True)
+    return candidates[0][2]
+
+
+def _select_checkpoint_path(source: Any, *, seed: int, label: str, output_root: Path) -> Path:
+    if isinstance(source, str):
+        return resolve_project_path(source)
+    if isinstance(source, Mapping):
+        if "path" in source:
+            return resolve_project_path(source["path"])
+        if "paths" in source:
+            paths = source["paths"]
+            if not isinstance(paths, Mapping):
+                raise ValueError(f"model.expert_gate.{label}.paths must be a mapping")
+            value = paths.get(str(seed), paths.get(seed))
+            if value is None:
+                raise ValueError(f"model.expert_gate.{label}.paths has no entry for seed={seed}")
+            return resolve_project_path(value)
+        return _find_checkpoint_from_metadata(source, seed=seed, output_root=output_root)
+    raise ValueError(f"model.expert_gate.{label} must be a path, mapping, or metadata search config")
+
+
+def _initialize_model_from_config(model, cfg: dict, *, seed: int, output_root: Path) -> dict[str, Any]:
+    model_cfg = cfg.get("model", {})
+    expert_gate_cfg = model_cfg.get("expert_gate", {})
+    info: dict[str, Any] = {}
+    if hasattr(model, "load_expert_states") and expert_gate_cfg:
+        primary_source = expert_gate_cfg.get("primary_checkpoint") or expert_gate_cfg.get("primary_search")
+        candidate_source = expert_gate_cfg.get("candidate_checkpoint") or expert_gate_cfg.get("candidate_search")
+        if primary_source is None or candidate_source is None:
+            raise ValueError("warm_started_expert_gate requires primary and candidate checkpoint sources")
+        primary_path = _select_checkpoint_path(primary_source, seed=seed, label="primary", output_root=output_root)
+        candidate_path = _select_checkpoint_path(candidate_source, seed=seed, label="candidate", output_root=output_root)
+        strict = bool(expert_gate_cfg.get("strict_checkpoint_load", True))
+        load_info = model.load_expert_states(
+            _checkpoint_state_dict(primary_path),
+            _checkpoint_state_dict(candidate_path),
+            strict=strict,
+        )
+        freeze_experts = bool(expert_gate_cfg.get("freeze_experts", False))
+        if hasattr(model, "set_experts_trainable"):
+            model.set_experts_trainable(not freeze_experts)
+        info.update(
+            {
+                "type": "warm_started_expert_gate",
+                "primary_checkpoint": str(primary_path),
+                "candidate_checkpoint": str(candidate_path),
+                "strict_checkpoint_load": strict,
+                "freeze_experts": freeze_experts,
+                "load_info": load_info,
+            }
+        )
+        print(f"[Init] Loaded primary expert: {primary_path}")
+        print(f"[Init] Loaded candidate expert: {candidate_path}")
+        print(f"[Init] freeze_experts={freeze_experts}")
+    return info
 
 
 def _metrics_from_payload(payload: dict, task: str, angle_values: list[float], max_angle: float) -> dict:
@@ -334,6 +456,7 @@ def run_experiment(
         task=task,
         handcrafted_dim=int(data_info["handcrafted_dim"]),
     ).to(device)
+    model_initialization_info = _initialize_model_from_config(model, cfg, seed=seed, output_root=output_root)
     param_count = _count_parameters(model)
 
     criterion = build_loss(cfg, num_classes, label_map).to(device)
@@ -560,6 +683,7 @@ def run_experiment(
         "data_info": data_info,
         "task": task,
         "model": cfg.get("model", {}),
+        "model_initialization": model_initialization_info,
         "loss": cfg.get("loss", {}),
         "training": training_cfg,
         "mixed_precision": mixed_precision_info,
