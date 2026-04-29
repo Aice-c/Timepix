@@ -336,14 +336,159 @@ python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out o
 - `scripts/summarize.py` 已新增 `handcrafted_enabled`、`handcrafted_dim`、`handcrafted_feature_count`、`handcrafted_features`、`handcrafted_source_modalities` 字段。
 - 这样 A5b/A5d 的 summary CSV 可以直接看到每个 run 使用的手工特征组，不需要只依赖很长的 `experiment_name` 反推。
 
+A5b seed42 结果记录：
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- image input: `ToT only`
+- scalar feature source: `ToT + ToA`
+- model: `resnet18_no_maxpool`
+- fusion: `concat`
+- training config: A2 best
+- seed: `42`
+
+结果表：
+
+| 组别 | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | P90 | Macro-F1 |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| A5b-1 `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 22/25 | 否 | 68.73% | 70.38% | 5.905 | 15.0 | 0.644 |
+| A5b-2 `tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 4/12 | 是 | 66.33% | 70.08% | 6.098 | 15.0 | 0.630 |
+| A5b-3 `toa_lowcorr` | `ToA_span; ToA_major_axis_corr_abs` | 18/25 | 否 | 70.93% | 69.28% | 6.098 | 15.0 | 0.646 |
+| A5b-4 `selected_lowcorr_all` | `active_pixel_count; bbox_fill_ratio; ToT_density; ToA_span; ToA_major_axis_corr_abs` | 11/19 | 是 | 70.13% | 69.58% | 6.039 | 15.0 | 0.645 |
+
+A2 seed42 baseline:
+
+| Seed | Val Acc | Test Acc | Test MAE | P90 | Macro-F1 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 42 | 69.53% | 70.48% | 5.964 | 15.0 | 0.646 |
+
+阶段判断：
+
+- A5b 没有证明 `CNN + handcrafted concat` 能稳定提升 Alpha ToT CNN。
+- `geometry_lowcorr` 的 Test Acc 比 A2 seed42 低 0.10 pp，但 MAE 从 5.964 降到 5.905，说明几何低维特征可能对角度误差有轻微帮助，但不是稳定正结果。
+- `tot_lowcorr` 明显不优于 baseline，提示 `ToT_density` 与 CNN 已学到的信息可能冗余，或简单 concat 引入噪声。
+- `toa_lowcorr` 的 Val Acc 最高，且 30 deg recall 从 0.297 提升到 0.386，但 Test Acc 降到 69.28%；说明 ToA 标量确有互补信息，但简单 concat 没有稳定转化为总体收益。
+- 因此 A5c 不应直接进入三 seed；如果继续 A5c，应定位为“融合方式是否能改善 A5b 中 simple concat 的负/弱结果”，优先只选 `geometry_lowcorr` 与 `toa_lowcorr` 做少量 seed42 对照。
+
+B2 决策影响：
+
+- 由于 A5b 没有得到明确正向的 Alpha 手工特征 concat 结果，B2 不应表述为“迁移 Alpha 最优手工特征方案”。
+- B2 更合理的定位是：在 Proton_C_7 上做低成本受控验证，检查 `ToT-only` 低冗余标量特征是否也主要与 CNN 冗余，或能改善 B1 中较弱的中高角度类别。
+- B2 不应使用任何 ToA 特征；候选仅限 `active_pixel_count`、`bbox_fill_ratio`、`ToT_density`。
+
+## B1-best patience=8 result and B2 setup
+
+记录日期：2026-04-30。
+
+B1-best 正式版本：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+```
+
+固定配置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Loss/label: `cross_entropy` + `onehot`
+- Training: `learning_rate=3e-4`, `batch_size=128`, `weight_decay=1e-4`
+- Dropout: `0.1`
+- Scheduler: `cosine`, `eta_min=1e-7`
+- Epochs / early stop: `25 / patience=8`
+- Seeds: `42`, `43`, `44`
+
+三 seed 结果：
+
+| Seed | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 42 | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| 43 | 25/25 | 否 | 94.09% | 94.33% | 0.534 | 0.0 | 0.959 |
+| 44 | 5/13 | 是 | 90.86% | 91.37% | 0.825 | 0.0 | 0.939 |
+
+mean/std：
+
+| 指标 | Mean ± Std |
+| --- | ---: |
+| Val Acc | 92.94 ± 1.81% |
+| Test Acc | 93.26 ± 1.64% |
+| Test MAE | 0.640 ± 0.161 |
+| Test P90 | 0.0 ± 0.0 |
+| Test Macro-F1 | 0.952 ± 0.011 |
+
+和旧 `patience=5` 对比：
+
+| 版本 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: |
+| patience=5 旧版 | 91.35 ± 2.63% | 0.826 ± 0.252 | 0.937 ± 0.020 |
+| patience=8 正式版 | 93.26 ± 1.64% | 0.640 ± 0.161 | 0.952 ± 0.011 |
+
+判断：
+
+- `patience=8` 后平均准确率提升约 +1.91 pp，标准差也变小，确认旧 patience=5 对 Proton_C_7 训练过于激进。
+- `Test P90=0` 表示 90% 以上测试样本预测角度完全正确，不表示完全无错误。
+- 低角度 `10°/20°/30°` 基本可被模型完全区分；主要错误集中在相邻大角度，尤其 `60° ↔ 70°`，其次是 `45° ↔ 50°`。
+- B1-best 可作为 Proton_C_7 正式 baseline 写入论文：`Test Acc = 93.26 ± 1.64%`，`MAE = 0.640 ± 0.161`，`Macro-F1 = 0.952 ± 0.011`。
+
+B2 配置决策：
+
+- B2 不再做主干/结构迁移验证，也不重新搜索训练超参。
+- B2 固定 B1-best patience=8 训练配置。
+- 因为 A5b 没有在 Alpha 上证明 handcrafted concat 有稳定收益，B2 先只做 seed42 低成本验证，不直接三 seed。
+- Proton_C_7 无 ToA，因此 B2 只允许 `source_modalities: [ToT]`，不允许任何 ToA 特征。
+
+B2a 正式配置：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml
+```
+
+B2a 特征组：
+
+```text
+B2a-1 geometry_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+
+B2a-2 tot_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+```
+
+B2b 三 seed 模板：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
+```
+
+只有当 B2a 明显优于 B1-best seed42，或改善 `45°/50°/60°/70°` per-class F1 / MAE 时，才填充 B2b 模板并运行三 seed。
+
+B2a 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b2_lowcorr
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_lowcorr_seed42 --out outputs/b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv
+```
+
 Proton/C 主线阶段：
 
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
 | --- | --- | --- | --- |
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
-| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | patience=8 配置已撰写，待重跑 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；原 `early_stopping_patience=5` 对 seed43/44 过激，改为 8 后重跑 `training.seed=42/43/44`。 |
-| `B2` | Proton_C_7 手工特征迁移验证 | 框架模板已撰写，待 A5 结果 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置，只验证 Alpha A5 中有效的 ToT-only 手工特征方案是否可迁移。 |
+| `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 已完成 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；正式版本使用 `early_stopping_patience=8`，旧 patience=5 只作早停过激诊断。 |
+| `B2` | Proton_C_7 手工特征低成本验证 | B2a seed42 配置已撰写 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置，只验证 ToT-only 低冗余手工特征是否补充 CNN 或主要冗余。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
 
@@ -360,8 +505,8 @@ Proton/C 主线阶段：
 1. A4b 已形成完整闭环：A4/A4b-1/A4b-3/A4b-4/A4b-5/A4b-6。
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
 3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
-4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
-5. A5a 支持已实现，下一步先运行 A5a 特征筛选/诊断，再决定少量 A5b/A5c/A5d CNN 融合实验；B2 等 A5 的 ToT-only 有效特征组合明确后再推进。
+4. B1 已完成 patience=8 正式 B1-best，可作为 Proton_C_7 baseline。
+5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。
 
 ## A2 Best Base
 

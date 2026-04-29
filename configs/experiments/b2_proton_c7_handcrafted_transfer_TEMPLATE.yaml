@@ -1,6 +1,7 @@
-# TEMPLATE ONLY. Fill handcrafted_features.features with A5-selected ToT-only features.
-experiment_name: b2_proton_c7_handcrafted_transfer
-experiment_group: b2_proton_c7_handcrafted_transfer
+# TEMPLATE ONLY. Use after B2a seed42 low-cost validation shows a useful signal.
+# Fill handcrafted_features.features with the B2a-selected ToT-only feature group.
+experiment_name: b2_proton_c7_handcrafted_best_3seed
+experiment_group: b2_proton_c7_handcrafted_best_3seed
 
 dataset:
   config: ../datasets/proton_c_7.yaml
@@ -20,7 +21,7 @@ model:
   feature_dim: 256
   hidden_dim: 512
   dropout: 0.1
-  # Fill with A5c-selected mode if transferable: concat or gated.
+  # Keep concat unless B2a/A5c explicitly motivates gated.
   fusion_mode: concat
 
 loss:
@@ -68,7 +69,7 @@ handcrafted_features:
   enabled: true
   standardize: true
   source_modalities: [ToT]
-  # Fill only with A5-selected ToT-only features. Do not include ToA features.
+  # Fill only with B2a-selected ToT-only features. Do not include ToA features.
   features: []
 
 output:

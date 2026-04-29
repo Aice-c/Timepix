@@ -1,0 +1,22 @@
+base: b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+
+experiment_name: b2_proton_c7_handcrafted_lowcorr_seed42
+experiment_group: b2_proton_c7_handcrafted_lowcorr_seed42
+
+model:
+  fusion_mode: concat
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT]
+  features: []
+
+grid:
+  handcrafted_features.features:
+    # B2a-1 geometry_lowcorr / transferable geometry scalars
+    - [active_pixel_count, bbox_fill_ratio]
+    # B2a-2 tot_lowcorr / transferable geometry + ToT density
+    - [active_pixel_count, bbox_fill_ratio, ToT_density]
+  training.seed:
+    - 42

@@ -61,9 +61,9 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
 - A4b 后续选择性融合已形成完整阶段：`A4b-4e` rule selector 三 seed 稳定小幅提升，`A4b-5` frozen-expert sample-wise gated late fusion 是当前最强多模态融合结果，`A4b-6` residual fusion 有效但不如 A4b-5。
 - `A4c: End-to-end full bimodal fusion models` 第一阶段已完成，包含 `A4c-1 dual_stream_concat_aux`、`A4c-2 dual_stream_gmu_aux`、`A4c-3 toa_conditioned_film`。三者没有显著刷新 A4b-5 的最高 Test Acc，但均明显提升 Macro-F1，其中 `dual_stream_gmu_aux` 的 Test Macro-F1 达到 `0.691±0.009`，并显示 gate 约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA。第二批 `A4c-4 warm_started_expert_gate` 也已完成；`freeze_experts=true` 优于 ToT 但不超过 A4b-5/A4c-1/2，`freeze_experts=false` 不稳定。`A4c-5 mmtm_lite` 暂为选做。
-- A5 物理/手工标量特征融合方案已进入实现：不参考 `timepix/analysis/` 的既有特征实现；训练链路已新增 12 维合理保留候选特征、`handcrafted_features.source_modalities` 解耦、`handcrafted_mlp` 和 `scripts/screen_handcrafted_features.py`。A5a 已完成，用 `RandomForest` / one-vs-rest `LogisticRegression` / validation permutation importance 做筛选诊断；其中 `LogisticRegression` 显式使用 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))` 以兼容服务器 `scikit-learn` 多分类行为。A5a 显示 Geometry 最重要，其次是 ToT；ToA 标量有补充但不是主导。由于候选特征存在高相关冗余，A5b 已改为低冗余 seed42 CNN concat 消融，正式配置为 `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml`。A5 同时区分可迁移 `ToT-only` 特征线与 Alpha-only `ToT+ToA` 特征线。
+- A5 物理/手工标量特征融合方案已进入实现：不参考 `timepix/analysis/` 的既有特征实现；训练链路已新增 12 维合理保留候选特征、`handcrafted_features.source_modalities` 解耦、`handcrafted_mlp` 和 `scripts/screen_handcrafted_features.py`。A5a 已完成，用 `RandomForest` / one-vs-rest `LogisticRegression` / validation permutation importance 做筛选诊断；其中 `LogisticRegression` 显式使用 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))` 以兼容服务器 `scikit-learn` 多分类行为。A5a 显示 Geometry 最重要，其次是 ToT；ToA 标量有补充但不是主导。A5b 低冗余 seed42 CNN concat 消融已完成，没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；`geometry_lowcorr` 仅 MAE 小幅改善，`toa_lowcorr` 改善 30 deg recall 但 test accuracy 下降。因此 B2 不再表述为“迁移 Alpha 最优手工特征”，而是低成本验证 Proton_C_7 上 ToT-only 标量是否与 CNN 冗余或能改善弱类别。
 - 实验编号、阶段目的、完成状态和后续安排的权威索引见 `agent/EXPERIMENT_LOG.md` 中的“实验编号与阶段总览”。
-- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 初次三 seed 使用 `early_stopping_patience=5` 时发现早停过激，seed43/44 可能在后期恢复前被截断；正式重跑配置改为 `early_stopping_patience=8`，配置文件为 `configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`。B2 已改为 Proton_C_7 手工特征迁移验证，不再做主干/结构迁移验证；只迁移 Alpha A5 中有效的 ToT-only 特征方案。
+- B1 Proton/C 训练超参搜索与 B1-best 三 seed 认证已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。正式 B1-best 使用 `early_stopping_patience=8`，配置为 `configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`，结果为 `Test Acc = 93.26 ± 1.64%`、`MAE = 0.640 ± 0.161`、`Macro-F1 = 0.952 ± 0.011`；旧 patience=5 只作为早停过激诊断。B2 已改为 Proton_C_7 ToT-only 手工特征低成本验证，不再做主干/结构迁移验证；seed42 配置为 `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml`，只比较 `active_pixel_count/bbox_fill_ratio` 和加入 `ToT_density` 的两组。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -412,13 +412,13 @@ configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml
 
 B1-2 结果：`weight_decay=1e-4` 取得最高 `val_accuracy=93.84%`，`test_accuracy=93.97%`，`test_mae=0.574`，`test_f1=0.9563`。`weight_decay=0` 很接近但略低，`weight_decay=1e-5` 明显更差。因此当前 B1 最佳组合为 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`、`dropout=0.1`、`scheduler=cosine`、`eta_min=1e-7`。
 
-B1-best patience=8 重跑配置已新增：
+B1-best patience=8 正式配置：
 
 ```text
 configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
 ```
 
-该配置不继承 B1-2，因为 B1-2 带有 `weight_decay` 搜索 grid；B1-best 独立写出固定配置，只展开 `training.seed=[42,43,44]`，用于报告 mean ± std。原 `configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，仅保留为早停过激的历史诊断配置。
+该配置不继承 B1-2，因为 B1-2 带有 `weight_decay` 搜索 grid；B1-best 独立写出固定配置，只展开 `training.seed=[42,43,44]`，用于报告 mean ± std。原 `configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，仅保留为早停过激的历史诊断配置。patience=8 正式结果为 `Test Acc = 93.26 ± 1.64%`、`MAE = 0.640 ± 0.161`、`Macro-F1 = 0.952 ± 0.011`。
 
 ## A4b 当前后续安排
 
