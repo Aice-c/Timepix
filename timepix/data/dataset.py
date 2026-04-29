@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .features import HandcraftedFeatureExtractor, HandcraftedFeatureScaler
+from .features import HandcraftedFeatureExtractor, HandcraftedFeatureScaler, load_feature_arrays
 from .io import load_matrix
 from .normalization import Normalizer, center_crop_array
 from .transforms import apply_modality_transform, make_hit_mask, normalize_toa_transform
@@ -181,7 +181,23 @@ class TimepixDataset(Dataset):
 
         handcrafted = None
         if self.feature_extractor is not None and self.feature_extractor.dim > 0:
-            handcrafted = self.feature_extractor.extract(arrays)
+            feature_modalities = self.feature_extractor.required_modalities
+            feature_arrays = {
+                modality: cropped_arrays[modality]
+                for modality in feature_modalities
+                if modality in cropped_arrays
+            }
+            missing_modalities = [modality for modality in feature_modalities if modality not in feature_arrays]
+            if missing_modalities:
+                feature_arrays.update(
+                    load_feature_arrays(
+                        record,
+                        missing_modalities,
+                        data_dtype=self.data_dtype,
+                        crop_size=self.crop_size,
+                    )
+                )
+            handcrafted = self.feature_extractor.extract(feature_arrays)
             if handcrafted is not None and self.feature_scaler is not None:
                 handcrafted = self.feature_scaler.apply(handcrafted)
 

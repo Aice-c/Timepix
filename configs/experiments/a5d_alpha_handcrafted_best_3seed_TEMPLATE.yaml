@@ -1,0 +1,30 @@
+# TEMPLATE ONLY. Fill handcrafted_features.features and model.fusion_mode after A5c.
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a5d_alpha_handcrafted_best_3seed
+experiment_group: a5d_alpha_handcrafted_best_3seed
+
+dataset:
+  modalities: [ToT]
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+model:
+  # Fill with A5c-selected fusion mode: concat or gated.
+  fusion_mode: concat
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT, ToA]
+  # Fill with A5c-selected best feature group before running.
+  features: []
+
+grid:
+  training.seed:
+    - 42
+    - 43
+    - 44

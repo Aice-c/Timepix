@@ -24,6 +24,15 @@ def _validate_modalities(dataset_cfg: dict[str, Any], modalities: list[str]) -> 
         raise ValueError(f"Dataset {name} supports modalities {available}, got {modalities}")
 
 
+def _unique_modalities(*groups: list[str]) -> list[str]:
+    seen: list[str] = []
+    for group in groups:
+        for modality in group:
+            if modality not in seen:
+                seen.append(modality)
+    return seen
+
+
 def _default_split_path(cfg: dict[str, Any], modalities: list[str]) -> Path:
     dataset = cfg["dataset"]
     split = cfg.get("split", {})
@@ -47,12 +56,22 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     modalities = list(dataset_cfg.get("modalities") or dataset_cfg.get("default_modalities") or ["ToT"])
     _validate_modalities(dataset_cfg, modalities)
 
+    handcrafted_cfg = cfg.get("handcrafted_features", {})
+    configured_feature_modalities = list(handcrafted_cfg.get("source_modalities") or [])
+    _validate_modalities(dataset_cfg, configured_feature_modalities)
+
     root = data_root_override or dataset_cfg.get("root")
     if root is None:
         raise ValueError("dataset.root is required")
     data_root = resolve_project_path(root)
 
-    records, label_map = collect_samples(data_root, modalities)
+    feature_names = parse_feature_config(handcrafted_cfg, modalities)
+    feature_extractor = HandcraftedFeatureExtractor(feature_names)
+    feature_source_modalities = _unique_modalities(configured_feature_modalities, feature_extractor.required_modalities)
+    _validate_modalities(dataset_cfg, feature_source_modalities)
+    collect_modalities = _unique_modalities(modalities, feature_source_modalities)
+
+    records, label_map = collect_samples(data_root, collect_modalities)
 
     split_cfg = cfg.get("split", {})
     training_seed = int(cfg.get("training", {}).get("seed", 42))
@@ -92,11 +111,9 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         toa_transform=toa_transform,
     )
 
-    feature_names = parse_feature_config(cfg.get("handcrafted_features", {}), modalities)
-    feature_extractor = HandcraftedFeatureExtractor(feature_names)
     feature_scaler = None
-    if feature_extractor.dim > 0 and cfg.get("handcrafted_features", {}).get("standardize", True):
-        feature_scaler = compute_feature_scaler(train_records, feature_extractor, data_dtype=data_dtype)
+    if feature_extractor.dim > 0 and handcrafted_cfg.get("standardize", True):
+        feature_scaler = compute_feature_scaler(train_records, feature_extractor, data_dtype=data_dtype, crop_size=crop_size)
 
     task = cfg.get("task", {}).get("type", "classification")
     max_angle = float(cfg.get("task", {}).get("max_angle", 90.0))
@@ -171,6 +188,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     info = {
         "data_root": str(data_root),
         "modalities": modalities,
+        "collect_modalities": collect_modalities,
+        "feature_source_modalities": feature_source_modalities,
         "label_map": label_map,
         "num_classes": len(label_map),
         "training_seed": training_seed,
@@ -187,7 +206,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
             "test": _label_counts(test_records, label_map),
         },
         "handcrafted_dim": feature_extractor.dim,
-        "handcrafted_features": feature_extractor.enabled_features,
+        "handcrafted_features": feature_extractor.feature_names,
         "data_dtype": data_dtype,
         "toa_transform": toa_transform,
         "add_hit_mask": add_hit_mask,

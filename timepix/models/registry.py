@@ -10,6 +10,7 @@ from .dual_stream import (
     ToAConditionedFiLMTimepix,
     WarmStartedExpertGateTimepix,
 )
+from .handcrafted import HandcraftedMLPTimepix
 from .resnet import ResNet18Timepix
 from .resnet18_original import ResNet18OriginalTimepix
 from .resnet_maxpool import ResNet18MaxPoolTimepix
@@ -79,6 +80,14 @@ def build_model(
             feature_dim=int(model_cfg.get("feature_dim", 256)),
             hidden_dim=int(model_cfg.get("hidden_dim", 512)),
             pretrained=bool(model_cfg.get("pretrained", False)),
+        )
+    if name == "handcrafted_mlp":
+        return HandcraftedMLPTimepix(
+            num_classes=num_classes,
+            task=task,
+            handcrafted_dim=handcrafted_dim,
+            hidden_dim=int(model_cfg.get("hidden_dim", 128)),
+            dropout=float(model_cfg.get("dropout", cfg.get("training", {}).get("dropout", 0.1))),
         )
     if name == "shallow_cnn":
         return build_shallow_cnn(**common, hidden_dim=int(model_cfg.get("hidden_dim", 128)))

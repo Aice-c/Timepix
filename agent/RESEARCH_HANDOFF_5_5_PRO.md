@@ -61,9 +61,9 @@ outputs/experiments/a4_modality_comparison_seed42/
 - A4b ToA 融合策略已有结果：相对 ToA 表达优于 raw/log1p early fusion，但仍未超过 ToT；late logit fusion 在 validation 上选择 `alpha_toa=0`。后续互补性诊断显示 ToA/relative ToT+ToA 与 ToT 错误并非完全重叠，存在 oracle 上限提升，尤其 `relative_minmax, no mask` 对 30 deg 有明显 oracle 改善。
 - A4b 后续选择性融合已形成完整阶段：`A4b-4e` rule selector 三 seed 稳定小幅提升，`A4b-5` frozen-expert sample-wise gated late fusion 是当前最强多模态融合结果，`A4b-6` residual fusion 有效但不如 A4b-5。
 - `A4c: End-to-end full bimodal fusion models` 第一阶段已完成，包含 `A4c-1 dual_stream_concat_aux`、`A4c-2 dual_stream_gmu_aux`、`A4c-3 toa_conditioned_film`。三者没有显著刷新 A4b-5 的最高 Test Acc，但均明显提升 Macro-F1，其中 `dual_stream_gmu_aux` 的 Test Macro-F1 达到 `0.691±0.009`，并显示 gate 约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA。第二批 `A4c-4 warm_started_expert_gate` 也已完成；`freeze_experts=true` 优于 ToT 但不超过 A4b-5/A4c-1/2，`freeze_experts=false` 不稳定。`A4c-5 mmtm_lite` 暂为选做。
-- A5 物理/手工标量特征融合方案已确定但暂未实现：不参考 `timepix/analysis/` 的既有特征实现；先使用 12 维合理保留候选特征；A5a 用 `RandomForest` / `LogisticRegression` / validation permutation importance 做筛选诊断，随后只做少量 A5b/A5c/A5d CNN 融合验证，避免全特征大网格。
+- A5 物理/手工标量特征融合方案已进入实现：不参考 `timepix/analysis/` 的既有特征实现；训练链路已新增 12 维合理保留候选特征、`handcrafted_features.source_modalities` 解耦、`handcrafted_mlp` 和 `scripts/screen_handcrafted_features.py`。A5a 用 `RandomForest` / `LogisticRegression` / validation permutation importance 做筛选诊断，随后只做少量 A5b/A5c/A5d CNN 融合验证，避免全特征大网格。A5 同时区分可迁移 `ToT-only` 特征线与 Alpha-only `ToT+ToA` 特征线。
 - 实验编号、阶段目的、完成状态和后续安排的权威索引见 `agent/EXPERIMENT_LOG.md` 中的“实验编号与阶段总览”。
-- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 初次三 seed 使用 `early_stopping_patience=5` 时发现早停过激，seed43/44 可能在后期恢复前被截断；正式重跑配置改为 `early_stopping_patience=8`，配置文件为 `configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`。
+- B1 Proton/C 训练超参搜索已完成；正式质子/C 数据集名称为 `Proton_C_7`。B1-1 固定 A1 ResNet18 stem/variant 后搜索 `learning_rate × batch_size`，20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。B1-2 固定该组合后搜索 `weight_decay=[0,1e-5,1e-4]`，最终仍选择 `weight_decay=1e-4`。`B1-best` 初次三 seed 使用 `early_stopping_patience=5` 时发现早停过激，seed43/44 可能在后期恢复前被截断；正式重跑配置改为 `early_stopping_patience=8`，配置文件为 `configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`。B2 已改为 Proton_C_7 手工特征迁移验证，不再做主干/结构迁移验证；只迁移 Alpha A5 中有效的 ToT-only 特征方案。
 - 论文数据分析链路与训练链路分开：数据分析默认使用全量 `Proton_C`，训练实验默认使用 7 分类子集 `Proton_C_7`。
 - 本地 Windows 验证环境为 `timepix-local`；本地数据路径为 `D:\Project\Timepix\Data\Alpha_100`、`E:\C1Analysis\Proton_C`、`E:\C1Analysis\Proton_C_7`。
 - 时间紧张时已准备 A3/A4 的 seed 42 快速版配置，但正式论文结论优先使用三 seed mean/std。
@@ -134,7 +134,7 @@ cp outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
 - `conv1_stride`: 1 / 2。
 - `dropout`: 0 / 0.1 / 0.3。
 
-已观察到的结论：`resnet18_no_maxpool + kernel_size=2 + stride=1 + dropout=0.3` 在 A1 中表现最好。A2 后续将 dropout 纳入超参搜索，因此最终 base 使用 A2 搜索得到的 `dropout=0.1`。
+已观察到的结论：`resnet18_no_maxpool + conv1_kernel_size=2 + conv1_stride=1 + conv1_padding=0 + dropout=0.3` 在 A1 中表现最好。这里 no-maxpool 和 conv1 stem 是结构结论；A2 后续将 dropout 纳入训练超参搜索，因此最终 base 使用 A2 搜索得到的 `dropout=0.1`，不要把 `dropout=0.1` 写成 A1 结构结论。
 
 ### A2 训练超参数搜索
 
@@ -400,7 +400,7 @@ scheduler     = cosine
 eta_min       = 1e-7
 ```
 
-备注：A1 的结构结论是 no-maxpool、conv1 2/1/0；`dropout=0.1` 是沿用 A2 风格的保守训练默认值，不写成 A1 结构参数。B1-2 已固定 `learning_rate=3e-4` 和 `batch_size=128` 后搜索 `weight_decay = [0, 1e-5, 1e-4]`。
+备注：A1 最佳观测包含 `dropout=0.3`，但 B1 的结构继承只继承 no-maxpool 和 conv1 2/1/0；`dropout=0.1` 是沿用 A2/B1 训练超参选择，不写成 A1 结构参数。B1-2 已固定 `learning_rate=3e-4` 和 `batch_size=128` 后搜索 `weight_decay = [0, 1e-5, 1e-4]`。
 
 B1-2 配置已新增：
 

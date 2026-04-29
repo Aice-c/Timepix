@@ -80,7 +80,7 @@ SECTION_KEYS = {
     "split": {"train", "val", "test", "reuse_split", "path", "seed"},
     "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask"},
     "augmentation": {"rotation_90"},
-    "handcrafted_features": {"enabled", "standardize", "features"},
+    "handcrafted_features": {"enabled", "standardize", "features", "source_modalities"},
     "output": {"root"},
 }
 
@@ -96,6 +96,7 @@ SUPPORTED_MODELS = {
     "efficientnet_b0",
     "convnext_tiny",
     "vit_tiny",
+    "handcrafted_mlp",
     "dual_stream_concat_aux",
     "dual_stream_gmu_aux",
     "toa_conditioned_film",
@@ -173,6 +174,15 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     missing = [modality for modality in modalities if modality not in available]
     if missing:
         errors.append(f"dataset.modalities contains unsupported modalities: {missing}; available={available}")
+
+    handcrafted_cfg = _require_mapping(cfg.get("handcrafted_features", {}), "handcrafted_features", errors) or {}
+    feature_source_modalities = list(handcrafted_cfg.get("source_modalities") or [])
+    missing_feature_sources = [modality for modality in feature_source_modalities if modality not in available]
+    if missing_feature_sources:
+        errors.append(
+            "handcrafted_features.source_modalities contains unsupported modalities: "
+            f"{missing_feature_sources}; available={available}"
+        )
 
     task_cfg = _require_mapping(cfg.get("task", {}), "task", errors) or {}
     task = task_cfg.get("type", "classification")

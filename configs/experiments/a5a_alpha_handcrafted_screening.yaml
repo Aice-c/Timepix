@@ -1,0 +1,30 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a5a_alpha_handcrafted_screening
+experiment_group: a5a_handcrafted_feature_screening
+
+dataset:
+  modalities: [ToT]
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT, ToA]
+  features:
+    - active_pixel_count
+    - bbox_long
+    - bbox_short
+    - bbox_fill_ratio
+    - pca_major_axis
+    - pca_minor_axis
+    - total_ToT
+    - ToT_density
+    - ToA_span
+    - ToA_p90_minus_p10
+    - ToA_major_axis_slope_abs
+    - ToA_major_axis_corr_abs

@@ -1,0 +1,25 @@
+# TEMPLATE ONLY. Fill handcrafted_features.features after A5b selects the best group.
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a5c_alpha_handcrafted_fusion_mode
+experiment_group: a5c_alpha_handcrafted_fusion_mode
+
+dataset:
+  modalities: [ToT]
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT, ToA]
+  # Fill with the best A5b feature group before running.
+  features: []
+
+grid:
+  model.fusion_mode:
+    - concat
+    - gated

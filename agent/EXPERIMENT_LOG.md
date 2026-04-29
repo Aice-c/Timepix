@@ -90,7 +90,7 @@ Alpha 主线阶段：
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
 | `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
-| `A5` | 物理/手工特征融合 | 方案已定，暂未实现 | 聚焦 ToT image + selected ToT/ToA scalar physical features；先做 A5a 随机森林/置换重要性筛选，再做少量 CNN 融合验证，避免全特征大网格。 |
+| `A5` | 物理/手工特征融合 | A5a 框架已实现，待运行筛选 | 聚焦 ToT image + selected ToT/ToA scalar physical features；先做 A5a 随机森林/置换重要性筛选，再做少量 CNN 融合验证，避免全特征大网格。 |
 | `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
 
@@ -145,10 +145,10 @@ A5 计划命名：
 
 | 编号 | 名称 | 阶段目的 | 当前安排 |
 | --- | --- | --- | --- |
-| `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 方案已定，暂未实现；只用 train/validation，test 不参与筛选。 |
-| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 方案已定，暂未实现；统一使用 concat，避免同时搜索融合方式。 |
-| `A5c` | handcrafted fusion mode comparison | 只对 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated | 方案已定，暂未实现；不扩大特征集合。 |
-| `A5d` | best handcrafted fusion 3-seed verification | 对 A5c 选出的最佳 1-2 个设置做 `training.seed=42/43/44` 认证 | 方案已定，暂未实现；报告 mean ± std。 |
+| `A5a` | handcrafted feature screening | 不训练 CNN，先用传统模型和置换重要性筛选物理标量特征 | 脚本和配置已实现，待运行；只用 train/validation，test 不参与筛选。 |
+| `A5b` | CNN + selected feature group ablation | 用少量 seed42 CNN run 检查不同精选特征组是否补充 ToT CNN | 模板已撰写，待 A5a 筛选结果；统一使用 concat，避免同时搜索融合方式。 |
+| `A5c` | handcrafted fusion mode comparison | 只对 A5b 最好的 1 个特征组比较 handcrafted-only、concat、gated | 模板已撰写，待 A5b 结果；不扩大特征集合。 |
+| `A5d` | best handcrafted fusion 3-seed verification | 对 A5c 选出的最佳 1-2 个设置做 `training.seed=42/43/44` 认证 | 模板已撰写，待 A5c 结果；报告 mean ± std。 |
 
 A5 固定决策：
 
@@ -156,11 +156,15 @@ A5 固定决策：
 - A5 的核心问题是：低维物理标量特征是否能补充 CNN 图像特征，并提供更可解释的角度判别依据。
 - 主线固定为 `image input = ToT only`，避免与 A4/A4c 的 ToT+ToA 图像融合问题混在一起。
 - scalar feature source 可以读取 `ToT + ToA`，但图像分支只输入 ToT。
+- A5 从一开始区分两条线：
+  - 可迁移线：`ToT-only handcrafted features`，Alpha 和 Proton_C_7 都可计算；如果在 Alpha 上有效，进入 B2 迁移验证。
+  - Alpha-only 线：`ToT + ToA handcrafted features`，只用于 Alpha；如果有效，只能说明 ToA 时间标量对 Alpha 有帮助，不能直接迁移到 Proton_C_7。
 - 后续实现需要解耦 `dataset.modalities` 与 `handcrafted_features.source_modalities`；否则写入 `modalities: [ToT, ToA]` 会让模型看到 ToA 图像通道，导致 A5 与 A4c 混淆。
 - 不参考 `timepix/analysis/` 数据分析链路里的既有特征实现；那条链路可能存在定义或实现偏差。A5 训练链路应重新实现、单独验证合理保留组的特征。
 - A5 先不做 25 维大特征池，也不做逐特征开关网格；第一版候选特征压缩为 12 维。
 - RandomForest / LogisticRegression / permutation importance 只作为 A5a 筛选与诊断，不作为 CNN 融合最终结论。
 - 特征选择只允许使用 train/validation；test set 只用于最终报告。
+- A1 结构口径修正：A1 最佳观测为 `resnet18_no_maxpool + conv1_kernel_size=2 + conv1_stride=1 + conv1_padding=0 + dropout=0.3`。其中 no-maxpool 与 conv1 stem 是结构结论；`dropout=0.3` 是 A1 网格中的训练正则观测，后续正式 Alpha base 由 A2 搜索得到 `dropout=0.1`，Proton_C_7 由 B1 也固定 `dropout=0.1`。
 
 A5 第一版候选特征池：
 
@@ -227,6 +231,57 @@ A5 分组递进方案：
 - A5d: 约 3-6 个正式三 seed run，取决于最终保留 1 个还是 2 个设置。
 - A5a 为轻量传统模型/特征诊断，不计入主要深度训练预算。
 
+A5a 当前实现与命令：
+
+- 训练链路新增 12 个 A5 手工特征，并保留旧 `total_energy` 用法兼容。
+- 新增 `handcrafted_features.source_modalities`，使图像输入 `dataset.modalities` 和手工特征读取来源解耦。
+- 新增 `handcrafted_mlp`，用于 A5c 的 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。
+- 新增脚本 `scripts/screen_handcrafted_features.py`，只做特征抽取、`RandomForest` / `LogisticRegression`、validation permutation importance 和 group permutation importance；不训练 CNN。
+- A5a 配置：`configs/experiments/a5a_alpha_handcrafted_screening.yaml`。
+- A5b/A5c/A5d 和 B2 已提供 `*_TEMPLATE.yaml`，等 A5a 输出筛选结果后再填入正式 feature list。
+
+服务器 `tmux` 持久化运行：
+
+依赖：`scripts/screen_handcrafted_features.py` 需要 `scikit-learn`。服务器若缺少该依赖，可先在对应环境安装 `requirements-analysis.txt`，或至少安装 `scikit-learn`。
+
+```bash
+cd ~/Timepix
+tmux new -s a5a_screen
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/screen_handcrafted_features.py \
+  --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --out-dir outputs/a5_feature_screening \
+  --name a5a_alpha_handcrafted_screening \
+  --n-repeats 30
+```
+
+A5a 输出目录：
+
+```text
+outputs/a5_feature_screening/a5a_alpha_handcrafted_screening/
+```
+
+主要输出文件：
+
+```text
+features_train.csv
+features_val.csv
+features_test.csv
+model_metrics.csv
+permutation_importance_val.csv
+group_permutation_importance_val.csv
+feature_summary_train.csv
+feature_correlation_train.csv
+feature_metadata.json
+```
+
+说明：A5a 不是 `run_grid.py` 深度训练实验，因此不使用 `scripts/summarize.py` 或 `scripts/aggregate_seeds.py`。它的“汇总”由脚本直接写入 `model_metrics.csv`、`permutation_importance_val.csv` 和 `group_permutation_importance_val.csv`。
+
 Proton/C 主线阶段：
 
 | 编号 | 阶段目的 | 当前状态 | 关键说明 |
@@ -234,7 +289,7 @@ Proton/C 主线阶段：
 | `B1-1` | Proton_C_7 第一轮训练超参搜索：`learning_rate × batch_size` | 已完成 | 20 epoch 旧结果和 from20 中继 25 epoch 结果均选择 `learning_rate=3e-4`、`batch_size=128`。 |
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | patience=8 配置已撰写，待重跑 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；原 `early_stopping_patience=5` 对 seed43/44 过激，改为 8 后重跑 `training.seed=42/43/44`。 |
-| `B2` | Proton_C_7 主干/结构迁移验证 | 待定 | 如有需要，验证 Alpha 最佳结构是否仍适合 Proton_C_7。 |
+| `B2` | Proton_C_7 手工特征迁移验证 | 框架模板已撰写，待 A5 结果 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置，只验证 Alpha A5 中有效的 ToT-only 手工特征方案是否可迁移。 |
 | `B3` | Proton_C_7 损失/近角度分类策略 | 待定 | 可与 A6 对齐，特别关注角度有序性。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
 
@@ -252,7 +307,7 @@ Proton/C 主线阶段：
 2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
 3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
 4. B1 继续按 `Proton_C_7` 主线收尾，不和 A4c 混编号。
-5. A5 方案已定但暂不实现；下一步如推进，应先做 A5a 特征筛选/诊断，再决定少量 A5b/A5c/A5d CNN 融合实验。
+5. A5a 支持已实现，下一步先运行 A5a 特征筛选/诊断，再决定少量 A5b/A5c/A5d CNN 融合实验；B2 等 A5 的 ToT-only 有效特征组合明确后再推进。
 
 ## A2 Best Base
 
@@ -341,7 +396,7 @@ configs/experiments/a1_structure_adaptation.yaml
 决策备注：
 
 - 原始 ResNet18 只作为 baseline，不参与结构网格搜索。
-- 当时 A1 观察到 `resnet18_no_maxpool + kernel_size=2 + stride=1 + dropout=0.3` 表现最好。
+- 当时 A1 观察到 `resnet18_no_maxpool + conv1_kernel_size=2 + conv1_stride=1 + conv1_padding=0 + dropout=0.3` 表现最好。
 - A2 训练超参搜索之后，统一 base 使用 `dropout=0.1`，因为 dropout 被纳入了训练超参数搜索。
 - 本地拉取到的 A1 结果没有 grid manifest。A1 的 metadata 缺少 `command`、`git`、`environment` 字段，说明 A1 运行时使用的是较早 runtime；当时 manifest 和增强 metadata 还未生效，或 A1 进程启动后代码才更新。
 
