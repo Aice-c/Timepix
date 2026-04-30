@@ -1,0 +1,1777 @@
+# Timepix Configs
+
+这个目录放新实验系统的配置文件。
+
+人工维护的实验日志见：
+
+```text
+agent/EXPERIMENT_LOG.md
+```
+
+## 目录
+
+```text
+configs/datasets/      数据集事实：粒子类型、路径、可用模态
+configs/experiments/   具体实验：模型、损失、模态、训练参数
+configs/search/        Optuna/TPE 超参数搜索配置
+```
+
+## 路径规则
+
+数据集路径不要写死在代码里。推荐两种方式：
+
+1. 使用环境变量：
+
+```bash
+export TIMEPIX_DATA_ROOT=/root/autodl-tmp
+```
+
+2. 运行时覆盖：
+
+```bash
+python scripts/train.py --config configs/experiments/alpha_resnet18_tot.yaml --data-root /root/autodl-tmp/Alpha_100
+```
+
+本地 Windows 当前数据路径：
+
+```text
+Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
+Proton_C   -> E:\C1Analysis\Proton_C
+Proton_C_7 -> E:\C1Analysis\Proton_C_7
+```
+
+训练和 checkpoint 评估脚本的 `--data-root` 覆盖的是具体数据集目录：
+
+```powershell
+python scripts\train.py --config configs\experiments\alpha_resnet18_tot.yaml --data-root D:\Project\Timepix\Data\Alpha_100
+python scripts\run_grid.py --config configs\experiments\b1_proton_c7_resnet18_tot_lr_batch.yaml --data-root E:\C1Analysis\Proton_C_7 --dry-run
+```
+
+论文数据分析脚本的 `--data-root` 是父目录：
+
+```powershell
+python scripts\analyze_datasets.py --data-root D:\Project\Timepix\Data --datasets Alpha_100
+python scripts\analyze_datasets.py --data-root E:\C1Analysis --datasets Proton_C
+python scripts\analyze_resolution_limit.py --data-root E:\C1Analysis --dataset Proton_C
+```
+
+由于本地 Alpha 与 Proton 不在同一个父目录下，不要直接用一个本地 `--data-root` 同时分析 `Alpha_100 Proton_C`；如需合并报告，先建立本地链接/镜像父目录。
+
+## 重要模态约束
+
+- 当前正式 Alpha 主线使用 `Alpha_100`，配置文件为 `configs/datasets/alpha_100.yaml`，输入尺寸为 `100x100`。
+- `Alpha_50` 保留为对照/历史数据集配置，不用于当前正式 A3/A4 后续实验主线。
+- `Alpha_100` 和 `Alpha_50` 均支持 `ToT` 和 `ToA`。
+- 当前正式 Proton/C 主线使用 `Proton_C_7`，配置文件为 `configs/datasets/proton_c_7.yaml`，代表 7 分类质子/C 数据集；只支持 `ToT`。
+- `configs/datasets/proton_c.yaml` 仅作为兼容入口保留，也指向 `Proton_C_7`，后续训练配置不要再写旧名 `Proton_C`。
+- 独立论文数据分析链路不属于训练主线：`scripts/analyze_datasets.py` 和 `scripts/analyze_resolution_limit.py` 默认分析全量 `Proton_C`，用于和训练用的 `Proton_C_7` 区分。
+- 常见配置字段会在训练或 grid dry-run 前校验，拼错字段会直接报错。
+
+## 实验组
+
+实验配置可以设置：
+
+```yaml
+experiment_group: baseline
+```
+
+输出会保存到：
+
+```text
+outputs/experiments/baseline/<timestamp>_<experiment_name>/
+```
+
+如果不设置，默认使用 `default` 组。
+
+汇总某个实验组：
+
+```bash
+python scripts/summarize.py --group baseline
+```
+
+汇总全部实验组：
+
+```bash
+python scripts/summarize.py --all
+```
+
+汇总 CSV 会包含模型结构超参数列，例如 `conv1_kernel_size`、`conv1_stride`、`conv1_padding`、`dropout`、`feature_dim`、`hidden_dim`、`image_size` 和 `patch_size`，也会记录 `input_channels`、`toa_transform`、`add_hit_mask`、`seed`、`split_seed`、`split_manifest_hash`、`mixed_precision` / `mixed_precision_enabled` 与 `fit_seconds`，方便直接筛选 A1、AMP、主干模型、多 seed 对比或 A4b ToA 表达方式结果。
+
+## 对比实验命令记录规范
+
+新增或修改对比实验配置时，文档必须同步给出完整命令链：
+
+- 服务器运行命令：单 seed 或三 seed，按实验设计说明。
+- 汇总命令：标准训练组使用 `scripts/summarize.py --group ... --out ...`。
+- 多 seed 聚合命令：标准训练组使用 `scripts/aggregate_seeds.py`；A4b selector/gate 这类后处理诊断使用 `scripts/aggregate_selector_fusion.py`。
+- 诊断脚本输出：如果脚本不产生标准训练目录，需要明确 `--output-summary`、`--output-by-class`、`--output-json` 等输出文件。
+
+这条规则是为了保证每个实验不只“能跑”，还可以稳定生成论文表格所需的可追溯 CSV。
+
+长网格实验可以使用：
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a1_structure_adaptation.yaml \
+  --skip-existing \
+  --continue-on-error
+```
+
+非 dry-run 网格会写入 `outputs/grid_manifests/`，记录每个组合的 `planned/running/done/failed/skipped_existing` 状态。
+
+## 训练超参数搜索
+
+代表性 Alpha ToT ResNet18 设置的 A2 搜索配置：
+
+```bash
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml --dry-run
+python scripts/search_hparams.py --config configs/search/a2_alpha_resnet18_tot_training.yaml
+```
+
+该配置使用 Optuna TPE，在固定 dataset、modality、model、loss、label 和数据划分 seed 的条件下搜索训练超参数：
+
+```yaml
+search:
+  objective: validation.accuracy
+  parameters:
+    training.learning_rate: ...
+    training.weight_decay: ...
+    training.batch_size: ...
+    training.eta_min: ...
+    model.dropout: ...
+```
+
+搜索目标只使用 validation 指标；test 指标保留在每个 trial 的输出中用于最终报告，不用于挑选超参数。搜索结果会写入 `outputs/hparam_search/`，并生成 `best_config.yaml`、`best_params.json`、`study_summary.json` 和 `trials.csv`。Optuna study 默认持久化到 `outputs/optuna/`，中断后可用同一个配置继续运行。
+
+A2 当前最佳超参已经整理为后续实验可继承的 base：
+
+```yaml
+base: configs/experiments/alpha_tot_a2_best_base.yaml
+```
+
+该 base 固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、`resnet18_no_maxpool`、`split.seed: 42`、`training.seed: 42`、AMP，以及 A2 best 训练超参：`learning_rate=4.3878e-05`、`weight_decay=4.7324e-04`、`batch_size=32`、`eta_min=1.6433e-07`、`dropout=0.1`、`scheduler=cosine`、`epochs=25`。A2 best 来自 `Alpha_100 + ToT` 历史实验，因此 base 显式复用恢复出的历史 split：
+
+```yaml
+split:
+  path: outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
+```
+
+曾短暂尝试过 `Alpha_50`，但效果和实验故事线不如 `Alpha_100` 连贯；后续正式实验配置统一回到 `Alpha_100`。
+
+## 多 seed 认证
+
+`split.seed` 控制 train/val/test 的分层划分；`training.seed` 控制模型初始化、DataLoader shuffle 和训练随机性。旧配置如果没有写 `split.seed`，会继续沿用 `training.seed` 生成划分；新对比实验建议显式固定：
+
+```yaml
+split:
+  seed: 42
+  reuse_split: true
+
+grid:
+  training.seed: [42, 43, 44]
+```
+
+A2 最优训练超参的 3 seed 认证配置：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml
+```
+
+跑完后先汇总该实验组，再计算平均值和标准差：
+
+```bash
+python scripts/summarize.py --group a2_best_3seed --out outputs/a2_best_3seed_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a2_best_3seed_runs.csv --out outputs/a2_best_3seed_mean_std.csv
+```
+
+## 主干模型对比
+
+正式 A3 主干对比使用 `configs/experiments/a3_backbone_comparison.yaml`。它继承 A2 best base，对 7 个模型主干进行三 seed 验证：
+
+```text
+shallow_cnn
+shallow_resnet
+resnet18_no_maxpool
+densenet121
+efficientnet_b0
+convnext_tiny
+vit_tiny
+```
+
+该配置固定 `Alpha_100`、ToT、CE、one-hot、无手工特征、A2 best 训练超参和恢复出的 `Alpha_100_ToT` 历史 split，只切换 `model.name` 和 `training.seed: [42, 43, 44]`。`vit_tiny` 使用原生 `100x100` 输入，A3 配置为 `image_size: 100`、`patch_size: 10`，保持 `10x10=100` 个 patch token。`model.dropout=0.1` 指统一 Timepix task head dropout；torchvision backbone 内部正则保持模型默认，不在 A3 中单独调参。
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison.yaml
+```
+
+时间紧张时，可以先运行固定 `training.seed=42` 的快速版。该配置继承完整 A3，只保留 7 个模型主干各跑一次：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a3_backbone_comparison_seed42.yaml
+```
+
+跑完后建议计算三 seed 均值和标准差：
+
+```bash
+python scripts/summarize.py --group a3_backbone_comparison --out outputs/a3_backbone_comparison_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a3_backbone_comparison_runs.csv --out outputs/a3_backbone_comparison_mean_std.csv
+```
+
+## A4 模态对比
+
+`configs/experiments/a4_modality_comparison.yaml` 用于比较 `Alpha_100` 数据集的 ToT、ToA 和 ToT+ToA。它继承 A2 best base，固定 `resnet18_no_maxpool`、CE、one-hot、无手工特征、`fusion_mode: none` 和 A2 best 训练超参，只切换 `dataset.modalities` 和 `training.seed: [42, 43, 44]`。
+
+A4 使用同一个 paired split manifest：
+
+```yaml
+split:
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+`Alpha_100` 中 ToT 与 ToA 文件完全一一对应，split manifest 保存的是去掉 ToT/ToA 标记后的归一化 sample key。因此 A4 的 paired split 不重新随机生成，而是由历史 ToT split 复制得到：
+
+```bash
+cp outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json \
+   outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+这样 A4 的 ToT、ToA、ToT+ToA 三组实验与 A1/A2/A3 的历史数据划分严格一致，同时文件名保留 `ToT-ToA` 以标识双模态用途。
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison.yaml
+```
+
+时间紧张时，可以先运行固定 `training.seed=42` 的快速版。该配置继承完整 A4，只保留 ToT+ToA、ToT、ToA 三个模态各跑一次：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4_modality_comparison_seed42.yaml
+```
+
+跑完后建议计算三 seed 均值和标准差：
+
+```bash
+python scripts/summarize.py --group a4_modality_comparison --out outputs/a4_modality_comparison_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4_modality_comparison_runs.csv --out outputs/a4_modality_comparison_mean_std.csv
+```
+
+## A4b ToA 表达方式对比
+
+`configs/experiments/a4b_toa_transform.yaml` 用于在 A4 之后检查 ToA 的输入表达是否影响 early fusion 效果。该配置仍继承 A2 best base，固定 `Alpha_100`、`resnet18_no_maxpool`、A2 best 训练超参、CE、one-hot、无手工特征和同一份 paired split，只切换 ToA 变换方式与是否加入 hit mask。
+
+新增数据配置字段：
+
+```yaml
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+```
+
+`toa_transform` 支持：
+
+```text
+none
+raw_log1p
+relative_minmax
+relative_centered
+relative_rank
+```
+
+`add_hit_mask: true` 会在图像输入末尾追加一个命中掩码通道，输入从 `[ToT, transformed_ToA]` 变为 `[ToT, transformed_ToA, hit_mask]`。模型输入通道数由 dataloader 记录的 `data_info.input_channels` 决定，因此可以参与 grid 对比。
+
+A4b 第一阶段配置不重复 A4 的 raw/log1p baseline；A4 已经提供 ToT、ToA 和 ToT+ToA raw/log1p 结果。对 relative ToA 变换，配置中关闭 `normalization.ToA.log1p`：
+
+```yaml
+normalization:
+  ToA:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+```
+
+时间紧张时先运行 seed42 快速版：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform_seed42 --out outputs/a4b_toa_transform_seed42_runs.csv
+```
+
+如果 seed42 值得继续，再运行三 seed 版本：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4b_toa_transform.yaml --continue-on-error
+python scripts/summarize.py --group a4b_toa_transform --out outputs/a4b_toa_transform_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4b_toa_transform_runs.csv --out outputs/a4b_toa_transform_mean_std.csv
+```
+
+A4b 第二阶段使用 A4 已训练好的 ToT 与 ToA 单模态 checkpoint 做 late logit fusion，不重新训练模型。脚本只用 validation set 选择 `alpha_toa`，再报告 test 指标：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison_seed42 \
+  --output-csv outputs/a4b_late_logit_fusion_seed42.csv \
+  --output-json outputs/a4b_late_logit_fusion_seed42.json
+```
+
+默认融合权重为：
+
+```text
+alpha_toa = 0, 0.05, 0.10, 0.20, 0.30, 0.50
+```
+
+如果完整 A4 三 seed 结果已经存在，可以改用：
+
+```bash
+python scripts/evaluate_logit_fusion.py \
+  --group a4_modality_comparison \
+  --output-csv outputs/a4b_late_logit_fusion_runs.csv \
+  --output-json outputs/a4b_late_logit_fusion_runs.json
+```
+
+A4b-2.5 使用已有 `predictions.csv` 做预测互补性诊断，不训练、不加载 checkpoint：
+
+```bash
+python scripts/analyze_prediction_complementarity.py --seed 42
+```
+
+默认输出：
+
+```text
+outputs/a4b_prediction_complementarity_seed42.json
+outputs/a4b_prediction_complementarity_seed42_summary.csv
+outputs/a4b_prediction_complementarity_seed42_by_class.csv
+```
+
+这个脚本回答：ToA 或 relative ToT+ToA 是否能在 ToT 出错时预测正确、是否有更小角度误差，以及 oracle fusion 的 accuracy/MAE 上限。
+
+A4b-3a/b 使用 checkpoint 重新在 validation/test 上做确定性推理，用于排查 oracle 提升是否只是 seed 差异，并复查互补性是否也存在于 validation。该脚本不会训练新模型。
+
+旧的 `a2_best_3seed` run 记录中 dataset 名称/路径仍是历史 `Alpha`、`/root/autodl-tmp/Alpha`，但它实际对应当前正式主线 `Alpha_100`。服务器重放 A4b-3a/b 时不要修改历史 run 文件；先准备 split 兼容别名，并在脚本命令中显式覆盖数据目录：
+
+```bash
+cd /root/Timepix
+test -d /root/autodl-tmp/Alpha_100
+test -f outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json
+test -f outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+cp -n outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json
+sha256sum outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_ToT_seed42_0.8_0.1_0.1.json outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+A4b-3a 的纯 ToT seed control 使用 `a2_best_3seed`，因为它是当前已完成的 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best` 三 seed 基准组：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-seed-control \
+  --tot-group a2_best_3seed \
+  --splits val,test \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --output-json outputs/a4b_3a_tot_seed_control.json \
+  --output-summary outputs/a4b_3a_tot_seed_control_summary.csv \
+  --output-by-class outputs/a4b_3a_tot_seed_control_by_class.csv
+```
+
+A4b-3b 先做 seed42 的 `ToT` vs `relative_minmax/no mask` 复查；ToT 侧同样优先来自 `a2_best_3seed`，candidate 侧来自 `a4b_toa_transform_seed42`。选择 `relative_minmax/no mask` 的依据是 A4b-2.5：它虽然不是 standalone Test Acc 最高的候选，但与 ToT 的 oracle Test Acc 最高、30 deg oracle 改善最明显：
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --splits val,test \
+  --seeds 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_3b_tot_vs_relative_minmax.json \
+  --output-summary outputs/a4b_3b_tot_vs_relative_minmax_summary.csv \
+  --output-by-class outputs/a4b_3b_tot_vs_relative_minmax_by_class.csv
+```
+
+A4b-3 当前结果显示，ToT-vs-ToT 随机 seed control 的 oracle gain 很小：validation/test 分别约为 +2.33% 和 +2.55%，30 deg 上仅约 +2.55% 和 +1.15%。而 ToT vs `relative_minmax/no mask` 的 oracle gain 在 validation/test 分别为 +10.19% 和 +11.03%，30 deg 上达到 +27.08% 和 +25.52%。因此该互补性不能简单归因于随机 seed 差异，后续应进入 selector/gate 融合验证。
+
+A4b-4 使用 selector 验证互补性是否可学习。该脚本不训练新的 ResNet，只重新加载 ToT 与 `relative_minmax/no mask` checkpoint。旧的泛称 A4b-4 初版结果作废，后续按三个编号重新运行：
+
+- A4b-4a：`--selector-mode rule`，不训练模型，只在 validation 上选择简单规则。
+- A4b-4b：`--selector-mode trained --selector-fit train`，在 train logits 上训练 logistic selector，作为探索性对照。
+- A4b-4c：`--selector-mode trained --selector-fit val-cv`，在 validation 内做 cross-fitting 并选择 threshold，是更严格的 selector 版本。
+
+A4b-4a：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode rule \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4a_rule_selector_seed42.json \
+  --output-summary outputs/a4b_4a_rule_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4a_rule_selector_seed42_by_class.csv
+```
+
+A4b-4b：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit train \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4b_train_logit_selector_seed42.json \
+  --output-summary outputs/a4b_4b_train_logit_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4b_train_logit_selector_seed42_by_class.csv
+```
+
+A4b-4c：
+
+```bash
+python scripts/evaluate_selector_fusion.py \
+  --selector-mode trained \
+  --selector-fit val-cv \
+  --cv-folds 5 \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --selector-target lower-error \
+  --selector-epochs 500 \
+  --selector-lr 0.01 \
+  --selector-weight-decay 0.0001 \
+  --output-json outputs/a4b_4c_val_cv_selector_seed42.json \
+  --output-summary outputs/a4b_4c_val_cv_selector_seed42_summary.csv \
+  --output-by-class outputs/a4b_4c_val_cv_selector_seed42_by_class.csv
+```
+
+脚本会同时输出 `primary_only`、`candidate_only`、规则/selector 候选和 `oracle`。`primary_only` 也参与 validation 策略选择，因此 selector 无效时会退回 ToT baseline。
+
+当前 A4b-4 结果显示：A4b-4a 规则 `entropy_adv_0p03` 获得 Test Acc 70.97%，相对 ToT +0.50%；A4b-4b train-logit selector 获得 71.17%，相对 ToT +0.70%；更严格的 A4b-4c validation-CV selector 为 70.38%，相对 ToT -0.10%。因此只能谨慎说明规则/训练集 selector 有小幅真实收益，但严格 validation-CV selector 未能稳定超过 ToT，仍与 oracle 81.51% 存在很大差距。
+
+## B1 Proton/C 训练超参搜索
+
+`configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml` 是质子/C 7 分类数据集的第一轮训练超参搜索。它固定 alpha A1 得到的 ResNet18 stem/variant：
+
+```yaml
+model:
+  name: resnet18_no_maxpool
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+```
+
+同时固定 `Proton_C_7`、`ToT`、CE、one-hot、无手工特征、`fusion_mode: none`、cosine scheduler、`eta_min=1e-7`、`weight_decay=1e-4`、`dropout=0.1`、`epochs=25` 和 `early_stopping_patience=5`。这里的 `dropout=0.1` 是沿用 A2 风格的保守训练默认值，不表述为 A1 结构参数。
+
+原 B1-1 使用 `epochs=20`，部分组合停止时准确率仍在上升，因此当前配置提升到 25 epoch。为了不混入旧结果，配置的 `experiment_group` 为 `b1_proton_c7_resnet18_tot_lr_batch_ep25`。
+
+B1-1 只搜索：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0001
+    - 0.0003
+    - 0.001
+  training.batch_size:
+    - 64
+    - 128
+    - 256
+```
+
+运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_lr_batch.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_lr_batch_ep25 --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_runs.csv
+```
+
+如果 `batch_size=256` 显存不足，`--continue-on-error` 会继续后面的组合；后续 B1-2 将基于 B1-1 最佳 `learning_rate + batch_size` 搜索 `weight_decay`。
+
+当前 B1-1 结果结论：
+
+- 20 epoch 旧结果中，validation-selected 最佳组合为 `learning_rate=3e-4`、`batch_size=128`，同时 Test Acc、Test MAE 和 Test F1 也最优。
+- from20 中继到 25 epoch 后，4 组未早停 run 被继续训练；`1e-4` 系列略有改善，但按 validation 选择的最佳组合仍然是 `learning_rate=3e-4`、`batch_size=128`。
+- 因此 B1-2 固定：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+并继续搜索：
+
+```text
+weight_decay = [0, 1e-5, 1e-4]
+```
+
+### B1-2 weight decay 搜索
+
+`configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml` 是 B1-2 配置。它继承 B1-1 的 `Proton_C_7 + ToT + resnet18_no_maxpool + conv1 2/1/0 + CE one-hot + AMP + 25 epochs` 设置，固定 B1-1 最佳组合：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+```
+
+只搜索：
+
+```yaml
+grid:
+  training.learning_rate:
+    - 0.0003
+  training.batch_size:
+    - 128
+  training.weight_decay:
+    - 0.0
+    - 0.00001
+    - 0.0001
+```
+
+注意：因为该配置继承 B1-1，必须在 `grid` 中显式写入单值 `training.learning_rate` 和 `training.batch_size`，否则会继承父配置的 `learning_rate × batch_size` 网格，错误扩展为 27 组。
+
+运行与汇总：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_weight_decay.yaml --continue-on-error
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_weight_decay_ep25 --out outputs/b1_proton_c7_resnet18_tot_weight_decay_ep25_runs.csv
+```
+
+B1-2 当前结果结论：
+
+| `weight_decay` | Best epoch | Early stop | Val Acc | Test Acc | Test MAE | Test F1 |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 0 | 13 | 是 | 93.57% | 93.90% | 0.578 | 0.9561 |
+| 1e-5 | 7 | 是 | 92.56% | 92.42% | 0.715 | 0.9446 |
+| 1e-4 | 17 | 是 | 93.84% | 93.97% | 0.574 | 0.9563 |
+
+按 `val_accuracy` 选择，B1-2 最佳仍为：
+
+```text
+learning_rate = 3e-4
+batch_size    = 128
+weight_decay  = 1e-4
+dropout       = 0.1
+scheduler     = cosine
+eta_min       = 1e-7
+```
+
+`weight_decay=0` 与最佳组很接近，但 validation、test 和 MAE 均略低；`weight_decay=1e-5` 明显更差。B1-best 三 seed 认证固定上述组合并运行 `training.seed=42/43/44`。
+
+### B1-best 三 seed 认证
+
+`configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml` 固定 B1-2 最佳组合，只展开训练随机种子：
+
+```yaml
+training:
+  learning_rate: 0.0003
+  batch_size: 128
+  weight_decay: 0.0001
+  scheduler: cosine
+  eta_min: 0.0000001
+  epochs: 25
+  early_stopping_patience: 8
+  mixed_precision: true
+
+grid:
+  training.seed: [42, 43, 44]
+```
+
+注意：B1-best 不继承 B1-2 配置文件，因为 B1-2 配置含有 `weight_decay` 搜索 grid；为了避免深度合并后误跑旧搜索项，B1-best 独立写出固定配置。
+
+2026-04-30 更新：原 `configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，B1-best 初次运行发现该 patience 对 Proton_C_7 训练过激。seed42 证明模型后期可以从低谷恢复到 93%+，但 seed43/44 在 epoch 10 左右被截断，可能还没等到后期恢复。因此正式重跑版本改为 `early_stopping_patience=8`，并使用独立 group `b1_proton_c7_resnet18_tot_best_patience8_3seed`，避免覆盖 patience=5 诊断结果。
+
+正式 B1-best patience=8 结果：
+
+| Seed | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 42 | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| 43 | 25/25 | 否 | 94.09% | 94.33% | 0.534 | 0.0 | 0.959 |
+| 44 | 5/13 | 是 | 90.86% | 91.37% | 0.825 | 0.0 | 0.939 |
+
+三 seed 汇总：
+
+```text
+Val Acc      92.94 ± 1.81%
+Test Acc     93.26 ± 1.64%
+Test MAE     0.640 ± 0.161
+Test P90     0.0 ± 0.0
+Macro-F1     0.952 ± 0.011
+```
+
+`Test P90=0` 表示 90% 以上测试样本预测角度完全正确，不表示完全没有错误。旧 patience=5 版本仅作为早停过激诊断，不作为最终 Proton_C_7 baseline。
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b1_best_p8
+```
+
+进入 `tmux` 后一次性运行训练、逐 run 汇总和三 seed 聚合：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b1_proton_c7_resnet18_tot_best_patience8_3seed --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv --out outputs/b1_proton_c7_resnet18_tot_best_patience8_3seed_mean_std.csv
+```
+
+### B1-1 20 epoch 结果续跑到 25 epoch
+
+如果 B1-1 已经用旧的 20 epoch 预算跑完，且每个 run 都保留了
+`last_checkpoint.pth`，可以用 `scripts/extend_runs.py` 继续到 25 epoch。
+推荐复制到新组 `b1_proton_c7_resnet18_tot_lr_batch_ep25_from20`，不要覆盖旧
+20 epoch 结果。
+
+注意：这类结果是 `from20` 续跑结果，不完全等价于从一开始就用
+`CosineAnnealingLR(T_max=25)` 训练，因为前 20 个 epoch 已经按旧的 cosine
+schedule 跑完。它适合用作节省算力的 B1 epoch-budget rescue，并应在实验日志中
+标注。
+
+先 dry-run：
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --dry-run
+```
+
+确认计划无误后执行：
+
+```bash
+python scripts/extend_runs.py \
+  --source-group b1_proton_c7_resnet18_tot_lr_batch \
+  --target-group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --target-epochs 25 \
+  --data-root /root/autodl-tmp/Proton_C_7 \
+  --skip-completed \
+  --skip-early-stopped \
+  --resume-target-existing \
+  --continue-on-error
+```
+
+汇总：
+
+```bash
+python scripts/summarize.py \
+  --group b1_proton_c7_resnet18_tot_lr_batch_ep25_from20 \
+  --out outputs/b1_proton_c7_resnet18_tot_lr_batch_ep25_from20_runs.csv
+```
+
+## 混合精度训练
+
+训练配置中可以显式开关 CUDA AMP：
+
+```yaml
+training:
+  mixed_precision: true
+  mixed_precision_dtype: float16
+```
+
+`mixed_precision: false` 是默认安全设置；开启后训练、验证和测试都会使用 autocast，FP16 训练会使用 GradScaler。checkpoint 会保存 scaler 状态，`--resume` 可以继续恢复。汇总表中的 `fit_seconds`、`test_seconds` 和 `total_seconds` 可用于比较速度。
+
+在 A1 当前最佳结构上对比 FP32 与 AMP：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/compare_mixed_precision.yaml
+```
+
+该配置固定 `resnet18_no_maxpool`、`conv1_kernel_size: 2`、`conv1_stride: 1`、`dropout: 0.3`，只切换 `training.mixed_precision`。
+
+## ResNet18 结构参数
+
+新系统中 `resnet18` 默认是不使用第一层 maxpool 的 Timepix 适配版，也可以显式写成：
+
+```yaml
+model:
+  name: resnet18_no_maxpool
+```
+
+保留第一层 maxpool 的变体使用：
+
+```yaml
+model:
+  name: resnet18_maxpool
+```
+
+原始 ResNet18 stem baseline 使用：
+
+```yaml
+model:
+  name: resnet18_original
+```
+
+## A4b-4d selector switch diagnostics
+
+A4b-4d is a no-training diagnostic for the A4b-4a selected rule
+`entropy_adv_0p03`. It reloads the frozen ToT expert and the
+`relative_minmax/no mask` candidate, applies the fixed rule, and reports switch
+precision/recall, harmful switches, per-class switch behavior, per-sample
+outcomes, and score distributions.
+
+Server command:
+
+```bash
+cd /root/Timepix
+
+python scripts/analyze_selector_switches.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --rule entropy_adv_0p03 \
+  --output-json outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42.json \
+  --output-summary outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_summary.csv \
+  --output-by-class outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_by_class.csv \
+  --output-samples outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_samples.csv \
+  --output-distribution outputs/a4b_4d_switch_diagnostics_entropy_adv_0p03_seed42_distribution.csv
+```
+
+## A4b-4e three-seed selector confirmation
+
+A4b-4e checks whether the A4b-4a rule-selector result is stable across seeds.
+It does not rerun the whole A4b transform grid. It trains only the key
+candidate `ToT + relative_minmax ToA, no mask` for seeds 43 and 44, then reuses
+seed42 from `a4b_toa_transform_seed42`.
+
+Candidate config:
+
+```text
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+```
+
+Training:
+
+```bash
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --dry-run
+
+python scripts/run_grid.py \
+  --config configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml \
+  --continue-on-error
+```
+
+Oracle across three seeds:
+
+```bash
+python scripts/evaluate_oracle_complementarity.py \
+  --mode tot-vs-candidate \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+  --seeds 42 43 44 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_4e_oracle_3seed.json \
+  --output-summary outputs/a4b_4e_oracle_3seed_summary.csv \
+  --output-by-class outputs/a4b_4e_oracle_3seed_by_class.csv
+```
+
+Rule selector across three seeds:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_selector_fusion.py \
+    --selector-mode rule \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_4e_rule_selector_seed${seed}.json" \
+    --output-summary "outputs/a4b_4e_rule_selector_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_4e_rule_selector_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_4e_rule_selector_seed42_summary.csv \
+    outputs/a4b_4e_rule_selector_seed43_summary.csv \
+    outputs/a4b_4e_rule_selector_seed44_summary.csv \
+  --out outputs/a4b_4e_rule_selector_mean_std.csv
+```
+
+## A4b-5 gated late fusion
+
+A4b-5 uses frozen ToT/candidate experts and trains or calibrates only a
+sample-wise gate. It compares entropy soft gate, learned scalar probability
+gate, learned scalar logit gate, class-aware gate, and conservative gate in one
+script.
+
+Seed42:
+
+```bash
+python scripts/evaluate_gated_late_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_5_gated_late_fusion_seed42.json \
+  --output-summary outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_5_gated_late_fusion_seed42_by_class.csv
+```
+
+Three seeds, after A4b-4e candidate seeds finish:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_gated_late_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_5_gated_late_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_5_gated_late_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_5_gated_late_fusion_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_5_gated_late_fusion_seed42_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed43_summary.csv \
+    outputs/a4b_5_gated_late_fusion_seed44_summary.csv \
+  --out outputs/a4b_5_gated_late_fusion_mean_std.csv
+```
+
+## A4b-6 residual gated fusion
+
+A4b-6 keeps ToT as the primary expert and uses the `relative_minmax/no mask`
+candidate only as a residual correction.
+
+Seed42:
+
+```bash
+python scripts/evaluate_residual_gated_fusion.py \
+  --tot-group a2_best_3seed \
+  --candidate-group a4b_toa_transform_seed42 \
+  --seed 42 \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --num-workers 4 \
+  --candidate-toa-transform relative_minmax \
+  --candidate-add-hit-mask false \
+  --output-json outputs/a4b_6_residual_gated_fusion_seed42.json \
+  --output-summary outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+  --output-by-class outputs/a4b_6_residual_gated_fusion_seed42_by_class.csv
+```
+
+Three seeds, after A4b-4e candidate seeds finish:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/evaluate_residual_gated_fusion.py \
+    --tot-group a2_best_3seed \
+    --candidate-group a4b_toa_transform_seed42 \
+    --candidate-group a4b_4e_relative_minmax_no_mask_seed43_44 \
+    --seed "$seed" \
+    --data-root /root/autodl-tmp/Alpha_100 \
+    --num-workers 4 \
+    --candidate-toa-transform relative_minmax \
+    --candidate-add-hit-mask false \
+    --output-json "outputs/a4b_6_residual_gated_fusion_seed${seed}.json" \
+    --output-summary "outputs/a4b_6_residual_gated_fusion_seed${seed}_summary.csv" \
+    --output-by-class "outputs/a4b_6_residual_gated_fusion_seed${seed}_by_class.csv"
+done
+
+python scripts/aggregate_selector_fusion.py \
+  --inputs \
+    outputs/a4b_6_residual_gated_fusion_seed42_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed43_summary.csv \
+    outputs/a4b_6_residual_gated_fusion_seed44_summary.csv \
+  --out outputs/a4b_6_residual_gated_fusion_mean_std.csv
+```
+
+## A4c end-to-end full bimodal fusion
+
+`configs/experiments/a4c_end_to_end_bimodal_fusion.yaml` 是 A4c 第一批完整端到端双模态模型配置。它与 A4b-5/6 区分开：A4b-5/6 使用 frozen expert 后处理融合；A4c 重新训练 ToT/ToA 图像分支。
+
+固定输入与训练设置：
+
+```yaml
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+
+split:
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+第一批模型：
+
+```text
+dual_stream_concat_aux
+dual_stream_gmu_aux
+toa_conditioned_film
+```
+
+其中 `dual_stream_concat_aux` 和 `dual_stream_gmu_aux` 会返回 auxiliary logits，默认 auxiliary loss 为：
+
+```yaml
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+```
+
+`dual_stream_gmu_aux` 会在 `metrics.json` / summary CSV 中记录 `gate_tot`、`gate_toa` 诊断均值；`toa_conditioned_film` 会记录 `film_gamma_abs`、`film_beta_abs` 诊断均值。
+
+seed42 快速验证：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion_seed42 --out outputs/a4c_end_to_end_bimodal_fusion_seed42_runs.csv
+```
+
+正式三 seed：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_end_to_end_bimodal_fusion.yaml --continue-on-error
+python scripts/summarize.py --group a4c_end_to_end_bimodal_fusion --out outputs/a4c_end_to_end_bimodal_fusion_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_end_to_end_bimodal_fusion_runs.csv --out outputs/a4c_end_to_end_bimodal_fusion_mean_std.csv
+```
+
+A4c 第一阶段三 seed 结果已经完成：
+
+| 模型 | Val Acc | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dual_stream_concat_aux` | 69.90±1.34% | **72.10±1.35%** | **5.631±0.333** | 15.000±0.000 | 0.686±0.017 |
+| `dual_stream_gmu_aux` | 70.20±0.67% | 71.94±0.51% | 5.721±0.009 | 15.000±0.000 | **0.691±0.009** |
+| `toa_conditioned_film` | **70.43±0.95%** | 71.60±1.21% | 5.775±0.236 | 15.000±0.000 | 0.678±0.021 |
+
+阶段结论：A4c 第一阶段没有显著刷新 A4b-5 的最高 Test Acc，但已经达到同一水平；更重要的是三个 A4c 模型均明显提升 Macro-F1，其中 `dual_stream_gmu_aux` 的类别均衡性最好。GMU gate 约 `77.6%` 偏向 ToT、`22.4%` 使用 ToA，支持 “ToT 为主模态，relative ToA 为辅助模态” 的解释。
+
+A4c 最终端到端架构选择不能使用 test 结果反选。论文口径应写成：A4c 内部按 validation 侧均衡指标和结构解释选择 `dual_stream_gmu_aux`。具体规则是优先看 validation Macro-F1；Macro-F1 差异小于标准差量级时，看 validation MAE；再看稳定性与物理解释。GMU 的 Val Acc 为 `70.20±0.67%`，不弱；Val Macro-F1 为 `0.668±0.007`，与 FiLM 的 `0.669±0.011` 实质接近；Val MAE 为 `6.274±0.129`，在 A4c 端到端模型中最好。因此 GMU 可作为 final end-to-end multimodal architecture。Test 结果只用于最终泛化报告，不用于选择 GMU。
+
+A4 系列最终分层：
+
+| 层面 | 推荐对象 | 定位 |
+| --- | --- | --- |
+| expert-level 后处理融合系统 | `A4b-6 residual gated fusion` | validation-selected residual fusion，体现 frozen-expert 后处理在 accuracy/MAE 口径下的优势 |
+| 端到端多模态神经网络架构 | `A4c-2 dual_stream_gmu_aux` | 论文主推 ToT/ToA 双分支 GMU 架构，强调 validation 均衡指标、30 deg 困难类别改善机制和 gate 可解释性 |
+
+`resnet18_original` 固定使用 torchvision ResNet18 的原始 stem：`conv1` 为 `7x7/stride=2/padding=3`，并保留第一层 maxpool。它只适配输入通道数，以便接收 ToT 或 ToT+ToA 数据；该 baseline 不参与 A1 网格搜索。
+
+`resnet18_no_maxpool` 和 `resnet18_maxpool` 都支持：
+
+```yaml
+model:
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  dropout: 0.1
+```
+
+旧字段 `model.kernel_size` 仍然兼容，但新实验建议统一使用 `conv1_kernel_size`。
+
+## A1 结构适配实验
+
+A1 固定 alpha、ToT、CE、one-hot、无手工特征和固定 seed。先跑原始 ResNet18 baseline：
+
+```bash
+python scripts/train.py --config configs/experiments/a1_resnet18_original_baseline.yaml
+```
+
+然后跑结构适配网格，对比 ResNet18 是否保留第一层 maxpool，以及 `conv1_kernel_size`、`conv1_stride`、`dropout` 组合：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a1_structure_adaptation.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a1_structure_adaptation.yaml
+```
+
+网格配置会展开 36 个实验，baseline 和网格都会输出到：
+
+```text
+outputs/experiments/a1_structure_adaptation/
+```
+
+## 训练进度与恢复
+
+推荐开启：
+
+```yaml
+training:
+  progress_bar: true
+  save_last_checkpoint: true
+```
+
+如果训练中断，可以恢复：
+
+```bash
+python scripts/train.py \
+  --resume outputs/experiments/baseline/<experiment_dir>/last_checkpoint.pth
+```
+
+新的 checkpoint 中保存了配置。旧 checkpoint 或数据路径变动时，可以额外传入 `--config` 和 `--data-root`。
+
+### A4c-4 warm-started expert gate
+
+`configs/experiments/a4c_warm_started_expert_gate.yaml` 是 A4c 第二批配置。它加载已有 expert checkpoint：
+
+```text
+Primary expert: A2 best ToT ResNet18 no-maxpool
+Candidate expert: ToT + relative_minmax ToA, no mask ResNet18 no-maxpool
+```
+
+runner 会根据 `outputs/experiments/*/metadata.json` 自动按 `training.seed` 查找 checkpoint，因此配置中不需要写死时间戳目录。该配置比较 `freeze_experts=true` 与 `freeze_experts=false` 两个受控变体。
+
+注意：A4c-4 里的 `gate_candidate` 是 candidate expert 的权重，不是单独 ToA 通道权重。candidate expert 的输入是 `ToT + relative_minmax ToA, no mask`。
+
+seed42 快速验证：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate_seed42.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate_seed42 --out outputs/a4c_warm_started_expert_gate_seed42_runs.csv
+```
+
+正式三 seed：
+
+```bash
+cd ~/Timepix
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+A4c-4 三 seed 结果已经完成：
+
+| 设置 | Val Acc | Test Acc | Test MAE | Test F1 | Candidate Gate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `freeze_experts=true` | 70.50±1.00% | 71.84±1.88% | 5.905±0.332 | 0.660±0.015 | 65.11±24.63% |
+| `freeze_experts=false` | 68.80±1.36% | 70.15±2.34% | 6.123±0.554 | 0.643±0.049 | 56.53±12.19% |
+
+阶段结论：`freeze_experts=true` 优于 ToT primary，但不超过 A4b-5 gated late fusion，也不超过 A4c 第一阶段的 concat/GMU。`freeze_experts=false` 不稳定，说明加载已有 expert 后继续端到端微调容易破坏原有决策边界。A4c-4 适合作为 warm-start expert gate 对照，而不是当前最佳融合方案。
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a4c_warm_gate
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a4c_warm_started_expert_gate.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a4c_warm_started_expert_gate --out outputs/a4c_warm_started_expert_gate_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a4c_warm_started_expert_gate_runs.csv --out outputs/a4c_warm_started_expert_gate_mean_std.csv
+```
+
+重新进入会话：
+
+```bash
+tmux attach -t a4c_warm_gate
+```
+
+## A5 physical handcrafted feature fusion plan
+
+A5a 特征筛选已完成；A5b 已根据 validation importance 与训练集相关矩阵完成低冗余 seed42 CNN concat pilot。A5c seed42 gated 诊断也已完成，结果显示 `gated` 比 simple concat 更适合这批低维手工特征。A5d 三 seed 验证也已完成：两组 gated 手工标量都改善 validation 指标，但没有稳定超过 A2 ToT baseline 的 Test Acc；`main_5feat` 的 Test MAE / Test Macro-F1 最好，`toa_only_diag` 是严格 validation accuracy 最优设置。
+
+A5 不再塞进 A4b，也不作为新的 ToT/ToA 图像融合实验。A5 的问题是：
+
+```text
+低维物理标量特征是否能补充 ToT CNN 图像特征，并提供更可解释的角度判别依据？
+```
+
+关键固定决策：
+
+- Dataset: `Alpha_100`
+- image input: `ToT only`
+- scalar feature source: `ToT + ToA`
+- split: 复用 `Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- backbone: `resnet18_no_maxpool`
+- training config: A2 best
+- loss/label: `cross_entropy` + `onehot`
+- test set 只做最终报告，不参与特征筛选、模型选择或融合方式选择。
+- A1 结构口径：A1 网格中最佳观测为 `resnet18_no_maxpool + conv1_kernel_size=2 + conv1_stride=1 + conv1_padding=0 + dropout=0.3`。其中 no-maxpool 与 conv1 stem 是结构结论；正式 A2/B1 base 的 `dropout=0.1` 来自后续训练超参选择。
+- A5 同时维护两条线：`ToT-only handcrafted features` 是 Alpha 和 Proton_C_7 都可计算的可迁移线；`ToT + ToA handcrafted features` 是 Alpha-only 线，不能直接迁移到 Proton_C_7。
+
+实现注意：
+
+- 训练链路已新增 A5 第一版 12 个手工特征，并保留旧 `total_energy` 用法兼容。
+- 已新增 `handcrafted_mlp`，用于后续如果需要 handcrafted-only 神经网络对照；它忽略图像，只使用标准化后的手工标量。当前正式 A5c 不启用该分支。
+- A5 不参考 `timepix/analysis/` 中的数据分析特征实现；A5 训练特征在 `timepix/data/features.py` 中单独实现。
+- 已支持解耦 `dataset.modalities` 和 `handcrafted_features.source_modalities`。图像输入必须保持 `dataset.modalities: [ToT]`，但手工特征可以读取 ToT 与 ToA；否则会把 ToA 图像通道混入模型，导致 A5 与 A4c 混淆。
+
+第一版候选特征池控制为 12 维：
+
+```text
+Geometry:
+  active_pixel_count
+  bbox_long
+  bbox_short
+  bbox_fill_ratio
+  pca_major_axis
+  pca_minor_axis
+
+ToT:
+  total_ToT
+  ToT_density
+
+ToA:
+  ToA_span
+  ToA_p90_minus_p10
+
+Axis interaction:
+  ToA_major_axis_slope_abs
+  ToA_major_axis_corr_abs
+```
+
+暂缓或不作为第一版主特征：
+
+```text
+bbox_area
+pca_eccentricity
+ToA_std / ToA_iqr
+mean/std/p90_ToT_nonzero
+max_ToT_fraction / top10_ToT_fraction
+ToT_ToA_corr_abs
+axis_asymmetry_abs
+raw bbox_width / bbox_height
+PCA_angle
+raw ToA sum / mean / max / min
+```
+
+A5 子阶段命名：
+
+```text
+A5a: handcrafted feature screening
+A5b: CNN + low-redundancy feature pilot
+A5c: handcrafted gated diagnostic
+A5d: best handcrafted fusion 3-seed verification
+```
+
+计划流程：
+
+1. `A5a`：不训练 CNN。用 handcrafted-only `RandomForest`、one-vs-rest `LogisticRegression` 和 validation permutation importance 进行特征/特征组筛选；test 不参与。
+2. `A5b`：只用 A5a 选出的低冗余代表特征，跑 4 个 seed42 `concat` pilot。A5b 不是纯粹的三类独立组对比，也不是完整递进消融；主线是 `Geometry -> Geometry+ToT -> Geometry+ToT+ToA`，另设 `ToA-only` 诊断组。
+3. `A5c`：镜像 A5b 的 4 个低冗余特征组，只把融合方式改为 `gated`，检查 gated 是否能改善 simple concat 的弱/负结果；已完成 seed42。
+4. `A5d`：已正式对 A5c 的两组 gated 设置做 `training.seed=42/43/44` 认证并报告 mean ± std；五维 `geometry+ToT+ToA gated` 是 main，`ToA-only gated` 是 validation-best diagnostic。
+
+A5a 配置：
+
+```text
+configs/experiments/a5a_alpha_handcrafted_screening.yaml
+```
+
+A5b/A5c/A5d 模板：
+
+```text
+configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml
+configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml
+configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml
+configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml
+configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml
+configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
+configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml
+```
+
+A5b 正式低冗余分组：
+
+```text
+A5b-1 geometry_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+
+A5b-2 geometry_plus_tot_lowcorr (`tot_lowcorr`):
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+
+A5b-3 toa_lowcorr_diagnostic (`toa_lowcorr`):
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5b-4 geometry_plus_tot_plus_toa_lowcorr (`selected_lowcorr_all`):
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+A5b 解释口径：
+
+- `A5b-1 -> A5b-2 -> A5b-4` 是递进主线，用于观察在 Geometry 基础上加入 ToT 标量、再加入 ToA 标量是否有增益。
+- `A5b-3` 是 `ToA-only` side diagnostic，不是递进链条中的中间步骤；它单独检查 ToA 标量是否携带局部互补信息，尤其是 30 deg 类别。
+- 已完成结果中的旧短标签继续保留，避免和既有 CSV/日志混淆；论文写作时优先使用解释名。
+
+选择逻辑：
+
+- 不把 12 个 A5a 候选特征全部塞入 CNN。
+- 优先保留 validation permutation importance 稳定、物理意义清楚、且同组内高度相关更少的代表特征。
+- 暂不纳入 `total_ToT`、`pca_minor_axis`、`ToA_major_axis_slope_abs`，因为它们分别与 `active_pixel_count` 或 `ToA_span` 存在较高相关风险。
+
+A5a 服务器 `tmux` 持久化运行：
+
+依赖：`scripts/screen_handcrafted_features.py` 需要 `scikit-learn`。服务器若缺少该依赖，可先在对应环境安装 `requirements-analysis.txt`，或至少安装 `scikit-learn`。
+
+实现说明：A5a 的 `LogisticRegression` 使用 `OneVsRestClassifier(LogisticRegression(solver="liblinear"))`。这是为了兼容较新的 `scikit-learn` 多分类约束；不要改回直接 `LogisticRegression(..., solver="liblinear").fit(...)`。
+
+```bash
+cd ~/Timepix
+tmux new -s a5a_screen
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/screen_handcrafted_features.py \
+  --config configs/experiments/a5a_alpha_handcrafted_screening.yaml \
+  --data-root /root/autodl-tmp/Alpha_100 \
+  --out-dir outputs/a5a_alpha_handcrafted_screening \
+  --name a5a_alpha_handcrafted_screening \
+  --n-repeats 30
+```
+
+A5a 输出目录：
+
+```text
+outputs/a5a_alpha_handcrafted_screening/a5a_alpha_handcrafted_screening/
+```
+
+主要汇总文件：
+
+```text
+model_metrics.csv
+permutation_importance_val.csv
+group_permutation_importance_val.csv
+feature_summary_train.csv
+feature_correlation_train.csv
+feature_metadata.json
+```
+
+说明：A5a 是传统模型/特征筛选诊断，不产生标准 `outputs/experiments/<group>/...` 训练目录，因此不使用 `scripts/summarize.py` 或 `scripts/aggregate_seeds.py`。A5b/A5c/A5d 进入 CNN 训练后必须补充标准 run-grid、summarize 和 aggregate 命令。
+
+A5b 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5b_lowcorr
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5b_alpha_handcrafted_group_ablation --out outputs/a5b_alpha_handcrafted_group_ablation_runs.csv
+```
+
+A5b 是 seed42 筛选实验，因此只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。A5d 进入三 seed 认证后再使用 mean/std 聚合。
+
+A5 相关汇总 CSV 会额外包含 `handcrafted_enabled`、`handcrafted_dim`、`handcrafted_feature_count`、`handcrafted_features` 和 `handcrafted_source_modalities`，用于直接追踪每个 run 使用的标量特征组。
+
+A5b 当前 seed42 结果：
+
+- `geometry_lowcorr`：Test Acc 70.38%，略低于 A2 seed42 baseline 70.48%，但 MAE 从 5.964 小幅降到 5.905。
+- `geometry_plus_tot_lowcorr` / `tot_lowcorr`：Test Acc 70.08%，MAE 6.098，弱于 baseline。
+- `toa_lowcorr_diagnostic` / `toa_lowcorr`：Val Acc 最高 70.93%，且 30 deg recall 有改善，但 Test Acc 69.28%，未形成稳定总体提升。
+- `geometry_plus_tot_plus_toa_lowcorr` / `selected_lowcorr_all`：Test Acc 69.58%，弱于 baseline。
+
+结论：A5b 没有证明 `CNN + handcrafted concat` 能稳定提升 Alpha ToT CNN。后续 A5c 若继续，应定位为“融合方式是否能改善 simple concat 的弱/负结果”，而不是直接进入三 seed 正式验证。
+
+A5c 正式 seed42 gated 诊断配置：
+
+```text
+configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml
+```
+
+A5c 固定设置：
+
+```text
+Dataset: Alpha_100
+image input: ToT only
+scalar feature source: ToT + ToA
+model: resnet18_no_maxpool
+fusion_mode: gated
+training config: A2 best
+seed: 42
+```
+
+A5c 镜像 A5b 的 4 个特征组：
+
+```text
+A5c-1 geometry_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+
+A5c-2 geometry_plus_tot_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+
+A5c-3 toa_lowcorr_diagnostic_gated:
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5c-4 geometry_plus_tot_plus_toa_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+关键决策：
+
+- A5c 不重复 A5b 的 `concat`，因为 A5b 已经完成。
+- A5c 不运行 `handcrafted-only MLP`，因为 A5a 已说明手工特征单独弱于 CNN；如论文需要神经网络版 handcrafted-only 对照，再启用 `a5c_alpha_handcrafted_only_TEMPLATE.yaml`。
+- A5c 仍是 seed42 诊断实验；只有 gated 组明确优于 A2 seed42 baseline 或在 MAE/Macro-F1/30 deg 上有明确价值时，才进入 A5d 三 seed 认证。
+
+A5c 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5c_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5c_alpha_handcrafted_gated_seed42 --out outputs/a5c_alpha_handcrafted_gated_seed42_runs.csv
+```
+
+说明：A5c 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。A5d 进入三 seed 认证后再使用 mean/std 聚合。
+
+A5c seed42 结果：
+
+| 组别 | 手工特征 | Val Acc | Test Acc | Test MAE | P90 | Macro-F1 | Best/Stop |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 68.63% | 70.97% | 5.860 | 15.0 | 0.628 | 20/25 |
+| `geometry_plus_tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 68.93% | 70.87% | 5.860 | 15.0 | 0.635 | 22/25 |
+| `toa_lowcorr_diagnostic` | `ToA_span; ToA_major_axis_corr_abs` | 71.03% | 69.98% | 5.964 | 15.0 | 0.639 | 23/25 |
+| `geometry_plus_tot_plus_toa_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density; ToA_span; ToA_major_axis_corr_abs` | 70.53% | 71.07% | 5.651 | 15.0 | 0.652 | 21/25 |
+
+相对 A2 seed42 baseline：
+
+| 组别 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr_gated` | -0.90 pp | +0.50 pp | -0.104 | -0.018 |
+| `geometry_plus_tot_lowcorr_gated` | -0.60 pp | +0.40 pp | -0.104 | -0.011 |
+| `toa_lowcorr_diagnostic_gated` | +1.50 pp | -0.50 pp | +0.000 | -0.007 |
+| `geometry_plus_tot_plus_toa_lowcorr_gated` | +1.00 pp | +0.60 pp | -0.313 | +0.006 |
+
+A5b concat vs A5c gated：
+
+| 组别 | A5b Acc | A5c Acc | ΔAcc | A5b MAE | A5c MAE | ΔMAE | A5b F1 | A5c F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `geometry_lowcorr` | 70.38% | 70.97% | +0.60 pp | 5.905 | 5.860 | -0.045 | 0.644 | 0.628 |
+| `geometry_plus_tot_lowcorr` | 70.08% | 70.87% | +0.80 pp | 6.098 | 5.860 | -0.239 | 0.630 | 0.635 |
+| `toa_lowcorr_diagnostic` | 69.28% | 69.98% | +0.70 pp | 6.098 | 5.964 | -0.134 | 0.646 | 0.639 |
+| `geometry_plus_tot_plus_toa_lowcorr` | 69.58% | 71.07% | +1.49 pp | 6.039 | 5.651 | -0.388 | 0.645 | 0.652 |
+
+阶段判断：
+
+- A5c 显示 `gated` 在所有四组低冗余特征上都比 A5b simple concat 有更高 Test Acc 和更低 MAE。
+- 五维 `geometry_plus_tot_plus_toa_lowcorr_gated` 是 A5c seed42 pilot 中综合指标最好的设置：Test Acc 71.07%，MAE 5.651，Macro-F1 0.652。
+- 该提升是小幅正结果：相对 A2 seed42，Test Acc +0.60 pp，MAE -0.313，Macro-F1 +0.006；不能夸大为决定性突破。
+- A5c 主要改善 `45 deg` 和 `60 deg`，没有真正解决 `30 deg`；五维 gated 的 30 deg F1 仍低于 A2 seed42。
+- A5d 已完成正式三 seed 验证，同时包含 main 与 diagnostic 两组：五维 `geometry_plus_tot_plus_toa_lowcorr_gated` 作为 main，`toa_lowcorr_diagnostic_gated` 作为 ToA-only validation-best 诊断组。
+
+A5d 三 seed 验证配置：
+
+```text
+configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml
+```
+
+A5d 对比两组 `gated` 手工标量：
+
+```text
+A5d-main geometry_plus_tot_plus_toa_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+  ToA_span
+  ToA_major_axis_corr_abs
+
+A5d-diagnostic toa_lowcorr_diagnostic_gated:
+  ToA_span
+  ToA_major_axis_corr_abs
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s a5d_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a5d_alpha_handcrafted_gated_3seed --out outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv --out outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
+```
+
+说明：A5d 是三 seed 正式验证，因此需要同时生成逐 run summary 和 mean/std 聚合表。旧的 `a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` 保留为未来单设置确认模板，不是当前正式 A5d 配置。
+
+A5d 正式结果文件：
+
+```text
+outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv
+outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
+```
+
+A5d 三 seed 汇总：
+
+| 设置 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A2 ToT baseline | 69.03 ± 0.46% | 6.424 ± 0.127 | 0.622 ± 0.007 | **70.44 ± 0.15%** | 5.949 ± 0.068 | 0.636 ± 0.009 |
+| `main_5feat` | 70.23 ± 0.30% | 6.209 ± 0.083 | **0.651 ± 0.008** | 70.18 ± 0.95% | **5.875 ± 0.231** | **0.646 ± 0.005** |
+| `toa_only_diag` | **70.70 ± 0.31%** | **6.129 ± 0.040** | 0.650 ± 0.005 | 70.05 ± 0.21% | 5.959 ± 0.009 | 0.641 ± 0.003 |
+
+解释口径：
+
+- 若严格按 validation accuracy 选择 A5d 内部最佳设置，应选择 `toa_only_diag`，不是 `main_5feat`。
+- `main_5feat` 的 Test MAE / Test Macro-F1 更好，但这是 test 诊断结果，不能作为模型选择依据。
+- 两组 A5d 都未超过 A2 ToT baseline 的 Test Acc，因此 A5 不能写成手工特征稳定提升总体准确率；更合适的结论是：低维物理标量具有解释性和一定辅助信号，`gated` 融合能改善 validation 与部分 MAE/F1 指标，但在 ResNet18 ToT 图像特征已经较强的前提下，Test Acc 增益有限且不稳定。
+
+## A6 Alpha ordinal loss / label strategy
+
+A6 是 Alpha 版 B3：固定 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best`，只比较角度有序性相关的 loss / label strategy。A6 不继续扩展 A5 手工特征，也不把 A4 多模态架构混入第一轮筛选。CE one-hot baseline 不在 A6a 中重复训练，直接复用同配置 A2-best seed42 和三 seed 结果。
+
+B3b 已在 `Proton_C_7` 上确认 `CE+ExpectedMAE lambda=0.05` 是强正结果，`CE+EMD lambda=0.05` 是接近的有序损失对照。因此 A6a 继续采用 CE 主导的 `ce_expected_mae` / `ce_emd` 轻量权重筛选，不新增 pure EMD 或复杂 regression head。
+
+A6a seed42 screening 配置：
+
+```text
+configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml
+```
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- Input: `ToT only`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Training config: A2 best
+- Handcrafted: disabled
+- Fusion: none
+- Split: `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
+- Seed: `42`
+
+A6a loss matrix:
+
+```text
+A6a-baseline: CE onehot, reuse A2-best, not rerun
+A6a-1: cross_entropy + gaussian, sigma = 5.0
+A6a-2: cross_entropy + gaussian, sigma = 7.5
+A6a-3: cross_entropy + gaussian, sigma = 10.0
+A6a-4: ce_expected_mae, lambda = 0.02
+A6a-5: ce_expected_mae, lambda = 0.05
+A6a-6: ce_expected_mae, lambda = 0.10
+A6a-7: ce_emd, lambda = 0.02
+A6a-8: ce_emd, lambda = 0.05
+A6a-9: ce_emd, lambda = 0.10
+```
+
+关键限制：
+
+- 不做 pure EMD。原因与 B3 一致：Alpha 仍需 exact angle classification，pure EMD 可能让输出分布过宽。
+- 暂不做 hybrid CE + regression head；当前已有 `ce_expected_mae`，无需新增 head / trainer 分支。
+- A6a 只做 9 个新增策略的 seed42 screening。A6b 需等 A6a 结果出来后，再创建 validation-selected best loss 的三 seed 配置；CE baseline 复用 A2-best。
+- A6c 仅在 A6b 证明有收益后，将 best loss 迁移到 `A4c-2 dual_stream_gmu_aux`。当前 GMU auxiliary heads 会使用同一个 criterion 并乘 `weight_tot/weight_toa`。
+
+选择规则：
+
+```text
+Primary: validation accuracy
+Tie-break 1: validation MAE
+Tie-break 2: validation Macro-F1
+Test set: final reporting only
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+tmux new -s a6a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a6a_alpha_tot_ordinal_loss_seed42 --out outputs/a6a_alpha_tot_ordinal_loss_seed42_runs.csv
+```
+
+本地验证：Windows 本地 dry-run 已通过，规划 9 个 run。
+
+## B2 Proton_C_7 handcrafted transfer plan
+
+B2 废弃原“主干/结构迁移验证”定位，不再重新比较 backbone。Proton_C_7 只有 `ToT`，因此 B2 固定使用 B1-best patience=8 配置，只验证少量 `ToT-only handcrafted features` 是否能补充 Proton_C_7 的 ToT CNN。
+
+由于 A5b 没有在 Alpha 上证明 handcrafted concat 有稳定正收益，B2 不再表述为“迁移 Alpha 最优手工特征方案”，而是低成本受控验证：检查 `active_pixel_count`、`bbox_fill_ratio`、`ToT_density` 这些可迁移低冗余标量是否也与 Proton CNN 冗余，或是否能改善 B1 中较弱的中高角度类别。为与 A5 保持一致，B2 分为 `B2a concat seed42` 与 `B2b gated seed42`；可选三 seed 认证顺延为 `B2c`。
+
+B1-best 正式 baseline 使用 patience=8 版本：
+
+```text
+configs/experiments/b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+```
+
+正式 B1-best 三 seed 结果：
+
+```text
+Val Acc      92.94 ± 1.81%
+Test Acc     93.26 ± 1.64%
+Test MAE     0.640 ± 0.161
+Test P90     0.0 ± 0.0
+Macro-F1     0.952 ± 0.011
+```
+
+旧 patience=5 版本仅作为“早停过激”诊断，不作为最终 Proton_C_7 baseline。
+
+B2a seed42 快速验证配置：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml
+```
+
+B2a 对比两组 ToT-only 低冗余特征：
+
+```text
+B2a-1 geometry_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+
+B2a-2 tot_lowcorr:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+```
+
+B2b seed42 gated 诊断配置：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml
+```
+
+B2b 镜像 B2a 两组 ToT-only 低冗余特征，只把 `fusion_mode` 从 `concat` 改为 `gated`：
+
+```text
+B2b-1 geometry_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+
+B2b-2 tot_lowcorr_gated:
+  active_pixel_count
+  bbox_fill_ratio
+  ToT_density
+```
+
+说明：B2b-2 仅作诊断，因为 B2a 中加入 `ToT_density` 已明显变差；保留它是为了确认 `gated` 是否能抑制该特征带来的负面影响。
+
+B2c 三 seed 模板：
+
+```text
+configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
+```
+
+关键限制：
+
+- `dataset.modalities: [ToT]`
+- `handcrafted_features.source_modalities: [ToT]`
+- 不允许写入 `ToA_span`、`ToA_p90_minus_p10`、`ToA_major_axis_slope_abs`、`ToA_major_axis_corr_abs` 等 Alpha-only ToA 特征。
+- 训练超参固定为 B1-best patience=8：`learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`、`early_stopping_patience=8`、AMP enabled。
+
+B2a 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b2_lowcorr
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_lowcorr_seed42 --out outputs/b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv
+```
+
+B2a/B2b 都是 seed42 快速验证，暂不聚合 mean/std。当前 B2a/B2b 已完成，尚未形成足够大的正收益，因此不优先填充 `b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` 做三 seed B2c。
+
+B2b 服务器 `tmux` 持久化运行：
+
+```bash
+cd ~/Timepix
+tmux new -s b2_gated
+```
+
+进入 `tmux` 后运行：
+
+```bash
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out outputs/b2_proton_c7_handcrafted_gated_seed42_runs.csv
+```
+
+说明：B2b 是 seed42 诊断实验，只需要 `summarize.py` 生成逐 run 汇总；暂不做 `aggregate_seeds.py`。如果后续为了论文补 B2c 三 seed，再补充 `aggregate_seeds.py` 命令。
+
+B2a seed42 结果：
+
+| 方法 | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Macro-F1 |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | none | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| B2a-1 `geometry_lowcorr` | `active_pixel_count; bbox_fill_ratio` | 24/25 | 否 | 94.28% | 94.26% | 0.545 | 0.0 | 0.959 |
+| B2a-2 `tot_lowcorr` | `active_pixel_count; bbox_fill_ratio; ToT_density` | 8/16 | 是 | 91.43% | 91.63% | 0.807 | 0.0 | 0.939 |
+
+相对 B1-best seed42：
+
+| 方法 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| B2a-1 `geometry_lowcorr` | +0.40 pp | +0.17 pp | -0.017 | +0.001 |
+| B2a-2 `tot_lowcorr` | -2.45 pp | -2.46 pp | +0.246 | -0.019 |
+
+阶段判断：
+
+- B2a-1 `geometry_lowcorr` 是弱正结果，Test Acc 从 94.09% 到 94.26%，MAE 从 0.562 到 0.545，但幅度太小，不足以单独证明手工几何特征显著提升 Proton_C_7。
+- B2a-1 对主要弱类的改善很小：`60 deg F1 +0.003`、`70 deg F1 +0.004`，同时 `45 deg`、`50 deg` 略降。
+- B2a-2 `tot_lowcorr` 明显变差，不建议继续；`ToT_density` 可能与 CNN 已学到的信息冲突，或引入不稳定性。
+- B2b gated 已完成，见下表。它证明 gated 可以抑制 `ToT_density` 在 concat 下带来的负面影响，但没有证明手工特征能显著提升 Proton_C_7。
+
+B2b seed42 结果：
+
+| 方法 | Fusion | 手工特征 | Best/Stop | Early Stop | Val Acc | Test Acc | Test MAE | Test P90 | Macro-F1 |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| B1-best seed42 | none | none | 23/25 | 否 | 93.88% | 94.09% | 0.562 | 0.0 | 0.958 |
+| B2a-1 `geometry_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio` | 24/25 | 否 | 94.28% | 94.26% | 0.545 | 0.0 | 0.959 |
+| B2a-2 `tot_lowcorr` | concat | `active_pixel_count; bbox_fill_ratio; ToT_density` | 8/16 | 是 | 91.43% | 91.63% | 0.807 | 0.0 | 0.939 |
+| B2b-1 `geometry_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio` | 25/25 | 否 | 94.21% | 94.17% | 0.554 | 0.0 | 0.958 |
+| B2b-2 `tot_lowcorr_gated` | gated | `active_pixel_count; bbox_fill_ratio; ToT_density` | 25/25 | 否 | 94.22% | 94.13% | 0.561 | 0.0 | 0.958 |
+
+相对 B1-best seed42：
+
+| 方法 | Δ Val Acc | Δ Test Acc | Δ MAE | Δ Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| B2a concat `geometry_lowcorr` | +0.40 pp | +0.17 pp | -0.017 | +0.001 |
+| B2a concat `tot_lowcorr` | -2.45 pp | -2.46 pp | +0.246 | -0.019 |
+| B2b gated `geometry_lowcorr` | +0.33 pp | +0.09 pp | -0.008 | +0.000 |
+| B2b gated `tot_lowcorr` | +0.34 pp | +0.04 pp | -0.000 | +0.001 |
+
+阶段判断：
+
+- B2b gated 把 B2a `tot_lowcorr` 的 Test Acc 从 91.63% 恢复到 94.13%，说明 gated 能抑制 `ToT_density` 这类坏特征的负面影响。
+- B2b gated 的两个组相对 B1-best seed42 只有 +0.09 pp 和 +0.04 pp，基本属于同水平波动，不能证明手工特征显著提升 Proton_C_7。
+- 当前 B2 最好的单 seed 结果仍是 B2a-1 `geometry_lowcorr concat`，但相对 B1-best seed42 也只有 +0.17 pp，不足以优先推进 B2c 三 seed。
+- 论文中可将 B2a/B2b 写成：可迁移 ToT-only 几何标量在 Proton_C_7 上至多只有极小增益，说明 Proton_C_7 的 ToT 图像形态已经被 CNN 充分利用；gated 的价值主要是提高融合鲁棒性，而不是带来新的显著性能增益。
+
+### B3a Proton_C_7 有序损失筛选
+
+B3a 固定 B1-best patience=8 主模型与训练配置，只比较 loss / label strategy。它不启用 handcrafted features，也不改变架构。
+
+配置文件：
+
+```text
+configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml
+```
+
+服务器 `tmux` 持久化运行：
+
+```bash
+tmux new -s b3a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3a_proton_c7_ordinal_loss_seed42 --out outputs/b3a_proton_c7_ordinal_loss_seed42_runs.csv
+```
+
+矩阵：
+
+- `cross_entropy + gaussian` soft target: `gaussian_sigma = 5, 10, 15`
+- `ce_expected_mae`: `expected_mae_weight = 0.05, 0.10, 0.20`
+- `ce_emd`: `emd_weight = 0.05, 0.10, 0.20`
+
+不做 pure EMD。原因是 Proton_C_7 的 B1-best CE baseline 已经有很高 exact classification accuracy；pure EMD 可能让输出分布变宽，降低精确分类准确率。B3a 采用 CE 主导策略，在保留 CE 分类边界的同时，用有序角度辅助项尝试降低相邻大角度混淆。
+
+B3a 是 seed42 screening，只需要 `summarize.py`。B3a 已完成，最优候选是 `CE+ExpectedMAE lambda=0.05`。它在 validation accuracy 上排名第一，并且 test accuracy、MAE、Macro-F1 与 high-angle F1 均优于 B1-best seed42。`CE+EMD lambda=0.05` 的 Test MAE 最低但 validation accuracy 略低，因此只作为 optional 对照。Gaussian soft label 不继续推进，尤其 `sigma=15` 明显软化分类边界。
+
+B3b-main 三 seed 认证（已完成）：
+
+```bash
+tmux new -s b3b
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_expected_mae_3seed --out outputs/b3b_proton_c7_expected_mae_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_expected_mae_3seed_runs.csv --out outputs/b3b_proton_c7_expected_mae_3seed_mean_std.csv
+```
+
+B3b-optional `CE+EMD lambda=0.05` 对照（已完成）：
+
+```bash
+tmux new -s b3b_emd
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_ce_emd_optional_3seed --out outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv --out outputs/b3b_proton_c7_ce_emd_optional_3seed_mean_std.csv
+```
+
+B3b 三 seed 汇总结果：
+
+| 设置 | Val Acc | Val MAE | Val F1 | Val High-F1 | Test Acc | Test MAE | Test F1 | Test High-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B1-best CE onehot | 92.94±1.81% | 0.676±0.184 | 0.949±0.012 | 0.913±0.021 | 93.26±1.64% | 0.640±0.161 | 0.952±0.011 | 0.917±0.020 |
+| B3b-main CE+ExpectedMAE lambda=0.05 | **94.20±0.05%** | 0.550±0.002 | **0.958±0.000** | **0.928±0.001** | **94.38±0.08%** | **0.532±0.010** | **0.960±0.001** | **0.930±0.001** |
+| B3b-optional CE+EMD lambda=0.05 | 94.20±0.16% | **0.545±0.015** | 0.957±0.001 | 0.927±0.002 | 94.35±0.09% | 0.532±0.011 | 0.959±0.001 | 0.930±0.001 |
+
+按模型选择规则，B3b-main `CE+ExpectedMAE lambda=0.05` 是 Proton_C_7 当前推荐损失函数。它来自 B3a validation-selected best，并在三 seed 中保持 Val Acc、Val Macro-F1、Val High-angle F1 最优；`CE+EMD lambda=0.05` 的 Val MAE 略好，保留为 ordered-loss 对照，不替代主结果。B3b 相比 B1-best 明显降低 seed 波动，说明有序角度辅助损失比继续扩展 B2 手工特征更适合 Proton_C_7 的剩余相邻大角度错误。

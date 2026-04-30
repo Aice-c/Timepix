@@ -1,5 +1,12 @@
 # A4b ToA Fusion Implementation Plan
 
+> Status note, 2026-04-30: this is a historical implementation-planning
+> document. It is retained to preserve the rationale for the A4b ToA transform,
+> oracle, selector, gated late-fusion, and residual-fusion stages. The current
+> authoritative experiment status, final A4b/A4c interpretation, and paper-facing
+> decisions are maintained in `agent/EXPERIMENT_LOG.md` and
+> `agent/RESEARCH_HANDOFF_5_5_PRO.md`.
+
 ## Goal
 
 A4 showed that `ToT` single modality is stronger than `ToT+ToA` early channel

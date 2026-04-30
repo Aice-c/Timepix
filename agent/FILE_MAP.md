@@ -14,9 +14,9 @@
 | `Thesis/` | Thesis materials | Contains `images/`. |
 | `representation/` | Presentation/report artifacts | Not inspected deeply. |
 | `output/` | Root-level analysis outputs | Used by near-vertical feature analysis and PPT generation. |
-| `agent/` | Project handoff docs | Includes architecture notes, experiment guides, and the experiment log. |
+| `agent/` | Project handoff docs | Includes architecture notes, experiment guides, the current experiment log, and archived historical notes. |
 | `timepix/` | New experiment-driven training package | First-stage refactor target; old `Program/` is preserved. |
-| `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
+| `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments; `configs/README.md` is the current command/config index and `configs/README.old.md` is the archived long-form history. |
 | `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`, `export_result_tables.py`. |
 | `requirements.txt` | Refactored runtime dependencies | Minimal new-system dependencies including Optuna. |
 | `requirements-analysis.txt` | Analysis/screening dependencies | Adds `scikit-learn`, `scipy`, plotting, and UMAP dependencies used by data analysis and A5a feature screening. |
@@ -53,17 +53,24 @@ prefer `configs/` + `scripts/` + `timepix/`.
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `agent/EXPERIMENT_LOG.md` | Experiment log | Human-maintained record of experiment numbering, stage purposes, A/B/D series status, configs, results, commands, and design decisions. |
-| `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current status, A1-A4, and paper narrative. |
-| `agent/A4B_IMPLEMENTATION_PLAN.md` | A4b implementation plan | Staged plan for ToA representation, late logit fusion, ToA scalar features, and later multimodal fusion models. |
-| `agent/A4B_SELECTOR_FUSION_PLAN.md` | A4b selector plan | Follow-up plan after A4b-2.5, including ToT seed-control diagnostics with `a2_best_3seed` and selective/gated fusion ideas. |
+| `agent/EXPERIMENT_LOG.md` | Current experiment log | Authoritative Chinese record of experiment numbering, stage purposes, A/B/D series status, commands, results, and design decisions after the 2026-04-30 cleanup. |
+| `agent/EXPERIMENT_LOG.old.md` | Archived experiment log | Previous cumulative log retained for traceability; do not use as the primary status source. |
+| `agent/RESEARCH_HANDOFF_5_5_PRO.md` | Current research handoff | Best first document for literature-review/thesis-outline agents; summarizes topic, current Alpha/Proton status, paper narrative, and open A6 items. |
+| `agent/RESEARCH_HANDOFF_5_5_PRO.old.md` | Archived research handoff | Earlier handoff retained for traceability; contains stale A4/A5-era status and should not drive new decisions. |
+| `agent/A4B_IMPLEMENTATION_PLAN.md` | Historical A4b implementation plan | Useful for understanding how ToA transforms, late fusion, and selector ideas were introduced; current status and conclusions are in `EXPERIMENT_LOG.md`. |
+| `agent/A4B_SELECTOR_FUSION_PLAN.md` | Historical A4b selector plan | Useful for tracing A4b-3/A4b-4 design decisions; current finalized A4b/A4c conclusions are in `EXPERIMENT_LOG.md`. |
 | `agent/DATA_ANALYSIS_HANDOFF_5_5_PRO.md` | Data analysis handoff | Thesis data-analysis context: raw frames, trajectory extraction, cleaning, final datasets, and near-vertical C/proton distinguishability. |
 | `agent/DATA_ANALYSIS_GUIDE.md` | Data analysis script guide | Documents the new `timepix/analysis/` subsystem, output layout, server commands, and thesis wording boundaries. |
-| `agent/NEW_SYSTEM_GUIDE.md` | Usage guide | Main how-to for the refactored experiment system. |
-| `agent/CODE_CONTEXT.md` | Code context | Practical overview for future code changes. |
+| `agent/README.md` | Current documentation entrypoint | Recommended reading order and current project status for future agents. |
+| `agent/README.old.md` | Archived documentation entrypoint | Previous README retained for traceability; contains encoding damage and stale status. |
+| `agent/NEW_SYSTEM_GUIDE.md` | Current usage guide | Main how-to for the refactored experiment system: paths, training, grid runs, summaries, tmux, and resume. |
+| `agent/NEW_SYSTEM_GUIDE.old.md` | Archived usage guide | Previous guide retained for traceability; contains encoding damage and should not be used as the current reference. |
+| `agent/CODE_CONTEXT.md` | Current code context | Practical overview of the new training pipeline, modules, losses, models, scripts, and active engineering boundaries. |
+| `agent/CODE_CONTEXT.old.md` | Archived code context | Previous code-context document retained for traceability; contains encoding damage and stale experiment priorities. |
 | `agent/ARCHITECTURE.md` | Architecture reference | English notes on data/model/training internals. |
 | `agent/EXPERIMENT_GROUPS.md` | Experiment grouping guide | Output grouping, metadata, summary commands. |
-| `agent/SERVER_TRAINING.md` | Server training guide | Linux server persistence, tmux, resume, AMP notes. |
+| `agent/SERVER_TRAINING.md` | Current server training guide | Linux server persistence, tmux, resume, `extend_runs.py`, AMP, and current server data paths. |
+| `agent/SERVER_TRAINING.old.md` | Archived server training guide | Previous guide retained for traceability; contains encoding damage and stale `/root/autodl-tmp/Alpha` examples. |
 
 ## `timepix/`
 
@@ -125,8 +132,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
 | `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
 | `configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml` | B3a Proton_C_7 ordered-loss screening | Seed42 grid over Gaussian soft-target CE, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD. Pure EMD is intentionally excluded because Proton_C_7 already has high exact accuracy under CE. |
-| `configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml` | B3b-main Proton_C_7 ordered-loss verification | Three-seed verification of B3a validation-selected `CE+ExpectedMAE lambda=0.05`. |
-| `configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml` | B3b optional CE+EMD verification | Optional three-seed verification of `CE+EMD lambda=0.05`, kept as a physics-oriented ordered-loss backup because it had the lowest seed42 Test MAE but lower validation accuracy than B3b-main. |
+| `configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml` | B3b-main Proton_C_7 ordered-loss verification | Completed three-seed verification of B3a validation-selected `CE+ExpectedMAE lambda=0.05`; current recommended Proton_C_7 loss. |
+| `configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml` | B3b optional CE+EMD verification | Completed three-seed verification of `CE+EMD lambda=0.05`; kept as an ordered-loss comparison because Val MAE/far-error diagnostics are strong but primary validation metrics do not beat B3b-main. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

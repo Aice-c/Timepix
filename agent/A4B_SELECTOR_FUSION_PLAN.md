@@ -1,4 +1,10 @@
-# A4b Selector Fusion Plan
+﻿# A4b Selector Fusion Plan
+
+> Status note, 2026-04-30: this is a historical selector-fusion planning
+> document. It preserves the design rationale for A4b-3/A4b-4/A4b-5/A4b-6 and
+> the command patterns used during development. The authoritative current status,
+> final interpretation, and paper-facing decisions are maintained in
+> `agent/EXPERIMENT_LOG.md` and `agent/RESEARCH_HANDOFF_5_5_PRO.md`.
 
 This document records the implementation plan after the A4b-2.5 prediction-complementarity analysis.
 
@@ -9,7 +15,7 @@ Numbering note:
 - Full end-to-end bimodal feature-fusion models are now separated into `A4c`;
   do not add them as A4b sub-stages.
 - The current authoritative experiment numbering and status table is recorded
-  in `agent/EXPERIMENT_LOG.md` under "实验编号与阶段总览".
+  in `agent/EXPERIMENT_LOG.md` under the experiment numbering and stage overview.
 
 ## Current Evidence
 
@@ -440,8 +446,8 @@ Current result:
 - A4b-4d shows the seed42 `entropy_adv_0p03` rule switches 14.51% of test samples, close to the 12.43% oracle switch rate, but switch precision is only 47.95% and switch recall is 56.00%.
 - Among 146 switched test samples, 70 are beneficial, 69 are harmful, and 7 are neutral. The main bottleneck is switch quality, not switch quantity.
 - The rule helps 30 deg and 45 deg but hurts 15 deg and 60 deg. Beneficial and harmful switch score distributions overlap strongly, so confidence/entropy alone cannot reliably identify when the candidate is correct.
-- A4b-4e confirms stable small gains across three seeds: ToT baseline Test Acc is 70.44% ± 0.15, validation-selected rule selector is 71.44% ± 0.57, MAE improves from 5.949 to 5.835, and Macro-F1 improves from 0.636 to 0.645.
-- Candidate-only remains weaker at 68.75% ± 1.52, while oracle is still 79.75% ± 1.96. Therefore the rule selector is useful but only exploits a small fraction of the available complementarity.
+- A4b-4e confirms stable small gains across three seeds: ToT baseline Test Acc is 70.44% +/- 0.15, validation-selected rule selector is 71.44% +/- 0.57, MAE improves from 5.949 to 5.835, and Macro-F1 improves from 0.636 to 0.645.
+- Candidate-only remains weaker at 68.75% +/- 1.52, while oracle is still 79.75% +/- 1.96. Therefore the rule selector is useful but only exploits a small fraction of the available complementarity.
 - The selected rule changes by seed (`entropy_adv_0p03`, `entropy_adv_0p0`, `conf_adv_0p15`), so simple rule form is not fully stable.
 
 ## A4b-5: Sample-Wise Gated Late Fusion
@@ -622,28 +628,27 @@ python scripts/aggregate_selector_fusion.py \
 
 ## A4b-5/A4b-6 Results
 
-记录日期：2026-04-29。
+Record date: 2026-04-29.
 
-A4b-5 当前结果：
+A4b-5 current result:
 
-- A4b-5 是 frozen expert 后处理实验，不训练新的 ResNet。
-- 三 seed validation-selected gate 相比 ToT primary：Test Acc 从 70.44±0.15% 提高到 72.17±1.72%，MAE 从 5.949±0.068 降到 5.661±0.320，Macro-F1 从 0.636±0.009 提高到 0.662±0.027。
-- 相比 A4b-4e rule selector，A4b-5 Test Acc +0.73 percentage points，MAE -0.174 deg，Macro-F1 +0.017。
-- seed43 选中了 `train` fit，存在偏乐观风险；论文中更保守的主结果建议参考 `class_aware_prob_val-cv`。
+- A4b-5 is a frozen-expert post-processing experiment; it does not train a new ResNet.
+- Across three seeds, the validation-selected gate improves Test Acc from 70.44 +/- 0.15% to 72.17 +/- 1.72%, reduces MAE from 5.949 +/- 0.068 to 5.661 +/- 0.320, and raises Macro-F1 from 0.636 +/- 0.009 to 0.662 +/- 0.027.
+- Relative to A4b-4e rule selector, A4b-5 improves Test Acc by 0.73 percentage points, reduces MAE by 0.174 deg, and improves Macro-F1 by 0.017.
+- Seed43 selected a `train` fit variant, so a conservative paper-facing interpretation should also report the `class_aware_prob_val-cv` subset or explicitly mark train-fit results as optimistic/exploratory.
 
-A4b-6 当前结果：
+A4b-6 current result:
 
-- A4b-6 同样是 frozen expert 后处理实验，固定 ToT 为 primary expert，candidate 只作为 residual correction。
-- 三 seed validation-selected residual 相比 ToT primary：Test Acc 从 70.44±0.15% 提高到 71.44±1.01%，MAE 从 5.949±0.068 降到 5.800±0.077，Macro-F1 从 0.636±0.009 提高到 0.656±0.010。
-- 相比 A4b-4e rule selector，A4b-6 Test Acc 基本不变，但 MAE 和 Macro-F1 略有改善。
-- 相比 A4b-5，A4b-6 Test Acc -0.73 percentage points，MAE +0.139 deg，Macro-F1 -0.006。
+- A4b-6 is also a frozen-expert post-processing experiment. ToT remains the primary expert, and the candidate is used only as a residual correction.
+- Across three seeds, the validation-selected residual improves Test Acc from 70.44 +/- 0.15% to 71.44 +/- 1.01%, reduces MAE from 5.949 +/- 0.068 to 5.800 +/- 0.077, and raises Macro-F1 from 0.636 +/- 0.009 to 0.656 +/- 0.010.
+- Relative to A4b-4e rule selector, A4b-6 has nearly identical Test Acc but slightly better MAE and Macro-F1.
+- Relative to A4b-5, A4b-6 has lower Test Acc by 0.73 percentage points, higher MAE by 0.139 deg, and lower Macro-F1 by 0.006.
 
-阶段性结论：
+Stage conclusion:
 
-- A4b-5 是当前 A4b 系列里最强的实际选择性融合结果。
-- A4b-6 证明 residual correction 能优于 ToT baseline，但更适合作为 residual-fusion 对照，而不是最终最佳方法。
-- 按 test 排序的 entropy soft gate 或 entropy residual 变体只能作为诊断现象记录；正式结论仍使用 validation-selected 策略。
-
+- A4b-5 is the strongest practical A4b selective-fusion result.
+- A4b-6 confirms that residual correction can improve over the ToT baseline, but it is better framed as a residual-fusion control than as the final best method.
+- Test-ranked entropy soft gate or entropy residual variants are diagnostic observations only. Formal conclusions should use validation-selected strategies.
 ## A4b-7: ToA-Only Relative Controls
 
 Goal: isolate whether relative ToA itself is stronger than raw ToA.
@@ -755,3 +760,4 @@ Do not handle these inside A4b:
 - Any threshold, selector type, alpha, feature set, or gate variant must be chosen on validation.
 - Report both accuracy and angle-aware metrics: MAE, P90, macro-F1, per-class F1, and confusion matrix.
 - For 30 deg, always report class-specific metrics because current evidence shows the main complementarity there.
+
