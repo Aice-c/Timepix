@@ -531,6 +531,43 @@ def a4b_selected_high_angle_stats(stem: str) -> dict[str, str]:
     }
 
 
+def a4b_modality_high_angle_stats(stem: str, method: str) -> dict[str, str]:
+    val_values: list[float] = []
+    test_values: list[float] = []
+    selected_method = method.startswith("validation_selected")
+    for seed in ("42", "43", "44"):
+        path = OUTPUTS / f"{stem}_seed{seed}_by_class.csv"
+        if not path.exists():
+            continue
+        split_values: dict[str, list[float]] = {"val": [], "test": []}
+        for src in read_csv(path):
+            split = src.get("split", "")
+            if split not in split_values:
+                continue
+            angle = to_float(src.get("class_angle", ""))
+            f1 = to_float(src.get("f1", ""))
+            if angle is None or f1 is None or angle < 45.0:
+                continue
+            if selected_method:
+                if str(src.get("selected_strategy", "")).lower() != "true":
+                    continue
+            elif src.get("strategy", "") != method:
+                continue
+            split_values[split].append(f1)
+        if split_values["val"]:
+            val_values.append(statistics.mean(split_values["val"]))
+        if split_values["test"]:
+            test_values.append(statistics.mean(split_values["test"]))
+    val_mean, val_std = mean_std(val_values)
+    test_mean, test_std = mean_std(test_values)
+    return {
+        "val_high_angle_macro_f1_mean": val_mean,
+        "val_high_angle_macro_f1_std": val_std,
+        "test_high_angle_macro_f1_mean": test_mean,
+        "test_high_angle_macro_f1_std": test_std,
+    }
+
+
 def a4b_run_rows(path: Path, experiment_id: str, keep: set[str]) -> list[dict[str, object]]:
     rows = []
     by_class = high_angle_from_by_class(Path(str(path).replace("_summary.csv", "_by_class.csv")))
@@ -1083,7 +1120,18 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "notes": "A4b prediction-level fusion / oracle / selector diagnostics",
             }
             for key, value in src.items():
+                if key.startswith(("val_confusion_", "test_confusion_")):
+                    continue
                 if key.startswith(("val_", "test_")) or key in {"n_runs", "seeds", "selected_strategies"}:
+                    row[key] = value
+            if experiment_id == "A4b-candidate":
+                stem = "a4b_4e_rule_selector"
+            elif experiment_id == "A4b-5":
+                stem = "a4b_5_gated_late_fusion"
+            else:
+                stem = "a4b_6_residual_gated_fusion"
+            for key, value in a4b_modality_high_angle_stats(stem, src.get("method", "")).items():
+                if value and not row.get(key):
                     row[key] = value
             rows.append(row)
 
@@ -1110,6 +1158,8 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "notes": "A4c end-to-end fusion gate/FiLM diagnostics",
             }
             for key, value in src.items():
+                if key.startswith(("val_confusion_", "test_confusion_")):
+                    continue
                 if key.startswith(("val_", "test_")) or key in {"n_runs", "seeds", "model", "fusion_mode", "expert_gate_freeze_experts"}:
                     row[key] = value
             if experiment_id == "A4c-1-3":
@@ -1139,6 +1189,8 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "notes": "A7 final component check; gate_tot/gate_toa describe GMU image branches only",
             }
             for key, value in src.items():
+                if key.startswith(("val_confusion_", "test_confusion_")):
+                    continue
                 if key.startswith(("val_", "test_")) or key in {"n_runs", "seeds", "model", "fusion_mode"}:
                     row[key] = value
             summary_key = (src.get("model", ""), src.get("handcrafted_features", ""))
@@ -1269,6 +1321,20 @@ def build_loss_rows() -> list[dict[str, object]]:
         source_file: str,
         notes: str,
     ) -> None:
+        json_metrics: dict[str, object] = {}
+        metric_path = metrics_path_from_source(src)
+        if metric_path:
+            try:
+                metric_data = read_json(metric_path)
+                dataset = str(src.get("dataset", ""))
+                json_metrics.update(split_metrics(metric_data, "validation", dataset))
+                json_metrics.update(split_metrics(metric_data, "test", dataset))
+            except (OSError, json.JSONDecodeError):
+                json_metrics = {}
+
+        def metric_value(field: str) -> object:
+            return src.get(field, "") or json_metrics.get(field, "")
+
         rows.append({
             "experiment_id": experiment_id,
             "phase": phase,
@@ -1288,16 +1354,16 @@ def build_loss_rows() -> list[dict[str, object]]:
             "emd_angle_weighted": src.get("emd_angle_weighted", ""),
             "selection_status": selection_status,
             "reference_baseline_id": reference_baseline_id,
-            "val_accuracy": src.get("val_accuracy", ""),
-            "val_mae_argmax": src.get("val_mae_argmax", ""),
-            "val_macro_f1": src.get("val_macro_f1", ""),
-            "val_high_angle_macro_f1": src.get("val_high_angle_macro_f1", ""),
-            "val_far_error_rate_abs_ge_20": src.get("val_far_error_rate_abs_ge_20", ""),
-            "test_accuracy": src.get("test_accuracy", ""),
-            "test_mae_argmax": src.get("test_mae_argmax", ""),
-            "test_macro_f1": src.get("test_macro_f1", ""),
-            "test_high_angle_macro_f1": src.get("test_high_angle_macro_f1", ""),
-            "test_far_error_rate_abs_ge_20": src.get("test_far_error_rate_abs_ge_20", ""),
+            "val_accuracy": metric_value("val_accuracy"),
+            "val_mae_argmax": metric_value("val_mae_argmax"),
+            "val_macro_f1": metric_value("val_macro_f1"),
+            "val_high_angle_macro_f1": metric_value("val_high_angle_macro_f1"),
+            "val_far_error_rate_abs_ge_20": metric_value("val_far_error_rate_abs_ge_20"),
+            "test_accuracy": metric_value("test_accuracy"),
+            "test_mae_argmax": metric_value("test_mae_argmax"),
+            "test_macro_f1": metric_value("test_macro_f1"),
+            "test_high_angle_macro_f1": metric_value("test_high_angle_macro_f1"),
+            "test_far_error_rate_abs_ge_20": metric_value("test_far_error_rate_abs_ge_20"),
             "source_file": source_file,
             "notes": notes,
         })

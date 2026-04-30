@@ -40,12 +40,8 @@ table_name,field,empty_cells,total_rows,empty_rate,category,affected_experiments
 05_modality_and_gate_diagnostics.csv,test_film_beta_abs_mean_std,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
 05_modality_and_gate_diagnostics.csv,test_seconds_mean,12,18,0.6666666666666666,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
 05_modality_and_gate_diagnostics.csv,test_seconds_std,12,18,0.6666666666666666,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_mean,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_std,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
 05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_mean,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
 05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_std,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_mean,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_std,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
 05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_mean,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
 05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_std,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
 05_modality_and_gate_diagnostics.csv,expert_gate_freeze_experts,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
@@ -58,14 +54,6 @@ table_name,field,empty_cells,total_rows,empty_rate,category,affected_experiments
 05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_mean,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
 05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_std,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
 05_modality_and_gate_diagnostics.csv,handcrafted_features,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_confusion_45_50_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,val_confusion_45_50_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,test_confusion_45_50_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,test_confusion_45_50_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,val_confusion_60_70_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,val_confusion_60_70_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,test_confusion_60_70_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
-05_modality_and_gate_diagnostics.csv,test_confusion_60_70_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
 06_handcrafted_feature_results.csv,split,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
 06_handcrafted_feature_results.csv,accuracy,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
 06_handcrafted_feature_results.csv,macro_f1,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
@@ -91,8 +79,3 @@ table_name,field,empty_cells,total_rows,empty_rate,category,affected_experiments
 07_loss_strategy_results.csv,emd_weight,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
 07_loss_strategy_results.csv,emd_p,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
 07_loss_strategy_results.csv,emd_angle_weighted,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,val_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
-07_loss_strategy_results.csv,val_high_angle_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
-07_loss_strategy_results.csv,val_far_error_rate_abs_ge_20,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
-07_loss_strategy_results.csv,test_high_angle_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
-07_loss_strategy_results.csv,test_far_error_rate_abs_ge_20,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
