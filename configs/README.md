@@ -370,8 +370,8 @@ A6a 主结果：
 - `CE+ExpectedMAE lambda=0.02` 仅作为 A6a 结果解释中的诊断点；它对 test Macro-F1 和 30 deg test recall/F1 更好，但不能作为 validation-selected 主模型，因此不进入 A6b。
 - A6b 收窄为只验证 validation-selected `CE+EMD lambda=0.02`。
 - Gaussian soft label 不进入 A6b。`sigma=10` 虽然 test accuracy 最高，但 validation 不支持，不能用 test 反选。
-- A6b 配置已创建；CE baseline 继续复用 A2-best three-seed。
-- A6c 需等待 A6b 证明 best loss 有稳定价值后再迁移到 `dual_stream_gmu_aux`。
+- A6b 已完成；CE baseline 继续复用 A2-best three-seed。
+- A6b 结果显示 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，因此 A6c 不推进，不把该 loss 迁移到 `dual_stream_gmu_aux`。
 
 A6b `CE+EMD lambda=0.02` three-seed：
 
@@ -383,6 +383,59 @@ python scripts/run_grid.py --config configs/experiments/a6b_alpha_tot_ce_emd_0p0
 python scripts/summarize.py --group a6b_alpha_tot_ce_emd_0p02_3seed --out outputs/a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv && \
 python scripts/aggregate_seeds.py --summary outputs/a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv --out outputs/a6b_alpha_tot_ce_emd_0p02_3seed_mean_std.csv
 ```
+
+A6b 三 seed 汇总：
+
+| 方法 | Val Acc | Val MAE | Val P90 | Val Macro-F1 | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A2 CE baseline | **69.03±0.46%** | **6.424±0.127** | 25.0±8.66 | **0.622±0.007** | **70.44±0.15%** | **5.949±0.068** | **15.0±0.0** | **0.636±0.009** |
+| A6b CE+EMD lambda=0.02 | 68.33±1.15% | 6.618±0.424 | 25.0±8.66 | 0.609±0.034 | 69.62±0.80% | 6.143±0.336 | 20.0±8.66 | 0.623±0.034 |
+
+A6b 结论：
+
+- A6a 中 `CE+EMD lambda=0.02` 的 seed42 tie-break 优势不稳定；seed43 明显退化。
+- 按 validation 指标，A2 CE baseline 全面优于 A6b。
+- `CE+EMD lambda=0.02` 未改善 30 deg 困难类别，且拉低 60 deg 类别表现。
+- Alpha-ToT 后续继续使用 A2 CE one-hot；A6c 不推进。
+
+### 5.10 A7 final multimodal + handcrafted confirmation
+
+A7 只回答一个问题：在最终端到端多模态架构 `A4c-2 dual_stream_gmu_aux` 上，A5 选出的五维物理标量 `main_5feat` 是否还有额外补充价值。A7 loss 固定为 `CE one-hot`，不再运行 `GMU + CE+EMD` 或其他 loss/feature/architecture 网格。
+
+对照关系：
+
+| 编号 | 设置 | 状态 |
+| --- | --- | --- |
+| A7-0 | `dual_stream_gmu_aux + CE one-hot + no handcrafted` | 复用 A4c GMU three-seed |
+| A7-1 | `dual_stream_gmu_aux + CE one-hot + main_5feat gated` | 新运行 three-seed |
+
+`main_5feat`：
+
+```text
+active_pixel_count
+bbox_fill_ratio
+ToT_density
+ToA_span
+ToA_major_axis_corr_abs
+```
+
+服务器命令：
+
+```bash
+tmux new -s a7
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a7_final_gmu_main5feat_gated_3seed --out outputs/a7_final_gmu_main5feat_gated_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a7_final_gmu_main5feat_gated_3seed_runs.csv --out outputs/a7_final_gmu_main5feat_gated_3seed_mean_std.csv
+```
+
+选择规则：
+
+- 只用 validation 判断是否把 `main_5feat` 纳入最终模型。
+- Primary: Val Acc。
+- Tie-break: Val MAE 更低，其次 Val Macro-F1 更高。
+- Test 只用于最终泛化报告，不能反向选择 A7-1。
 
 ## 六、Proton_C_7 主线配置与命令
 

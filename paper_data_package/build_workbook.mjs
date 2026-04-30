@@ -5,6 +5,7 @@ import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 const root = process.cwd();
 const packageDir = path.join(root, "paper_data_package");
 const outputPath = path.join(packageDir, "timepix_paper_data_package.xlsx");
+const fallbackOutputPath = path.join(packageDir, "timepix_paper_data_package_updated.xlsx");
 
 const csvFiles = [
   ["00_index", "00_experiment_index.csv"],
@@ -14,8 +15,12 @@ const csvFiles = [
   ["04_errors", "04_error_structure.csv"],
   ["05_modality", "05_modality_and_gate_diagnostics.csv"],
   ["06_features", "06_handcrafted_feature_results.csv"],
+  ["06a_hc_models", "06a_handcrafted_classical_metrics.csv"],
+  ["06b_hc_import", "06b_handcrafted_feature_importance.csv"],
+  ["06c_hc_cnn", "06c_handcrafted_cnn_fusion.csv"],
   ["07_loss", "07_loss_strategy_results.csv"],
   ["08_excluded", "08_excluded_or_diagnostic_runs.csv"],
+  ["09_missing", "09_missing_value_audit.csv"],
 ];
 
 function parseCsv(text) {
@@ -107,5 +112,14 @@ const preview = await workbook.inspect({
 console.log(preview.ndjson);
 
 const output = await SpreadsheetFile.exportXlsx(workbook);
-await output.save(outputPath);
-console.log(outputPath);
+try {
+  await output.save(outputPath);
+  console.log(outputPath);
+} catch (error) {
+  if (error && error.code === "EBUSY") {
+    await output.save(fallbackOutputPath);
+    console.log(fallbackOutputPath);
+  } else {
+    throw error;
+  }
+}

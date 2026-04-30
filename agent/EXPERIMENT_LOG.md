@@ -74,7 +74,8 @@ python scripts/aggregate_seeds.py --summary outputs/<name>_runs.csv --out output
 | A4b | ToA 选择性辅助融合 | 已完成 | frozen expert gated late fusion 与 residual fusion 可利用相对 ToA candidate 的互补性 |
 | A4c | 端到端 ToT/ToA 双模态架构 | 已完成 | GMU_aux 是论文主推端到端多模态架构；concat_aux 和 FiLM 是重要对照 |
 | A5 | 物理/手工标量特征融合 | 已完成 | 手工特征有解释性补充，但三 seed 下未稳定提高 Alpha test accuracy |
-| A6 | Alpha 有序角度损失 | A6a 已完成，A6b 配置已撰写 | A6b 只验证 `CE + EMD λ=0.02`；CE baseline 复用 A2-best，不重跑 |
+| A6 | Alpha 有序角度损失 | 已完成 | A6b 三 seed 证明 `CE + EMD λ=0.02` 不稳定且弱于 A2 CE baseline；Alpha-ToT 继续采用 A2 CE one-hot |
+| A7 | Alpha 最终多模态组件确认 | 已配置 | 固定最终端到端多模态架构 `A4c-2 dual_stream_gmu_aux` 与 CE one-hot，只验证 A5 `main_5feat` 是否还能补充 GMU |
 | B1 | Proton_C_7 训练超参数搜索 | 已完成 | B1-best 使用 `lr=3e-4`、`batch=128`、`wd=1e-4`、`patience=8` |
 | B2 | Proton_C_7 手工特征验证 | 已完成 | 手工特征增益极小；gated 可抑制坏特征但不形成显著提升 |
 | B3 | Proton_C_7 有序角度损失 | 已完成 | `CE + ExpectedMAE λ=0.05` 是 Proton_C_7 当前推荐 loss |
@@ -979,7 +980,7 @@ python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_
 
 ### A6：Alpha 有序角度损失与标签策略
 
-状态：A6a 已完成；A6b 配置已撰写，待运行；A6c 待 A6b 结果。
+状态：A6a/A6b 已完成；A6c 不推进。
 
 实验目的：在固定结构和输入设置下比较角度有序性 loss/label strategy，检查 CE one-hot 是否过于粗糙，是否能降低 MAE、改善 Macro-F1 和 30° 困难类别。
 
@@ -1072,7 +1073,7 @@ A6a 阶段判断：
 
 #### A6b：three-seed verification
 
-状态：配置已撰写，待运行。
+状态：已完成。
 
 计划：
 
@@ -1099,15 +1100,112 @@ python scripts/summarize.py --group a6b_alpha_tot_ce_emd_0p02_3seed --out output
 python scripts/aggregate_seeds.py --summary outputs/a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv --out outputs/a6b_alpha_tot_ce_emd_0p02_3seed_mean_std.csv
 ```
 
+逐 seed 结果：
+
+| Seed | Best epoch | Stopped epoch | Early stop | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| ---: | ---: | ---: | :---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 42 | 23 | 25 | 否 | 69.53% | 6.264 | 0.636 | 69.68% | 5.964 | 0.641 |
+| 43 | 3 | 11 | 是 | 67.23% | 7.088 | 0.570 | 68.79% | 6.531 | 0.584 |
+| 44 | 18 | 25 | 否 | 68.23% | 6.503 | 0.621 | 70.38% | 5.934 | 0.644 |
+
+A2 vs A6b 三 seed 汇总：
+
+| 方法 | Val Acc | Val MAE | Val P90 | Val Macro-F1 | Test Acc | Test MAE | Test P90 | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A2 CE baseline | **69.03±0.46%** | **6.424±0.127** | 25.0±8.66 | **0.622±0.007** | **70.44±0.15%** | **5.949±0.068** | **15.0±0.0** | **0.636±0.009** |
+| A6b CE+EMD lambda=0.02 | 68.33±1.15% | 6.618±0.424 | 25.0±8.66 | 0.609±0.034 | 69.62±0.80% | 6.143±0.336 | 20.0±8.66 | 0.623±0.034 |
+
+逐类 F1 对比：
+
+| 方法 | Split | 15 deg F1 | 30 deg F1 | 45 deg F1 | 60 deg F1 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| A2 CE baseline | Val | 0.727 | 0.323 | 0.761 | 0.676 |
+| A6b CE+EMD | Val | 0.725 | 0.316 | 0.757 | 0.637 |
+| A2 CE baseline | Test | 0.762 | 0.357 | 0.757 | 0.669 |
+| A6b CE+EMD | Test | 0.752 | 0.336 | 0.757 | 0.647 |
+
+A6b 阶段判断：
+
+- A6a 中 `CE+EMD lambda=0.02` 的 seed42 validation tie-break 优势不可靠；A6b seed43 明显崩了一次，导致三 seed 均值和方差均弱于 A2 CE baseline。
+- 按 validation 选择规则，A2 CE baseline 全面优于 A6b：Val Acc 高 0.70 pp，Val MAE 低 0.195 deg，Val Macro-F1 高 0.013。
+- A6b 没有解决 Alpha-ToT 最关键的 30 deg 难分类问题；30 deg F1 反而低于 A2 baseline。主要负面影响体现在 60 deg 类别下降，45 deg 基本持平。
+- A6 最终结论：Alpha-ToT 不采用 `CE+EMD lambda=0.02` 或其他 A6a 候选有序损失；后续 Alpha ToT baseline 继续使用 A2 CE one-hot。
+
 #### A6c：迁移到 GMU 多模态架构
 
-状态：待 A6b 结果。
+状态：不推进。
 
 计划：
 
-- 若 A6b 证明 `CE+EMD lambda=0.02` 在 ToT baseline 上有稳定 validation/MAE/F1 收益，则再考虑迁移到 A4c-2 `dual_stream_gmu_aux`。
-- 如果 A6b 仍然只是 tie-break 级别或不稳定收益，则 A6c 不优先推进，避免给 GMU 主线引入复杂 loss 变量。
-- 不优先迁移到 A4b frozen expert 系统，因为那需要重新训练 primary/candidate expert 后再重新 gate，工程复杂度较高。
+- A6b 已证明有序损失在 Alpha-ToT baseline 上不稳定且弱于 CE one-hot，因此不把该 loss 迁移到 A4c-2 `dual_stream_gmu_aux`。
+- 决策理由：GMU 已经是 A4c 的端到端多模态主推架构；在 A6b 没有稳定收益的前提下，继续叠加有序损失会增加变量并削弱主线清晰度。
+
+### A7：最终多模态架构的手工物理特征增益验证
+
+状态：已配置，待运行。
+
+实验目的：在已经确定的最终端到端多模态架构上，只验证 A5 选出的五维物理标量 `main_5feat` 是否还能提供额外补充价值。A7 不再扩展 loss、feature group 或新的多模态架构。
+
+关键决策：
+
+- A6b 已否定 Alpha 上的 `CE+EMD lambda=0.02`，因此 A7 loss 固定回 `CE one-hot`。
+- 最终端到端多模态架构固定为 A4c-2 `dual_stream_gmu_aux`，输入为 `ToT + relative_minmax ToA, no mask`。
+- `A7-0` 不重跑，直接复用 A4c 中 `dual_stream_gmu_aux` 的 three-seed 结果。
+- `A7-1` 只跑一组：`GMU_aux + CE one-hot + main_5feat gated`，三 seed。
+- 不运行 `toa_only_diag`。原因是它在 A5d 中是 side diagnostic；A7 的问题是低维几何、ToT 与 ToA 物理摘要整体是否还能补充 GMU，而不是继续比较特征组。
+- 不运行 `GMU + CE+EMD`、`GMU + CE+EMD + handcrafted`、更多 Gaussian / ExpectedMAE / EMD 或 MMTM 等新结构。
+
+固定配置：
+
+- Dataset: `Alpha_100`
+- Split: `outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json`
+- Image input: `ToT + ToA`
+- ToA transform: `relative_minmax`
+- Hit mask: disabled
+- Model: `dual_stream_gmu_aux`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Training config: A2 best
+- Loss: `cross_entropy`, `onehot`
+- Handcrafted fusion: `gated`
+- Handcrafted source: `ToT + ToA`
+- Seeds: `42, 43, 44`
+
+`main_5feat`：
+
+```text
+active_pixel_count
+bbox_fill_ratio
+ToT_density
+ToA_span
+ToA_major_axis_corr_abs
+```
+
+配置文件：
+
+```text
+configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml
+```
+
+服务器命令：
+
+```bash
+tmux new -s a7
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a7_final_gmu_main5feat_gated_3seed --out outputs/a7_final_gmu_main5feat_gated_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a7_final_gmu_main5feat_gated_3seed_runs.csv --out outputs/a7_final_gmu_main5feat_gated_3seed_mean_std.csv
+```
+
+选择与解释规则：
+
+- 只用 validation 判断 `main_5feat` 是否进入最终模型。
+- Primary: `Val Acc`。
+- Tie-break: `Val MAE` 更低、`Val Macro-F1` 更高。
+- 如果 A7-1 的 Val Acc 高于 A7-0，则手工物理标量进入最终模型。
+- 如果 Val Acc 基本持平，但 Val MAE 和 Val Macro-F1 同时改善，可作为 error-balanced final variant。
+- 如果 validation 弱于 A7-0，即使 test 偶然更好，也不进入最终主模型，只作为诊断说明 GMU 图像分支已经吸收了大部分物理标量信息。
+- 论文中需要区分两层 gate：GMU gate 融合 ToT/relative-ToA 图像分支；handcrafted gated fusion 融合 GMU 深度特征与五维物理标量。
 
 ## 四、Proton_C_7 主线
 
@@ -1447,8 +1545,6 @@ python scripts/make_analysis_report.py
 
 ## 七、当前待办
 
-1. 运行 A6b：`CE+EMD lambda=0.02` three-seed；不运行 ExpectedMAE。
-2. A6b 完成后，对照 A2-best three-seed 判断收益是否稳定；若仍是弱 tie-break 收益，则不优先推进 A6c。
-3. 另一个窗口整理最终 CSV 结果后，回填本文档中仍需更精确的数值表。
-4. 论文写作时应将 A4c GMU 的选择依据写为 validation Macro-F1 接近最优、Val MAE 更好、结构解释更符合物理结论；不能用 test 结果反向选择 GMU。
-5. 5.5 Pro 交接文档需要与本日志同步，尤其是 A4c 最终架构口径、A5 收口口径、B3 最终 loss 口径。
+1. 另一个窗口整理最终 CSV 结果后，回填本文档中仍需更精确的数值表。
+2. 论文写作时应将 A4c GMU 的选择依据写为 validation Macro-F1 接近最优、Val MAE 更好、结构解释更符合物理结论；不能用 test 结果反向选择 GMU。
+3. 5.5 Pro 交接文档需要与本日志同步，尤其是 A4c 最终架构口径、A5 收口口径、A6 负结果口径、B3 最终 loss 口径。

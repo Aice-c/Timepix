@@ -1,0 +1,64 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a7_final_gmu_main5feat_gated_3seed
+experiment_group: a7_final_gmu_main5feat_gated_3seed
+
+dataset:
+  modalities: [ToT, ToA]
+
+normalization:
+  ToT:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+  ToA:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+
+split:
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/Alpha_100_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+model:
+  name: dual_stream_gmu_aux
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: gated
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+  gate:
+    init_bias_to_tot: 2.0
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT, ToA]
+  features:
+    - active_pixel_count
+    - bbox_fill_ratio
+    - ToT_density
+    - ToA_span
+    - ToA_major_axis_corr_abs
+
+grid:
+  training.seed:
+    - 42
+    - 43
+    - 44

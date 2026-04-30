@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 import statistics
 from collections import defaultdict
@@ -136,6 +137,31 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(f))
 
 
+def long_path(path: Path) -> str:
+    """Return a Windows long-path-safe string when needed."""
+    resolved = str(path.resolve())
+    if os.name != "nt" or resolved.startswith("\\\\?\\"):
+        return resolved
+    if resolved.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + resolved.lstrip("\\")
+    return "\\\\?\\" + resolved
+
+
+def file_exists(path: Path) -> bool:
+    if path.exists():
+        return True
+    try:
+        with open(long_path(path), "rb"):
+            return True
+    except OSError:
+        return False
+
+
+def read_json(path: Path) -> dict:
+    with open(long_path(path), "r", encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
 def write_csv(path: Path, rows: list[dict[str, object]], fields: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
@@ -216,7 +242,49 @@ def seed_from_text(text: str) -> str:
     return matches[-1] if matches else ""
 
 
-def split_metrics(metrics: dict, split: str) -> dict[str, object]:
+def angle_values(dataset: str) -> list[float]:
+    return [float(value) for value in class_angles(dataset)]
+
+
+def derive_high_angle_macro_f1(split_data: dict, dataset: str) -> object:
+    value = split_data.get("high_angle_macro_f1")
+    if value not in (None, ""):
+        return value
+    angles = angle_values(dataset)
+    per_class = split_data.get("per_class", [])
+    values = [
+        to_float(item.get("f1"))
+        for item, angle in zip(per_class, angles)
+        if angle >= 45.0
+    ]
+    values = [value for value in values if value is not None]
+    if not values:
+        return ""
+    return statistics.mean(values)
+
+
+def derive_far_error_rate(split_data: dict, dataset: str) -> object:
+    value = split_data.get("far_error_rate_abs_ge_20")
+    if value not in (None, ""):
+        return value
+    angles = angle_values(dataset)
+    confusion = split_data.get("confusion_matrix", [])
+    if not angles or not confusion:
+        return ""
+    total = 0
+    far = 0
+    for i, row in enumerate(confusion):
+        for j, count in enumerate(row):
+            if i >= len(angles) or j >= len(angles):
+                continue
+            n = int(count)
+            total += n
+            if abs(angles[i] - angles[j]) >= 20.0:
+                far += n
+    return far / total if total else ""
+
+
+def split_metrics(metrics: dict, split: str, dataset: str = "") -> dict[str, object]:
     data = metrics.get(split, {})
     prefix = "val" if split == "validation" else split
     return {
@@ -224,13 +292,15 @@ def split_metrics(metrics: dict, split: str) -> dict[str, object]:
         f"{prefix}_mae_argmax": data.get("mae_argmax", ""),
         f"{prefix}_p90_error": data.get("p90_error", ""),
         f"{prefix}_macro_f1": data.get("macro_f1", ""),
+        f"{prefix}_high_angle_macro_f1": derive_high_angle_macro_f1(data, dataset),
+        f"{prefix}_far_error_rate_abs_ge_20": derive_far_error_rate(data, dataset),
     }
 
 
 def a2_runs() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for path in sorted((EXPERIMENTS / "a2_best_3seed").glob("*/metrics.json")):
-        metrics = json.loads(path.read_text(encoding="utf-8"))
+        metrics = read_json(path)
         seed = seed_from_text(str(path.parent))
         row = {
             "experiment_id": "A2-best",
@@ -252,8 +322,8 @@ def a2_runs() -> list[dict[str, object]]:
             "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
             "notes": "formal Alpha ToT-only baseline",
         }
-        row.update(split_metrics(metrics, "validation"))
-        row.update(split_metrics(metrics, "test"))
+        row.update(split_metrics(metrics, "validation", "Alpha_100"))
+        row.update(split_metrics(metrics, "test", "Alpha_100"))
         rows.append(row)
     return rows
 
@@ -290,9 +360,10 @@ def row_from_run_csv(
     metric_path = metrics_path_from_source(source)
     if metric_path:
         try:
-            metric_data = json.loads(metric_path.read_text(encoding="utf-8"))
-            json_metrics.update(split_metrics(metric_data, "validation"))
-            json_metrics.update(split_metrics(metric_data, "test"))
+            metric_data = read_json(metric_path)
+            dataset = source.get("dataset", "")
+            json_metrics.update(split_metrics(metric_data, "validation", dataset))
+            json_metrics.update(split_metrics(metric_data, "test", dataset))
         except (OSError, json.JSONDecodeError):
             json_metrics = {}
     for metric in METRICS:
@@ -327,7 +398,7 @@ def metrics_path_from_source(source: dict[str, object]) -> Path | None:
     if not exp_dir:
         return None
     path = local_path(exp_dir) / "metrics.json"
-    return path if path.exists() else None
+    return path if file_exists(path) else None
 
 
 def runs_from_csv_group(
@@ -346,8 +417,52 @@ def runs_from_csv_group(
     return rows
 
 
+def high_angle_from_by_class(path: Path) -> dict[tuple[str, str, str], float]:
+    values: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    if not path.exists():
+        return {}
+    for src in read_csv(path):
+        split = src.get("split", "")
+        if split not in {"val", "test"}:
+            continue
+        angle = to_float(src.get("class_angle", ""))
+        f1 = to_float(src.get("f1", ""))
+        if angle is None or f1 is None or angle < 45.0:
+            continue
+        strategy = src.get("strategy", src.get("method_id", ""))
+        values[(src.get("seed", ""), strategy, split)].append(f1)
+    return {key: statistics.mean(items) for key, items in values.items() if items}
+
+
+def a4b_selected_high_angle_stats(stem: str) -> dict[str, str]:
+    val_values: list[float] = []
+    test_values: list[float] = []
+    for seed in ("42", "43", "44"):
+        summary_path = OUTPUTS / f"{stem}_seed{seed}_summary.csv"
+        by_class = high_angle_from_by_class(OUTPUTS / f"{stem}_seed{seed}_by_class.csv")
+        selected = [row for row in read_csv(summary_path) if row.get("selected_by_val") == "True"]
+        if not selected:
+            continue
+        strategy = selected[0].get("strategy", "")
+        val = by_class.get((seed, strategy, "val"))
+        test = by_class.get((seed, strategy, "test"))
+        if val is not None:
+            val_values.append(val)
+        if test is not None:
+            test_values.append(test)
+    val_mean, val_std = mean_std(val_values)
+    test_mean, test_std = mean_std(test_values)
+    return {
+        "val_high_angle_macro_f1_mean": val_mean,
+        "val_high_angle_macro_f1_std": val_std,
+        "test_high_angle_macro_f1_mean": test_mean,
+        "test_high_angle_macro_f1_std": test_std,
+    }
+
+
 def a4b_run_rows(path: Path, experiment_id: str, keep: set[str]) -> list[dict[str, object]]:
     rows = []
+    by_class = high_angle_from_by_class(Path(str(path).replace("_summary.csv", "_by_class.csv")))
     for src in read_csv(path):
         strategy = src.get("strategy", "")
         if strategy not in keep:
@@ -371,6 +486,7 @@ def a4b_run_rows(path: Path, experiment_id: str, keep: set[str]) -> list[dict[st
         for split in ("val", "test"):
             for metric in ("accuracy", "mae_argmax", "p90_error", "macro_f1"):
                 row[f"{split}_{metric}"] = src.get(f"{split}_{metric}", "")
+            row[f"{split}_high_angle_macro_f1"] = by_class.get((src.get("seed", ""), strategy, split), "")
         rows.append(row)
     return rows
 
@@ -528,7 +644,7 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
         "baseline reference for Alpha experiments",
     ))
 
-    for path, experiment_id, method_id, label, basis, note in [
+    for path, experiment_id, method_id, label, basis, note, stem, fusion_mode in [
         (
             OUTPUTS / "a4b_5_gated_late_fusion_mean_std.csv",
             "A4b-5",
@@ -536,6 +652,8 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             "A4b-5 validation-selected late fusion selector",
             "validation-selected selector within A4b-5",
             "best selector chosen by validation, not by test",
+            "a4b_5_gated_late_fusion",
+            "selector",
         ),
         (
             OUTPUTS / "a4b_6_residual_gated_fusion_mean_std.csv",
@@ -544,15 +662,25 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             "A4b-6 validation-selected residual fusion",
             "validation-selected residual rule within A4b-6",
             "best residual selector chosen by validation, not by test",
+            "a4b_6_residual_gated_fusion",
+            "residual_selector",
         ),
     ]:
         for src in read_csv(path):
             if src.get("method") == method_id:
-                rows.append(summary_row_from_mean_std(index, path, src, experiment_id, method_id, label, basis, note))
+                extra = {
+                    "model": "late_prediction_fusion",
+                    "fusion_mode": fusion_mode,
+                    "loss": "cross_entropy",
+                    "label_encoding": "onehot",
+                }
+                extra.update(a4b_selected_high_angle_stats(stem))
+                rows.append(summary_row_from_mean_std(index, path, src, experiment_id, method_id, label, basis, note, extra=extra))
 
     a4c_path = OUTPUTS / "a4c_end_to_end_bimodal_fusion_mean_std.csv"
     for src in read_csv(a4c_path):
         model = src.get("model", "")
+        extra = summarize_runs(by_exp_method[("A4c-1-3", model)])
         rows.append(summary_row_from_mean_std(
             index,
             a4c_path,
@@ -562,8 +690,7 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             f"A4c {model}",
             "three-seed end-to-end bimodal comparison; selection by validation",
             "A4c formal end-to-end bimodal comparison; do not choose by test",
-            extra={"val_macro_f1_mean": summarize_runs(by_exp_method[("A4c-1-3", model)]).get("val_macro_f1_mean", ""),
-                   "val_macro_f1_std": summarize_runs(by_exp_method[("A4c-1-3", model)]).get("val_macro_f1_std", "")},
+            extra=extra,
         ))
 
     a5d_path = OUTPUTS / "a5d_alpha_handcrafted_gated_3seed_mean_std.csv"
@@ -580,12 +707,13 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             method_label_from_features(src.get("handcrafted_features", "")),
             "A5d internal comparison selected by validation only",
             "handcrafted feature ablation; test differences are report-only",
-            extra={"val_macro_f1_mean": extra.get("val_macro_f1_mean", ""), "val_macro_f1_std": extra.get("val_macro_f1_std", "")},
+            extra=extra,
         ))
 
     b1_path = OUTPUTS / "b1_proton_c7_resnet18_tot_best_patience8_3seed_mean_std.csv"
     b1_src = read_csv(b1_path)[0]
     b1_runs = by_exp_method[("B1-best", "resnet18_no_maxpool")]
+    b1_extra = summarize_runs(b1_runs)
     rows.append(summary_row_from_mean_std(
         index,
         b1_path,
@@ -595,8 +723,7 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
         "Proton_C_7 ToT baseline: ResNet18 no maxpool",
         "formal three-seed baseline",
         "baseline reference for Proton_C_7 experiments",
-        extra={"val_macro_f1_mean": summarize_runs(b1_runs).get("val_macro_f1_mean", ""),
-               "val_macro_f1_std": summarize_runs(b1_runs).get("val_macro_f1_std", "")},
+        extra=b1_extra,
     ))
 
     for path, experiment_id, method_id, label, basis, note in [
@@ -639,7 +766,7 @@ def per_class_from_metrics(
     seed: str,
     notes: str,
 ) -> list[dict[str, object]]:
-    metrics = json.loads(path.read_text(encoding="utf-8"))
+    metrics = read_json(path)
     angles = class_angles(dataset)
     out = []
     for split_name, split_key in [("val", "validation"), ("test", "test")]:
@@ -672,7 +799,7 @@ def metrics_path_from_run(row: dict[str, object]) -> Path | None:
     if not exp_dir:
         return None
     path = local_path(exp_dir) / "metrics.json"
-    return path if path.exists() else None
+    return path if file_exists(path) else None
 
 
 def build_per_class_rows() -> list[dict[str, object]]:
@@ -804,6 +931,8 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "dataset": "Alpha_100",
                 "particle": "alpha",
                 "modalities": "ToT+ToA",
+                "model": "late_prediction_fusion",
+                "fusion_mode": "selector_or_residual",
                 "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
                 "notes": "A4b prediction-level fusion / oracle / selector diagnostics",
             }
@@ -818,6 +947,10 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
     ]:
         if not path.exists():
             continue
+        if experiment_id == "A4c-1-3":
+            run_summaries = run_summaries_by_key(OUTPUTS / "a4c_end_to_end_bimodal_fusion_runs.csv", ["model"])
+        else:
+            run_summaries = run_summaries_by_key(OUTPUTS / "a4c_warm_started_expert_gate_runs.csv", ["model", "expert_gate_freeze_experts"])
         for src in read_csv(path):
             row = {
                 "experiment_id": experiment_id,
@@ -831,6 +964,13 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
             }
             for key, value in src.items():
                 if key.startswith(("val_", "test_")) or key in {"n_runs", "seeds", "model", "fusion_mode", "expert_gate_freeze_experts"}:
+                    row[key] = value
+            if experiment_id == "A4c-1-3":
+                summary_key = (src.get("model", ""),)
+            else:
+                summary_key = (src.get("model", ""), src.get("expert_gate_freeze_experts", ""))
+            for key, value in run_summaries.get(summary_key, {}).items():
+                if (key.endswith("_mean") or key.endswith("_std")) and not row.get(key):
                     row[key] = value
             rows.append(row)
     return rows
@@ -847,11 +987,22 @@ def write_dynamic_csv(path: Path, rows: list[dict[str, object]]) -> None:
     write_csv(path, rows, fields)
 
 
+def run_summaries_by_key(path: Path, key_fields: list[str]) -> dict[tuple[str, ...], dict[str, str]]:
+    grouped: dict[tuple[str, ...], list[dict[str, object]]] = defaultdict(list)
+    if not path.exists():
+        return {}
+    for src in read_csv(path):
+        key = tuple(src.get(field, "") for field in key_fields)
+        grouped[key].append(row_from_run_csv(src, "", "", "", path))
+    return {key: summarize_runs(rows) for key, rows in grouped.items()}
+
+
 def build_handcrafted_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     a5a_dir = OUTPUTS / "a5a_alpha_handcrafted_screening" / "a5a_alpha_handcrafted_screening"
     for src in read_csv(a5a_dir / "model_metrics.csv"):
         rows.append({
+            "row_type": "classical_model_metrics",
             "experiment_id": "A5a",
             "method_id": src.get("model", ""),
             "method_label": src.get("model", ""),
@@ -868,6 +1019,7 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
         })
     for src in read_csv(a5a_dir / "group_permutation_importance_val.csv"):
         rows.append({
+            "row_type": "feature_group_importance",
             "experiment_id": "A5a",
             "method_id": f"{src.get('model', '')}:{src.get('group', '')}",
             "method_label": f"{src.get('model', '')} group {src.get('group', '')}",
@@ -893,7 +1045,14 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
         if not path.exists():
             continue
         for src in read_csv(path):
+            json_metrics: dict[str, object] = {}
+            metric_path = metrics_path_from_source(src)
+            if metric_path:
+                metric_data = read_json(metric_path)
+                json_metrics.update(split_metrics(metric_data, "validation", src.get("dataset", "")))
+                json_metrics.update(split_metrics(metric_data, "test", src.get("dataset", "")))
             row = {
+                "row_type": "cnn_feature_fusion",
                 "experiment_id": experiment_id,
                 "method_id": method_id_from_features(src.get("handcrafted_features", "")),
                 "method_label": method_label_from_features(src.get("handcrafted_features", "")),
@@ -906,7 +1065,7 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
                 "handcrafted_source_modalities": src.get("handcrafted_source_modalities", ""),
                 "val_accuracy": src.get("val_accuracy", ""),
                 "val_mae_argmax": src.get("val_mae_argmax", ""),
-                "val_macro_f1": src.get("val_macro_f1", ""),
+                "val_macro_f1": src.get("val_macro_f1", "") or json_metrics.get("val_macro_f1", ""),
                 "test_accuracy": src.get("test_accuracy", ""),
                 "test_mae_argmax": src.get("test_mae_argmax", ""),
                 "test_macro_f1": src.get("test_macro_f1", ""),
@@ -974,6 +1133,62 @@ def build_excluded_rows(index: dict[str, dict[str, str]]) -> list[dict[str, obje
     return rows
 
 
+def split_handcrafted_rows(rows: list[dict[str, object]]) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
+    classical = [row for row in rows if row.get("row_type") == "classical_model_metrics"]
+    importance = [row for row in rows if row.get("row_type") == "feature_group_importance"]
+    cnn = [row for row in rows if row.get("row_type") == "cnn_feature_fusion"]
+    return classical, importance, cnn
+
+
+def categorize_missing(table_name: str, field: str, missing_rows: list[dict[str, object]]) -> tuple[str, str, str]:
+    experiments = {str(row.get("experiment_id", "")) for row in missing_rows}
+    if experiments == {"A6"}:
+        return "pending", "A6 尚未完成或尚未拉取结果。", "等待 A6 完成后重新生成。"
+    if table_name == "06_handcrafted_feature_results.csv":
+        return "heterogeneous_combined_table", "该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。", "论文分析优先使用 06a/06b/06c 拆分表。"
+    if field == "handcrafted_features":
+        return "not_applicable", "该实验没有启用手工特征。", "保持空值或在展示时标为 NA。"
+    if field in {"best_epoch", "stopped_epoch", "max_epochs", "early_stopped"} and any(exp.startswith("A4b") for exp in experiments):
+        return "not_applicable", "A4b 是基于已有预测的 post-hoc fusion，不重新训练。", "保持空值或在展示时标为 NA。"
+    if any(token in field for token in ["gate_", "film_", "selection_rate", "selected_strategies", "expert_gate"]):
+        return "not_applicable", "该字段只对特定 gate/FiLM/selector 方法存在。", "保持空值或在展示时标为 NA。"
+    if field in {"gaussian_sigma", "expected_mae_weight", "emd_weight", "emd_p", "emd_angle_weighted"}:
+        return "not_applicable", "该字段只对对应损失函数存在。", "保持空值或在展示时标为 NA。"
+    if field in {"test_seconds_mean", "test_seconds_std"} and any(exp.startswith("A4b") for exp in experiments):
+        return "not_applicable", "A4b 是后处理融合诊断，不是标准训练/测试计时实验。", "保持空值或在展示时标为 NA。"
+    if "far_error_rate" in field and any(exp.startswith("A4b") for exp in experiments):
+        return "source_missing", "A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。", "如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。"
+    if "high_angle_macro_f1" in field and any(exp.startswith("A4b") for exp in experiments):
+        return "partially_recoverable", "A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。", "检查具体 strategy 是否在 by_class 中。"
+    if field in {"model", "fusion_mode", "loss", "label_encoding"}:
+        return "source_missing", "源汇总表未携带该配置字段，或该行不是训练模型。", "必要时从实验索引或 metadata 回填。"
+    return "needs_review", "未被规则自动归类。", "人工抽查源文件。"
+
+
+def build_missing_audit(tables: dict[str, tuple[list[dict[str, object]], list[str]]]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for table_name, (table_rows, fields) in tables.items():
+        total = len(table_rows)
+        for field in fields:
+            missing = [row for row in table_rows if str(row.get(field, "")).strip() == ""]
+            if not missing:
+                continue
+            category, reason, action = categorize_missing(table_name, field, missing)
+            experiments = sorted({str(row.get("experiment_id", "")) for row in missing if str(row.get("experiment_id", ""))})
+            rows.append({
+                "table_name": table_name,
+                "field": field,
+                "empty_cells": len(missing),
+                "total_rows": total,
+                "empty_rate": len(missing) / total if total else "",
+                "category": category,
+                "affected_experiments": ";".join(experiments),
+                "reason": reason,
+                "recommended_action": action,
+            })
+    return rows
+
+
 def main() -> int:
     index = index_rows()
     run_rows = build_run_rows()
@@ -982,8 +1197,30 @@ def main() -> int:
     error_rows = build_error_rows(main_rows)
     modality_rows = build_modality_gate_rows()
     handcrafted_rows = build_handcrafted_rows()
+    handcrafted_classical_rows, handcrafted_importance_rows, handcrafted_cnn_rows = split_handcrafted_rows(handcrafted_rows)
     loss_rows = build_loss_rows()
     excluded_rows = build_excluded_rows(index)
+    error_fields = list(error_rows[0].keys()) if error_rows else []
+    modality_fields = list({key: None for row in modality_rows for key in row}.keys())
+    handcrafted_fields = list({key: None for row in handcrafted_rows for key in row}.keys())
+    handcrafted_classical_fields = list({key: None for row in handcrafted_classical_rows for key in row}.keys())
+    handcrafted_importance_fields = list({key: None for row in handcrafted_importance_rows for key in row}.keys())
+    handcrafted_cnn_fields = list({key: None for row in handcrafted_cnn_rows for key in row}.keys())
+    loss_fields = list({key: None for row in loss_rows for key in row}.keys())
+    excluded_fields = list(excluded_rows[0].keys()) if excluded_rows else []
+    audit_rows = build_missing_audit({
+        "01_main_results_summary.csv": (main_rows, MAIN_FIELDS),
+        "02_run_level_results.csv": (run_rows, RUN_FIELDS),
+        "03_per_class_results.csv": (per_class_rows, PER_CLASS_FIELDS),
+        "04_error_structure.csv": (error_rows, error_fields),
+        "05_modality_and_gate_diagnostics.csv": (modality_rows, modality_fields),
+        "06_handcrafted_feature_results.csv": (handcrafted_rows, handcrafted_fields),
+        "06a_handcrafted_classical_metrics.csv": (handcrafted_classical_rows, handcrafted_classical_fields),
+        "06b_handcrafted_feature_importance.csv": (handcrafted_importance_rows, handcrafted_importance_fields),
+        "06c_handcrafted_cnn_fusion.csv": (handcrafted_cnn_rows, handcrafted_cnn_fields),
+        "07_loss_strategy_results.csv": (loss_rows, loss_fields),
+        "08_excluded_or_diagnostic_runs.csv": (excluded_rows, excluded_fields),
+    })
 
     write_csv(PKG / "01_main_results_summary.csv", main_rows, MAIN_FIELDS)
     write_csv(PKG / "02_run_level_results.csv", run_rows, RUN_FIELDS)
@@ -991,8 +1228,12 @@ def main() -> int:
     write_dynamic_csv(PKG / "04_error_structure.csv", error_rows)
     write_dynamic_csv(PKG / "05_modality_and_gate_diagnostics.csv", modality_rows)
     write_dynamic_csv(PKG / "06_handcrafted_feature_results.csv", handcrafted_rows)
+    write_dynamic_csv(PKG / "06a_handcrafted_classical_metrics.csv", handcrafted_classical_rows)
+    write_dynamic_csv(PKG / "06b_handcrafted_feature_importance.csv", handcrafted_importance_rows)
+    write_dynamic_csv(PKG / "06c_handcrafted_cnn_fusion.csv", handcrafted_cnn_rows)
     write_dynamic_csv(PKG / "07_loss_strategy_results.csv", loss_rows)
     write_dynamic_csv(PKG / "08_excluded_or_diagnostic_runs.csv", excluded_rows)
+    write_dynamic_csv(PKG / "09_missing_value_audit.csv", audit_rows)
 
     print("paper_data_package tables generated")
     for path in sorted(PKG.glob("0*.csv")):

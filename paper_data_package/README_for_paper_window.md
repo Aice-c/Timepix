@@ -15,11 +15,15 @@
 - `03_per_class_results.csv`：主要方法的 validation/test 分类别 precision、recall、F1。
 - `04_error_structure.csv`：主结果的 MAE、P90、高角度 F1、远距离错误率等误差结构字段。
 - `05_modality_and_gate_diagnostics.csv`：A4b/A4c 多模态、selector、oracle、gate、FiLM 诊断数据。
-- `06_handcrafted_feature_results.csv`：A5/B2 手工特征筛选、消融和三 seed 验证数据。
+- `06_handcrafted_feature_results.csv`：A5/B2 手工特征筛选、消融和三 seed 验证数据的合并宽表。
+- `06a_handcrafted_classical_metrics.csv`：A5a 手工特征经典模型指标。
+- `06b_handcrafted_feature_importance.csv`：A5a 手工特征组重要性。
+- `06c_handcrafted_cnn_fusion.csv`：A5/B2 手工特征与 CNN 融合实验，优先给论文分析窗口使用。
 - `07_loss_strategy_results.csv`：B3 损失函数筛选和三 seed 验证数据，A6 暂记为待完成。
 - `08_excluded_or_diagnostic_runs.csv`：排除、诊断或仅用于讨论的实验组。
+- `09_missing_value_audit.csv`：空单元格审计表，区分 `not_applicable`、`source_missing`、`pending` 等情况。
 - `build_tables.py`：从现有 `outputs/` 结果重新生成上述数据表的脚本。
-- `timepix_paper_data_package.xlsx`：把上述 CSV 合并到一个 Excel 工作簿中，便于人工筛选和复制表格。
+- `timepix_paper_data_package.xlsx` / `timepix_paper_data_package_updated.xlsx`：把上述 CSV 合并到一个 Excel 工作簿中，便于人工筛选和复制表格；如果前者被 Excel 占用，脚本会写入后者。
 - `build_workbook.mjs`：从 CSV 重新生成 Excel 工作簿的脚本。
 
 ## role 说明
@@ -63,7 +67,9 @@
 
 - `01_main_results_summary.csv` 中的 selection 说明只描述实验选择依据，不允许用 test 结果反向改写“最优”结论。
 - `03_per_class_results.csv` 只整理 validation/test，不放 train，避免论文分析窗口混入训练集表现。
-- A5d 的 `main_5feat` 在当前本地拉取结果中缺少对应 `metrics.json`，所以 validation macro-F1 和 per-class 细节为空；已有 accuracy、MAE、test macro-F1 来自正式 summary CSV。
+- A5d 的 `main_5feat` 已通过 Windows 长路径方式读取 `metrics.json`，validation macro-F1 和 per-class 细节已补齐。
+- A4b post-hoc fusion 没有完整逐样本预测或混淆矩阵，因此 far-error 仍为空；这是 `source_missing`，不是模型没有跑。
+- `06_handcrafted_feature_results.csv` 是合并宽表，空格较多；论文分析优先使用 `06a`、`06b`、`06c` 三张拆分表。
 - 重新生成数据包可运行：
 
 ```bash
