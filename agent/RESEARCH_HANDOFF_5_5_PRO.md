@@ -232,7 +232,7 @@ A6a 结果没有复现 Proton B3b 那样的强 loss 改进。按 validation sele
 
 ### A7：最终多模态架构的手工物理特征确认
 
-A7 已配置，目标是回答最后一个组件问题：
+A7 已完成，目标是回答最后一个组件问题：
 
 ```text
 在最终端到端多模态架构 GMU_aux 上，
@@ -264,6 +264,22 @@ ToA_major_axis_corr_abs
 ```
 
 关键决策：不跑 `GMU + CE+EMD`、不跑 `GMU + CE+EMD + handcrafted`、不跑 `toa_only_diag`、不新增 feature group 或架构。A7 只用 validation 判断 `main_5feat` 是否进入最终模型；test 只用于最终泛化说明。
+
+A7 结果：
+
+| 方案 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A7-0 GMU_aux，复用 A4c | **70.20±0.67%** | **6.274±0.129** | 0.668±0.007 | **71.94±0.51%** | 5.721±0.009 | **0.691±0.009** |
+| A7-1 GMU_aux + main_5feat gated | **70.20±0.61%** | 6.359±0.277 | **0.669±0.019** | 71.80±1.09% | **5.706±0.145** | 0.687±0.008 |
+
+结论：A7-1 与 A7-0 Val Acc 持平，但 Val MAE 变差，Val Macro-F1 只提升 0.001，且 30 deg Val/Test F1 均下降。因此 `main_5feat` 不进入最终主模型。Alpha 最终端到端多模态主模型确定为：
+
+```text
+dual_stream_gmu_aux
++ ToT / relative_minmax ToA
++ CE one-hot
++ no handcrafted
+```
 
 ## 五、Proton_C_7 主线结论
 
@@ -335,7 +351,7 @@ B3b 结果：
 5. A4c 证明端到端双流 GMU 架构能从 feature level 利用 ToA 辅助信息，提升类别均衡性。
 6. A5 显示物理标量有解释性辅助价值，但不是稳定 accuracy gain 的主线。
 7. A6b 显示 `CE+EMD lambda=0.02` 在 Alpha-ToT 上不稳定且弱于 A2 CE baseline；Alpha 后续继续使用 CE one-hot。
-8. A7 只做最终组件确认：在 GMU + CE one-hot 上验证 A5 `main_5feat` gated 是否仍有补充价值。
+8. A7 证明 `main_5feat` 在最终 GMU 上没有稳定 validation 增益；Alpha 最终端到端多模态主模型不加入 handcrafted features。
 
 ### Proton_C_7 叙事
 
@@ -352,7 +368,7 @@ B3b 结果：
 3. 帮助构建论文方法章节：结构适配、模态融合、物理标量、角度有序损失。
 4. 帮助撰写 A4c GMU 的理论动机与实验解释，特别强调不能用 test 反选模型。
 5. 帮助解释 A6 负结果：为什么 Proton_C_7 上有效的有序损失没有迁移到 Alpha-ToT，并说明 A6c 不推进的合理性。
-6. 帮助解释 A7 结果：如果 `main_5feat` 有效，说明低维物理摘要能补充 GMU；如果无效，说明 GMU 图像分支已经吸收大部分可表达信息。
+6. 帮助解释 A7 负结果：`main_5feat` 对 45/60 deg 有局部帮助，但没有改善 30 deg，且 validation MAE 变差，说明 GMU 图像分支已吸收大部分可表达信息。
 7. 帮助组织 Proton_C_7 的 B3 正结果，突出 expected-angle MAE auxiliary loss 的物理意义。
 
 ## 八、重要注意事项
@@ -363,7 +379,7 @@ B3b 结果：
 - 不要把 A4b-6 和 A4c GMU 混成单一 winner：A4b-6 是 expert-level 后处理系统，A4c GMU 是 final end-to-end multimodal architecture。
 - 不要把 A5d `main_5feat` 写成 validation-selected best；A5d validation-best 是 `toa_only_diag`。
 - A6b 已完成且为负结果；不要把 A6 的有序损失迁移到 GMU，多模态主线继续使用 A4c GMU + CE one-hot。
-- A7 只验证 `GMU + CE one-hot + main_5feat gated`，不扩展 `toa_only_diag`、loss 或新架构。
+- A7 已完成且为负/诊断结果；不要把 `main_5feat` 加入 Alpha 最终 GMU 主模型。
 
 ## 九、建议给 5.5 Pro 的初始提示
 
@@ -372,9 +388,9 @@ B3b 结果：
 agent/PHYSICS_CONTEXT.md、configs/README.md 和 agent/FILE_MAP.md。
 
 本课题研究基于 Timepix/Timepix3 探测器 ToT/ToA 像素矩阵的带电粒子入射极角识别。
-当前正式数据主线为 Alpha_100 和 Proton_C_7。Alpha 主线已完成 A1-A6 和 A4/A4b/A4c
-多模态融合分析，A6b 证明 Alpha 有序损失分支不采用；A7 正在验证最终 GMU 多模态架构
-是否还需要 A5 的 main_5feat 物理标量。Proton_C_7 主线已完成 B1-B3，
+当前正式数据主线为 Alpha_100 和 Proton_C_7。Alpha 主线已完成 A1-A7 和 A4/A4b/A4c
+多模态融合分析，A6b 证明 Alpha 有序损失分支不采用；A7 证明最终 GMU 多模态架构
+不加入 A5 的 main_5feat 物理标量。Proton_C_7 主线已完成 B1-B3，
 B3b 证明 CE+ExpectedMAE lambda=0.05 是当前推荐损失。
 
 请协助进行文献调研、论文结构设计、创新点提炼和实验结果解释。请特别注意：

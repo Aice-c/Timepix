@@ -15,13 +15,14 @@
 - `03_per_class_results.csv`：主要方法的 validation/test 分类别 precision、recall、F1。
 - `04_error_structure.csv`：主结果的 MAE、P90、高角度 F1、远距离错误率等误差结构字段。
 - `05_modality_and_gate_diagnostics.csv`：A4b/A4c 多模态、selector、oracle、gate、FiLM 诊断数据。
-- `06_handcrafted_feature_results.csv`：A5/B2 手工特征筛选、消融和三 seed 验证数据的合并宽表。
+- `06_handcrafted_feature_results.csv`：A5/B2/A7 手工特征筛选、消融和三 seed 验证数据的合并宽表。
 - `06a_handcrafted_classical_metrics.csv`：A5a 手工特征经典模型指标。
 - `06b_handcrafted_feature_importance.csv`：A5a 手工特征组重要性。
 - `06c_handcrafted_cnn_fusion.csv`：A5/B2 手工特征与 CNN 融合实验，优先给论文分析窗口使用。
-- `07_loss_strategy_results.csv`：B3 损失函数筛选和三 seed 验证数据，A6 暂记为待完成。
+- `07_loss_strategy_results.csv`：A2/A6 与 B1/B3 的损失函数基线、筛选和三 seed 验证数据。
 - `08_excluded_or_diagnostic_runs.csv`：排除、诊断或仅用于讨论的实验组。
 - `09_missing_value_audit.csv`：空单元格审计表，区分 `not_applicable`、`source_missing`、`pending` 等情况。
+- `10_final_decision_summary.csv`：面向论文分析窗口的最终决策摘要表，只总结关键采纳/否定结论，不替代原始指标表。
 - `build_tables.py`：从现有 `outputs/` 结果重新生成上述数据表的脚本。
 - `timepix_paper_data_package.xlsx` / `timepix_paper_data_package_updated.xlsx`：把上述 CSV 合并到一个 Excel 工作簿中，便于人工筛选和复制表格；如果前者被 Excel 占用，脚本会写入后者。
 - `build_workbook.mjs`：从 CSV 重新生成 Excel 工作簿的脚本。
@@ -46,7 +47,8 @@
 - 正式 baseline：`A2-best`
 - 多模态主线：`A4b-5`、`A4b-6`、`A4c-1-3`
 - 手工物理特征消融：`A5d`
-- A6 仍是待完成的 Alpha 角度有序损失筛选。
+- A6 已完成：A6b 证明 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
+- A7 已完成：`GMU_aux + main_5feat gated` 不进入最终模型；Alpha 最终端到端多模态主模型为 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
 
 ### Proton_C_7
 
@@ -60,6 +62,9 @@
 - 不要使用 `B1-best-old` 作为 Proton baseline；它是 patience=5 的旧早停版本。
 - 不要使用 `A3-legacy` 或 `A4-legacy` 的 `_50` 后缀结果作为正式分析。
 - 不要把 `A5d` 中 test accuracy 更好的设置反向称为最优；A5d 内部选择必须看 validation。
+- 不要把 `A6a` 的 seed42 tie-break 候选写成最终正结果；A6b 三 seed 验证后不采用 CE+EMD。
+- 不要把 `A7` 的 `main_5feat` 写进 Alpha 最终 GMU 主模型；A7 是负/诊断性组件确认。
+- 不要把 A7 的 `gate_tot/gate_toa` 解释为手工特征 gated fusion 的权重；它们是 GMU 图像分支 ToT/ToA gate。
 - 不要把 oracle 或 complementarity 诊断写成可部署模型表现。
 - 不要把 `run_ablation` 临时脚本写进正式实验体系。
 
@@ -70,6 +75,7 @@
 - A5d 的 `main_5feat` 已通过 Windows 长路径方式读取 `metrics.json`，validation macro-F1 和 per-class 细节已补齐。
 - A4b post-hoc fusion 没有完整逐样本预测或混淆矩阵，因此 far-error 仍为空；这是 `source_missing`，不是模型没有跑。
 - `06_handcrafted_feature_results.csv` 是合并宽表，空格较多；论文分析优先使用 `06a`、`06b`、`06c` 三张拆分表。
+- `10_final_decision_summary.csv` 只用于快速理解实验结论；写论文表格时仍应回到 `01`、`03`、`05`、`06c`、`07` 查看原始指标。
 - 重新生成数据包可运行：
 
 ```bash

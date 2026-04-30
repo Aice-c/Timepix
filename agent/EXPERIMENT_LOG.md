@@ -75,11 +75,11 @@ python scripts/aggregate_seeds.py --summary outputs/<name>_runs.csv --out output
 | A4c | 端到端 ToT/ToA 双模态架构 | 已完成 | GMU_aux 是论文主推端到端多模态架构；concat_aux 和 FiLM 是重要对照 |
 | A5 | 物理/手工标量特征融合 | 已完成 | 手工特征有解释性补充，但三 seed 下未稳定提高 Alpha test accuracy |
 | A6 | Alpha 有序角度损失 | 已完成 | A6b 三 seed 证明 `CE + EMD λ=0.02` 不稳定且弱于 A2 CE baseline；Alpha-ToT 继续采用 A2 CE one-hot |
-| A7 | Alpha 最终多模态组件确认 | 已配置 | 固定最终端到端多模态架构 `A4c-2 dual_stream_gmu_aux` 与 CE one-hot，只验证 A5 `main_5feat` 是否还能补充 GMU |
+| A7 | Alpha 最终多模态组件确认 | 已完成 | `main_5feat` 未带来稳定 validation 收益；Alpha 最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted` |
 | B1 | Proton_C_7 训练超参数搜索 | 已完成 | B1-best 使用 `lr=3e-4`、`batch=128`、`wd=1e-4`、`patience=8` |
 | B2 | Proton_C_7 手工特征验证 | 已完成 | 手工特征增益极小；gated 可抑制坏特征但不形成显著提升 |
 | B3 | Proton_C_7 有序角度损失 | 已完成 | `CE + ExpectedMAE λ=0.05` 是 Proton_C_7 当前推荐 loss |
-| B4 | Proton_C_7 最终模型确认 | 待定 | 将基于 B1-best + B3 best loss 形成最终配置 |
+| B4 | Proton_C_7 最终模型确认 | 已形成建议 | 最终建议为 B1-best 结构与训练超参 + `CE + ExpectedMAE λ=0.05`；无需新增训练组 |
 
 ## 三、Alpha 主线
 
@@ -1142,7 +1142,7 @@ A6b 阶段判断：
 
 ### A7：最终多模态架构的手工物理特征增益验证
 
-状态：已配置，待运行。
+状态：已完成。
 
 实验目的：在已经确定的最终端到端多模态架构上，只验证 A5 选出的五维物理标量 `main_5feat` 是否还能提供额外补充价值。A7 不再扩展 loss、feature group 或新的多模态架构。
 
@@ -1206,6 +1206,48 @@ python scripts/aggregate_seeds.py --summary outputs/a7_final_gmu_main5feat_gated
 - 如果 Val Acc 基本持平，但 Val MAE 和 Val Macro-F1 同时改善，可作为 error-balanced final variant。
 - 如果 validation 弱于 A7-0，即使 test 偶然更好，也不进入最终主模型，只作为诊断说明 GMU 图像分支已经吸收了大部分物理标量信息。
 - 论文中需要区分两层 gate：GMU gate 融合 ToT/relative-ToA 图像分支；handcrafted gated fusion 融合 GMU 深度特征与五维物理标量。
+
+A7 主表：
+
+| 方案 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A7-0 GMU_aux，复用 A4c | **70.20±0.67%** | **6.274±0.129** | 0.668±0.007 | **71.94±0.51%** | 5.721±0.009 | **0.691±0.009** |
+| A7-1 GMU_aux + main_5feat gated | **70.20±0.61%** | 6.359±0.277 | **0.669±0.019** | 71.80±1.09% | **5.706±0.145** | 0.687±0.008 |
+
+逐 seed 结果：
+
+| Seed | 方案 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 42 | A7-0 | 69.63% | 6.414 | 0.662 | 71.37% | 5.726 | 0.680 |
+| 42 | A7-1 | 69.53% | 6.638 | 0.649 | 72.66% | 5.547 | 0.681 |
+| 43 | A7-0 | 70.03% | 6.159 | 0.664 | 72.07% | 5.726 | 0.697 |
+| 43 | A7-1 | 70.33% | 6.354 | 0.672 | 72.17% | 5.741 | 0.696 |
+| 44 | A7-0 | 70.93% | 6.249 | 0.676 | 72.37% | 5.711 | 0.696 |
+| 44 | A7-1 | 70.73% | 6.084 | 0.686 | 70.58% | 5.830 | 0.683 |
+
+逐类 F1：
+
+| 方案 | Split | 15 deg F1 | 30 deg F1 | 45 deg F1 | 60 deg F1 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| A7-0 GMU_aux | Val | **0.732** | **0.536** | 0.767 | 0.635 |
+| A7-1 + main_5feat | Val | 0.724 | 0.526 | **0.769** | **0.656** |
+| A7-0 GMU_aux | Test | **0.736** | **0.548** | 0.785 | **0.695** |
+| A7-1 + main_5feat | Test | 0.734 | 0.527 | **0.792** | 0.694 |
+
+额外观察：
+
+- A7-1 的表现不是稳定提升：seed42 测试集更好但验证集变差；seed44 验证集部分指标更好但测试集 accuracy 明显下降。
+- 手工特征对 `45 deg` / `60 deg` 有一点帮助，尤其 Val 60 deg F1 从 `0.635` 到 `0.656`；但代价是 `15 deg` / `30 deg` 下降。
+- 最关键的 `30 deg` 类别没有改善，Val/Test F1 均低于 A7-0。
+- A7-1 的 GMU 图像门控更偏向 ToT：Val `gate_tot` 从 `0.776` 增到 `0.793`，`gate_toa` 从 `0.224` 降到 `0.207`。这里记录的是 GMU 的 ToT/ToA 图像 gate，不等价于 handcrafted fusion gate。
+
+A7 阶段判断：
+
+- 按预先规则，不能把 A7-1 作为最终主模型。
+- A7-1 与 A7-0 的 Val Acc 完全持平，但 Val MAE 变差 `+0.085 deg`；Val Macro-F1 仅提升 `+0.001`，属于极小变化，不满足“Val MAE 与 Val Macro-F1 同时改善”的条件。
+- A7-1 可以作为物理标量补充诊断实验写入论文：五维物理标量能轻微影响部分类别和误差指标，但没有稳定改善最终 GMU 多模态模型。
+- Alpha 最终端到端多模态主模型确定为 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
+- 论文解释：GMU 图像分支已经吸收了大部分可由这些低维物理标量表达的信息；显式加入 `main_5feat` 不能进一步稳定提升 validation 指标，且会损伤 30 deg 困难类别。
 
 ## 四、Proton_C_7 主线
 
@@ -1482,9 +1524,9 @@ python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_ce_emd_optiona
 
 ### B4：Proton_C_7 最终模型确认
 
-状态：待定。
+状态：已形成最终建议；无需新增训练组。
 
-计划：
+最终配置建议：
 
 - 以 B1-best 结构和训练超参为基础。
 - 将 B3b `CE + ExpectedMAE λ=0.05` 作为推荐 loss。
@@ -1547,4 +1589,4 @@ python scripts/make_analysis_report.py
 
 1. 另一个窗口整理最终 CSV 结果后，回填本文档中仍需更精确的数值表。
 2. 论文写作时应将 A4c GMU 的选择依据写为 validation Macro-F1 接近最优、Val MAE 更好、结构解释更符合物理结论；不能用 test 结果反向选择 GMU。
-3. 5.5 Pro 交接文档需要与本日志同步，尤其是 A4c 最终架构口径、A5 收口口径、A6 负结果口径、B3 最终 loss 口径。
+3. 5.5 Pro 交接文档需要与本日志同步，尤其是 A4c 最终架构口径、A5 收口口径、A6 负结果口径、A7 最终组件确认口径、B3 最终 loss 口径。

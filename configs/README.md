@@ -407,7 +407,7 @@ A7 只回答一个问题：在最终端到端多模态架构 `A4c-2 dual_stream_
 | 编号 | 设置 | 状态 |
 | --- | --- | --- |
 | A7-0 | `dual_stream_gmu_aux + CE one-hot + no handcrafted` | 复用 A4c GMU three-seed |
-| A7-1 | `dual_stream_gmu_aux + CE one-hot + main_5feat gated` | 新运行 three-seed |
+| A7-1 | `dual_stream_gmu_aux + CE one-hot + main_5feat gated` | 已完成 three-seed |
 
 `main_5feat`：
 
@@ -436,6 +436,20 @@ python scripts/aggregate_seeds.py --summary outputs/a7_final_gmu_main5feat_gated
 - Primary: Val Acc。
 - Tie-break: Val MAE 更低，其次 Val Macro-F1 更高。
 - Test 只用于最终泛化报告，不能反向选择 A7-1。
+
+A7 三 seed 汇总：
+
+| 方案 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A7-0 GMU_aux，复用 A4c | **70.20±0.67%** | **6.274±0.129** | 0.668±0.007 | **71.94±0.51%** | 5.721±0.009 | **0.691±0.009** |
+| A7-1 GMU_aux + main_5feat gated | **70.20±0.61%** | 6.359±0.277 | **0.669±0.019** | 71.80±1.09% | **5.706±0.145** | 0.687±0.008 |
+
+A7 结论：
+
+- A7-1 与 A7-0 的 Val Acc 持平，但 Val MAE 更差，Val Macro-F1 仅有极小变化。
+- A7-1 没有改善 30 deg 类别，反而降低 30 deg Val/Test F1；它对 45 deg/60 deg 有局部帮助但不稳定。
+- 按预先 validation 规则，`main_5feat` 不进入 Alpha 最终多模态主模型。
+- Alpha 最终端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
 
 ## 六、Proton_C_7 主线配置与命令
 
@@ -553,12 +567,30 @@ python scripts/make_analysis_report.py \
 以下文件保留可追溯性或作为模板，不代表当前正式实验结果：
 
 ```text
+configs/experiments/a1_resnet18_original_baseline.yaml
+configs/experiments/a1_structure_adaptation.yaml
+configs/experiments/a4b_4e_relative_minmax_no_mask_seed43_44.yaml
+configs/experiments/a4c_end_to_end_bimodal_fusion_seed42.yaml
+configs/experiments/a4c_warm_started_expert_gate_seed42.yaml
 configs/experiments/b1_proton_c7_resnet18_tot_best_3seed.yaml
+configs/experiments/b1_proton_resnet18_tot_lr_batch.yaml
 configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml
 configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml
 configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml
 configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
+configs/experiments/alpha_resnet18_tot_toa.yaml
+configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml
+configs/experiments/alpha_resnet18_tot_handcrafted_gated.yaml
+configs/experiments/proton_resnet18_tot.yaml
+configs/experiments/compare_models.yaml
+configs/experiments/compare_losses.yaml
+configs/experiments/compare_mixed_precision.yaml
 ```
 
-其中 `b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，只作为 Proton_C_7 早停过激诊断；正式 B1-best 使用 patience=8 版本。
+说明：
+
+- `b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，只作为 Proton_C_7 早停过激诊断；正式 B1-best 使用 `b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml`。
+- `a1_*`、`compare_mixed_precision.yaml` 是已完成的结构/训练策略验证配置，当前不再重复运行。
+- `alpha_resnet18_tot_toa.yaml`、`alpha_resnet18_tot_handcrafted_*.yaml`、`proton_resnet18_tot.yaml` 是早期过渡配置，正式实验分别使用 A4/A5/B 系列配置。
+- `compare_models.yaml`、`compare_losses.yaml` 是早期通用网格配置；正式模型和 loss 实验分别使用 A3、A6、B3 的编号配置。

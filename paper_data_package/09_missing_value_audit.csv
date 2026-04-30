@@ -1,95 +1,98 @@
 table_name,field,empty_cells,total_rows,empty_rate,category,affected_experiments,reason,recommended_action
-01_main_results_summary.csv,handcrafted_features,9,11,0.8181818181818182,not_applicable,A2-best;A4b-5;A4b-6;A4c-1-3;B1-best;B3b-main;B3b-optional,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
-01_main_results_summary.csv,val_far_error_rate_abs_ge_20_mean,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-01_main_results_summary.csv,val_far_error_rate_abs_ge_20_std,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-01_main_results_summary.csv,test_far_error_rate_abs_ge_20_mean,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-01_main_results_summary.csv,test_far_error_rate_abs_ge_20_std,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-02_run_level_results.csv,handcrafted_features,51,57,0.8947368421052632,not_applicable,A2-best;A4b-5;A4b-6;A4c-1-3;B1-best;B3b-main;B3b-optional,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
-02_run_level_results.csv,best_epoch,30,57,0.5263157894736842,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
-02_run_level_results.csv,stopped_epoch,30,57,0.5263157894736842,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
-02_run_level_results.csv,max_epochs,30,57,0.5263157894736842,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
-02_run_level_results.csv,early_stopped,30,57,0.5263157894736842,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
-02_run_level_results.csv,val_high_angle_macro_f1,6,57,0.10526315789473684,partially_recoverable,A4b-5;A4b-6,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-02_run_level_results.csv,val_far_error_rate_abs_ge_20,30,57,0.5263157894736842,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-02_run_level_results.csv,test_high_angle_macro_f1,6,57,0.10526315789473684,partially_recoverable,A4b-5;A4b-6,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-02_run_level_results.csv,test_far_error_rate_abs_ge_20,30,57,0.5263157894736842,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-04_error_structure.csv,val_far_error_rate_abs_ge_20_mean,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-04_error_structure.csv,val_far_error_rate_abs_ge_20_std,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-04_error_structure.csv,test_far_error_rate_abs_ge_20_mean,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-04_error_structure.csv,test_far_error_rate_abs_ge_20_std,2,11,0.18181818181818182,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,selected_strategies,5,17,0.29411764705882354,not_applicable,A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_selection_rate_mean,9,17,0.5294117647058824,not_applicable,A4b-5;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_selection_rate_std,9,17,0.5294117647058824,not_applicable,A4b-5;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_selection_rate_mean,9,17,0.5294117647058824,not_applicable,A4b-5;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_selection_rate_std,9,17,0.5294117647058824,not_applicable,A4b-5;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_tot_mean_mean,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_tot_mean_std,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_tot_mean_mean,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_tot_mean_std,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_toa_mean_mean,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_toa_mean_std,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_toa_mean_mean,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_toa_mean_std,14,17,0.8235294117647058,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_film_gamma_abs_mean_mean,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_film_gamma_abs_mean_std,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_film_gamma_abs_mean_mean,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_film_gamma_abs_mean_std,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_film_beta_abs_mean_mean,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_film_beta_abs_mean_std,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_film_beta_abs_mean_mean,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_film_beta_abs_mean_std,16,17,0.9411764705882353,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_seconds_mean,12,17,0.7058823529411765,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_seconds_std,12,17,0.7058823529411765,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_mean,12,17,0.7058823529411765,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_std,12,17,0.7058823529411765,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_mean,12,17,0.7058823529411765,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_std,12,17,0.7058823529411765,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_mean,12,17,0.7058823529411765,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_std,12,17,0.7058823529411765,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
-05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_mean,12,17,0.7058823529411765,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_std,12,17,0.7058823529411765,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
-05_modality_and_gate_diagnostics.csv,expert_gate_freeze_experts,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_primary_mean_mean,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_primary_mean_std,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_primary_mean_mean,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_primary_mean_std,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_candidate_mean_mean,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,val_gate_candidate_mean_std,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_mean,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_std,15,17,0.8823529411764706,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
-06_handcrafted_feature_results.csv,split,26,30,0.8666666666666667,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,accuracy,26,30,0.8666666666666667,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,macro_f1,26,30,0.8666666666666667,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,mae_argmax,26,30,0.8666666666666667,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,handcrafted_features,4,30,0.13333333333333333,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,val_baseline_accuracy,22,30,0.7333333333333333,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,importance_mean,22,30,0.7333333333333333,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,importance_std,22,30,0.7333333333333333,heterogeneous_combined_table,A5a;A5b;A5c;A5d;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,seed,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,handcrafted_source_modalities,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,val_accuracy,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,val_mae_argmax,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,val_macro_f1,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,test_accuracy,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,test_mae_argmax,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-06_handcrafted_feature_results.csv,test_macro_f1,12,30,0.4,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
-07_loss_strategy_results.csv,method_id,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,seed,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,loss,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,label_encoding,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,gaussian_sigma,13,16,0.8125,not_applicable,A6;B3a;B3b-main;B3b-optional,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,expected_mae_weight,10,16,0.625,not_applicable,A6;B3a;B3b-optional,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,emd_weight,10,16,0.625,not_applicable,A6;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,emd_p,10,16,0.625,not_applicable,A6;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,emd_angle_weighted,10,16,0.625,not_applicable,A6;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
-07_loss_strategy_results.csv,val_accuracy,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,val_mae_argmax,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,val_macro_f1,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,val_high_angle_macro_f1,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,val_far_error_rate_abs_ge_20,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,test_accuracy,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,test_mae_argmax,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,test_macro_f1,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,test_high_angle_macro_f1,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,test_far_error_rate_abs_ge_20,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
-07_loss_strategy_results.csv,source_file,1,16,0.0625,pending,A6,A6 尚未完成或尚未拉取结果。,等待 A6 完成后重新生成。
+01_main_results_summary.csv,handcrafted_features,10,13,0.7692307692307693,not_applicable,A2-best;A4b-5;A4b-6;A4c-1-3;A6b;B1-best;B3b-main;B3b-optional,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
+01_main_results_summary.csv,val_far_error_rate_abs_ge_20_mean,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+01_main_results_summary.csv,val_far_error_rate_abs_ge_20_std,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+01_main_results_summary.csv,test_far_error_rate_abs_ge_20_mean,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+01_main_results_summary.csv,test_far_error_rate_abs_ge_20_std,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+02_run_level_results.csv,handcrafted_features,54,63,0.8571428571428571,not_applicable,A2-best;A4b-5;A4b-6;A4c-1-3;A6b;B1-best;B3b-main;B3b-optional,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
+02_run_level_results.csv,best_epoch,30,63,0.47619047619047616,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
+02_run_level_results.csv,stopped_epoch,30,63,0.47619047619047616,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
+02_run_level_results.csv,max_epochs,30,63,0.47619047619047616,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
+02_run_level_results.csv,early_stopped,30,63,0.47619047619047616,not_applicable,A4b-5;A4b-6,A4b 是基于已有预测的 post-hoc fusion，不重新训练。,保持空值或在展示时标为 NA。
+02_run_level_results.csv,val_high_angle_macro_f1,6,63,0.09523809523809523,partially_recoverable,A4b-5;A4b-6,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+02_run_level_results.csv,val_far_error_rate_abs_ge_20,30,63,0.47619047619047616,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+02_run_level_results.csv,test_high_angle_macro_f1,6,63,0.09523809523809523,partially_recoverable,A4b-5;A4b-6,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+02_run_level_results.csv,test_far_error_rate_abs_ge_20,30,63,0.47619047619047616,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+04_error_structure.csv,val_far_error_rate_abs_ge_20_mean,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+04_error_structure.csv,val_far_error_rate_abs_ge_20_std,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+04_error_structure.csv,test_far_error_rate_abs_ge_20_mean,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+04_error_structure.csv,test_far_error_rate_abs_ge_20_std,2,13,0.15384615384615385,source_missing,A4b-5;A4b-6,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+05_modality_and_gate_diagnostics.csv,selected_strategies,6,18,0.3333333333333333,not_applicable,A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_selection_rate_mean,10,18,0.5555555555555556,not_applicable,A4b-5;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_selection_rate_std,10,18,0.5555555555555556,not_applicable,A4b-5;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_selection_rate_mean,10,18,0.5555555555555556,not_applicable,A4b-5;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_selection_rate_std,10,18,0.5555555555555556,not_applicable,A4b-5;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_tot_mean_mean,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_tot_mean_std,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_tot_mean_mean,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_tot_mean_std,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_toa_mean_mean,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_toa_mean_std,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_toa_mean_mean,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_toa_mean_std,14,18,0.7777777777777778,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_film_gamma_abs_mean_mean,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_film_gamma_abs_mean_std,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_film_gamma_abs_mean_mean,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_film_gamma_abs_mean_std,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_film_beta_abs_mean_mean,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_film_beta_abs_mean_std,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_film_beta_abs_mean_mean,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_film_beta_abs_mean_std,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_seconds_mean,12,18,0.6666666666666666,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_seconds_std,12,18,0.6666666666666666,not_applicable,A4b-5;A4b-6;A4b-candidate,A4b 是后处理融合诊断，不是标准训练/测试计时实验。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_mean,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+05_modality_and_gate_diagnostics.csv,val_high_angle_macro_f1_std,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_mean,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+05_modality_and_gate_diagnostics.csv,val_far_error_rate_abs_ge_20_std,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_mean,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+05_modality_and_gate_diagnostics.csv,test_high_angle_macro_f1_std,12,18,0.6666666666666666,partially_recoverable,A4b-5;A4b-6;A4b-candidate,A4b 可从 by_class 派生 high-angle F1；若仍为空通常说明该行没有 by_class 对应项。,检查具体 strategy 是否在 by_class 中。
+05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_mean,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+05_modality_and_gate_diagnostics.csv,test_far_error_rate_abs_ge_20_std,12,18,0.6666666666666666,source_missing,A4b-5;A4b-6;A4b-candidate,A4b 后处理汇总未保存混淆矩阵或逐样本预测，不能稳定派生 far-error。,如论文需要该指标，应扩展 A4b 脚本保存预测或混淆矩阵后重算。
+05_modality_and_gate_diagnostics.csv,expert_gate_freeze_experts,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_primary_mean_mean,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_primary_mean_std,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_primary_mean_mean,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_primary_mean_std,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_candidate_mean_mean,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_gate_candidate_mean_std,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_mean,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,test_gate_candidate_mean_std,16,18,0.8888888888888888,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A7,该字段只对特定 gate/FiLM/selector 方法存在。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,handcrafted_features,17,18,0.9444444444444444,not_applicable,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,该实验没有启用手工特征。,保持空值或在展示时标为 NA。
+05_modality_and_gate_diagnostics.csv,val_confusion_45_50_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,val_confusion_45_50_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,test_confusion_45_50_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,test_confusion_45_50_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,val_confusion_60_70_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,val_confusion_60_70_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,test_confusion_60_70_mean,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+05_modality_and_gate_diagnostics.csv,test_confusion_60_70_std,17,18,0.9444444444444444,needs_review,A4b-5;A4b-6;A4b-candidate;A4c-1-3;A4c-4,未被规则自动归类。,人工抽查源文件。
+06_handcrafted_feature_results.csv,split,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,accuracy,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,macro_f1,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,mae_argmax,29,33,0.8787878787878788,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,handcrafted_features,4,33,0.12121212121212122,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,val_baseline_accuracy,25,33,0.7575757575757576,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,importance_mean,25,33,0.7575757575757576,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,importance_std,25,33,0.7575757575757576,heterogeneous_combined_table,A5a;A5b;A5c;A5d;A7;B2a;B2b,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,model,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,loss,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,label_encoding,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,seed,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,handcrafted_source_modalities,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,comparison_role,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,val_accuracy,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,val_mae_argmax,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,val_macro_f1,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,test_accuracy,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,test_mae_argmax,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+06_handcrafted_feature_results.csv,test_macro_f1,12,33,0.36363636363636365,heterogeneous_combined_table,A5a,该表合并了经典模型指标、特征重要性和 CNN 融合三种行类型。,论文分析优先使用 06a/06b/06c 拆分表。
+07_loss_strategy_results.csv,gaussian_sigma,27,33,0.8181818181818182,not_applicable,A2-best;A6a;A6b;B1-best;B3a;B3b-main;B3b-optional,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
+07_loss_strategy_results.csv,expected_mae_weight,24,33,0.7272727272727273,not_applicable,A2-best;A6a;A6b;B1-best;B3a;B3b-optional,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
+07_loss_strategy_results.csv,emd_weight,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
+07_loss_strategy_results.csv,emd_p,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
+07_loss_strategy_results.csv,emd_angle_weighted,21,33,0.6363636363636364,not_applicable,A2-best;A6a;B1-best;B3a;B3b-main,该字段只对对应损失函数存在。,保持空值或在展示时标为 NA。
+07_loss_strategy_results.csv,val_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
+07_loss_strategy_results.csv,val_high_angle_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
+07_loss_strategy_results.csv,val_far_error_rate_abs_ge_20,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
+07_loss_strategy_results.csv,test_high_angle_macro_f1,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。
+07_loss_strategy_results.csv,test_far_error_rate_abs_ge_20,3,33,0.09090909090909091,needs_review,B1-best,未被规则自动归类。,人工抽查源文件。

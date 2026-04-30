@@ -21,6 +21,7 @@ const csvFiles = [
   ["07_loss", "07_loss_strategy_results.csv"],
   ["08_excluded", "08_excluded_or_diagnostic_runs.csv"],
   ["09_missing", "09_missing_value_audit.csv"],
+  ["10_decisions", "10_final_decision_summary.csv"],
 ];
 
 function parseCsv(text) {

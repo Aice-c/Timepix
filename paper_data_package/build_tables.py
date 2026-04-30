@@ -417,6 +417,77 @@ def runs_from_csv_group(
     return rows
 
 
+def loss_method_id(source: dict[str, object]) -> str:
+    loss = str(source.get("loss", "")).strip()
+    label = str(source.get("label_encoding", "")).strip()
+    gaussian_sigma = str(source.get("gaussian_sigma", "")).strip()
+    expected_mae_weight = str(source.get("expected_mae_weight", "")).strip()
+    emd_weight = str(source.get("emd_weight", "")).strip()
+    if loss == "cross_entropy" and label == "onehot":
+        return "cross_entropy_onehot"
+    if loss == "cross_entropy" and label == "gaussian":
+        return f"cross_entropy_gaussian_sigma_{gaussian_sigma}"
+    if loss == "ce_expected_mae":
+        return f"ce_expected_mae_lambda_{expected_mae_weight}"
+    if loss == "ce_emd":
+        return f"ce_emd_lambda_{emd_weight}"
+    return re.sub(r"[^A-Za-z0-9.]+", "_", loss or "unknown_loss").strip("_")
+
+
+def loss_method_label(source: dict[str, object]) -> str:
+    loss = str(source.get("loss", "")).strip()
+    label = str(source.get("label_encoding", "")).strip()
+    gaussian_sigma = str(source.get("gaussian_sigma", "")).strip()
+    expected_mae_weight = str(source.get("expected_mae_weight", "")).strip()
+    emd_weight = str(source.get("emd_weight", "")).strip()
+    if loss == "cross_entropy" and label == "onehot":
+        return "CE one-hot"
+    if loss == "cross_entropy" and label == "gaussian":
+        return f"Gaussian soft CE, sigma={gaussian_sigma}"
+    if loss == "ce_expected_mae":
+        return f"CE + ExpectedMAE, lambda={expected_mae_weight}"
+    if loss == "ce_emd":
+        return f"CE + EMD, lambda={emd_weight}"
+    return loss or "unknown loss"
+
+
+def runs_from_loss_csv(
+    path: Path,
+    experiment_id: str,
+    notes: str,
+) -> list[dict[str, object]]:
+    rows = []
+    if not path.exists():
+        return rows
+    for src in read_csv(path):
+        rows.append(row_from_run_csv(
+            src,
+            experiment_id,
+            loss_method_id(src),
+            loss_method_label(src),
+            path,
+            notes,
+        ))
+    return rows
+
+
+def a7_runs() -> list[dict[str, object]]:
+    path = OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_runs.csv"
+    rows = []
+    if not path.exists():
+        return rows
+    for src in read_csv(path):
+        rows.append(row_from_run_csv(
+            src,
+            "A7",
+            "gmu_aux_main_5feat_gated",
+            "GMU_aux + main_5feat gated",
+            path,
+            "A7 final GMU component check; handcrafted features are not selected by validation",
+        ))
+    return rows
+
+
 def high_angle_from_by_class(path: Path) -> dict[tuple[str, str, str], float]:
     values: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     if not path.exists():
@@ -597,11 +668,17 @@ def build_run_rows() -> list[dict[str, object]]:
         label_prefix="A4c ",
         notes="end-to-end bimodal fusion",
     ))
+    rows.extend(a7_runs())
     rows.extend(runs_from_csv_group(
         OUTPUTS / "a5d_alpha_handcrafted_gated_3seed_runs.csv",
         "A5d",
         "handcrafted_features",
         notes="handcrafted feature three-seed verification",
+    ))
+    rows.extend(runs_from_loss_csv(
+        OUTPUTS / "a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv",
+        "A6b",
+        "Alpha ordered-loss three-seed verification; rejected by validation relative to A2 CE baseline",
     ))
     rows.extend(runs_from_csv_group(
         OUTPUTS / "b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv",
@@ -610,19 +687,15 @@ def build_run_rows() -> list[dict[str, object]]:
         label_prefix="Proton baseline ",
         notes="formal Proton_C_7 baseline",
     ))
-    rows.extend(runs_from_csv_group(
+    rows.extend(runs_from_loss_csv(
         OUTPUTS / "b3b_proton_c7_expected_mae_3seed_runs.csv",
         "B3b-main",
-        "loss",
-        label_prefix="",
-        notes="validation-selected ordered loss",
+        "validation-selected ordered loss",
     ))
-    rows.extend(runs_from_csv_group(
+    rows.extend(runs_from_loss_csv(
         OUTPUTS / "b3b_proton_c7_ce_emd_optional_3seed_runs.csv",
         "B3b-optional",
-        "loss",
-        label_prefix="",
-        notes="optional ordered-loss control",
+        "optional ordered-loss control",
     ))
     return rows
 
@@ -693,6 +766,23 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             extra=extra,
         ))
 
+    a7_path = OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_mean_std.csv"
+    if a7_path.exists():
+        a7_src = read_csv(a7_path)[0]
+        a7_extra = summarize_runs(by_exp_method[("A7", "gmu_aux_main_5feat_gated")])
+        a7_extra["handcrafted_features"] = a7_src.get("handcrafted_features", "")
+        rows.append(summary_row_from_mean_std(
+            index,
+            a7_path,
+            a7_src,
+            "A7",
+            "gmu_aux_main_5feat_gated",
+            "GMU_aux + main_5feat gated",
+            "final GMU component check; selection by validation against A4c GMU",
+            "A7 ties A4c GMU on Val Acc but worsens Val MAE; not selected for final Alpha model",
+            extra=a7_extra,
+        ))
+
     a5d_path = OUTPUTS / "a5d_alpha_handcrafted_gated_3seed_mean_std.csv"
     for src in read_csv(a5d_path):
         method = method_id_from_features(src.get("handcrafted_features", ""))
@@ -708,6 +798,22 @@ def build_main_summary(index: dict[str, dict[str, str]], run_rows: list[dict[str
             "A5d internal comparison selected by validation only",
             "handcrafted feature ablation; test differences are report-only",
             extra=extra,
+        ))
+
+    a6b_path = OUTPUTS / "a6b_alpha_tot_ce_emd_0p02_3seed_mean_std.csv"
+    if a6b_path.exists():
+        a6b_src = read_csv(a6b_path)[0]
+        a6b_extra = summarize_runs(by_exp_method[("A6b", "ce_emd_lambda_0.02")])
+        rows.append(summary_row_from_mean_std(
+            index,
+            a6b_path,
+            a6b_src,
+            "A6b",
+            "ce_emd_lambda_0.02",
+            "CE + EMD, lambda=0.02",
+            "A6a validation-selected tie-break candidate; A6b three-seed verification",
+            "A6b is weaker than A2 CE baseline on validation; Alpha loss remains CE one-hot",
+            extra=a6b_extra,
         ))
 
     b1_path = OUTPUTS / "b1_proton_c7_resnet18_tot_best_patience8_3seed_mean_std.csv"
@@ -855,8 +961,12 @@ def build_per_class_rows() -> list[dict[str, object]]:
             if not metric_path:
                 continue
             key = src.get(group_by, "")
-            method_id = key
-            method_label = f"{label_prefix}{key}"
+            if experiment_id.startswith("B3b"):
+                method_id = loss_method_id(src)
+                method_label = loss_method_label(src)
+            else:
+                method_id = key
+                method_label = f"{label_prefix}{key}"
             rows.extend(per_class_from_metrics(
                 metric_path,
                 experiment_id,
@@ -866,6 +976,41 @@ def build_per_class_rows() -> list[dict[str, object]]:
                 src.get("seed", ""),
                 notes,
             ))
+
+    for path, experiment_id, notes in [
+        (OUTPUTS / "a6a_alpha_tot_ordinal_loss_seed42_runs.csv", "A6a", "A6a Alpha ordered-loss seed42 screening"),
+        (OUTPUTS / "a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv", "A6b", "A6b Alpha CE+EMD three-seed verification"),
+    ]:
+        if not path.exists():
+            continue
+        for src in read_csv(path):
+            metric_path = metrics_path_from_run(src)
+            if not metric_path:
+                continue
+            rows.extend(per_class_from_metrics(
+                metric_path,
+                experiment_id,
+                loss_method_id(src),
+                loss_method_label(src),
+                "Alpha_100",
+                src.get("seed", ""),
+                notes,
+            ))
+
+    a7_path = OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_runs.csv"
+    for src in read_csv(a7_path) if a7_path.exists() else []:
+        metric_path = metrics_path_from_run(src)
+        if not metric_path:
+            continue
+        rows.extend(per_class_from_metrics(
+            metric_path,
+            "A7",
+            "gmu_aux_main_5feat_gated",
+            "GMU_aux + main_5feat gated",
+            "Alpha_100",
+            src.get("seed", ""),
+            "A7 final GMU component check per-class result",
+        ))
 
     # A5d main_5feat metrics are not present in the pulled folder; include available ToA-only runs.
     for src in read_csv(OUTPUTS / "a5d_alpha_handcrafted_gated_3seed_runs.csv"):
@@ -933,6 +1078,7 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "modalities": "ToT+ToA",
                 "model": "late_prediction_fusion",
                 "fusion_mode": "selector_or_residual",
+                "gate_context": "posthoc prediction-level selector/residual diagnostics",
                 "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
                 "notes": "A4b prediction-level fusion / oracle / selector diagnostics",
             }
@@ -959,6 +1105,7 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 "dataset": src.get("dataset", "Alpha_100"),
                 "particle": src.get("particle", "alpha"),
                 "modalities": src.get("modalities", "ToT+ToA"),
+                "gate_context": "end-to-end image-branch ToT/ToA gate or FiLM diagnostic",
                 "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
                 "notes": "A4c end-to-end fusion gate/FiLM diagnostics",
             }
@@ -969,6 +1116,32 @@ def build_modality_gate_rows() -> list[dict[str, object]]:
                 summary_key = (src.get("model", ""),)
             else:
                 summary_key = (src.get("model", ""), src.get("expert_gate_freeze_experts", ""))
+            for key, value in run_summaries.get(summary_key, {}).items():
+                if (key.endswith("_mean") or key.endswith("_std")) and not row.get(key):
+                    row[key] = value
+            rows.append(row)
+    a7_path = OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_mean_std.csv"
+    if a7_path.exists():
+        run_summaries = run_summaries_by_key(OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_runs.csv", ["model", "handcrafted_features"])
+        for src in read_csv(a7_path):
+            row = {
+                "experiment_id": "A7",
+                "method_id": "gmu_aux_main_5feat_gated",
+                "method_label": "GMU_aux + main_5feat gated",
+                "dataset": src.get("dataset", "Alpha_100"),
+                "particle": src.get("particle", "alpha"),
+                "modalities": src.get("modalities", "ToT+ToA"),
+                "model": src.get("model", "dual_stream_gmu_aux"),
+                "fusion_mode": src.get("fusion_mode", "gated"),
+                "gate_context": "GMU image-branch ToT/ToA gate; not the handcrafted scalar fusion gate",
+                "handcrafted_features": src.get("handcrafted_features", ""),
+                "source_file": str(a7_path.relative_to(ROOT)).replace("\\", "/"),
+                "notes": "A7 final component check; gate_tot/gate_toa describe GMU image branches only",
+            }
+            for key, value in src.items():
+                if key.startswith(("val_", "test_")) or key in {"n_runs", "seeds", "model", "fusion_mode"}:
+                    row[key] = value
+            summary_key = (src.get("model", ""), src.get("handcrafted_features", ""))
             for key, value in run_summaries.get(summary_key, {}).items():
                 if (key.endswith("_mean") or key.endswith("_std")) and not row.get(key):
                     row[key] = value
@@ -1039,6 +1212,7 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
         (OUTPUTS / "a5b_alpha_handcrafted_group_ablation_runs.csv", "A5b"),
         (OUTPUTS / "a5c_alpha_handcrafted_gated_seed42_runs.csv", "A5c"),
         (OUTPUTS / "a5d_alpha_handcrafted_gated_3seed_runs.csv", "A5d"),
+        (OUTPUTS / "a7_final_gmu_main5feat_gated_3seed_runs.csv", "A7"),
         (OUTPUTS / "b2_proton_c7_handcrafted_lowcorr_seed42_runs.csv", "B2a"),
         (OUTPUTS / "b2_proton_c7_handcrafted_gated_seed42_runs.csv", "B2b"),
     ]:
@@ -1059,10 +1233,16 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
                 "dataset": src.get("dataset", ""),
                 "particle": src.get("particle", ""),
                 "modalities": src.get("modalities", ""),
+                "model": src.get("model", ""),
                 "fusion_mode": src.get("fusion_mode", ""),
+                "loss": src.get("loss", ""),
+                "label_encoding": src.get("label_encoding", ""),
                 "seed": src.get("seed", ""),
                 "handcrafted_features": src.get("handcrafted_features", ""),
                 "handcrafted_source_modalities": src.get("handcrafted_source_modalities", ""),
+                "comparison_role": "final_gmu_component_check" if experiment_id == "A7" else (
+                    "three_seed_feature_verification" if experiment_id == "A5d" else "seed42_feature_screening_or_transfer"
+                ),
                 "val_accuracy": src.get("val_accuracy", ""),
                 "val_mae_argmax": src.get("val_mae_argmax", ""),
                 "val_macro_f1": src.get("val_macro_f1", "") or json_metrics.get("val_macro_f1", ""),
@@ -1070,7 +1250,7 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
                 "test_mae_argmax": src.get("test_mae_argmax", ""),
                 "test_macro_f1": src.get("test_macro_f1", ""),
                 "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
-                "notes": "test is report-only; use validation for any selection",
+                "notes": "A7 is final GMU component check; test is report-only" if experiment_id == "A7" else "test is report-only; use validation for any selection",
             }
             rows.append(row)
     return rows
@@ -1078,6 +1258,101 @@ def build_handcrafted_rows() -> list[dict[str, object]]:
 
 def build_loss_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
+
+    def add_row(
+        src: dict[str, object],
+        experiment_id: str,
+        phase: str,
+        comparison_family: str,
+        selection_status: str,
+        reference_baseline_id: str,
+        source_file: str,
+        notes: str,
+    ) -> None:
+        rows.append({
+            "experiment_id": experiment_id,
+            "phase": phase,
+            "comparison_family": comparison_family,
+            "method_id": loss_method_id(src),
+            "method_label": loss_method_label(src),
+            "dataset": src.get("dataset", ""),
+            "particle": src.get("particle", ""),
+            "modalities": src.get("modalities", ""),
+            "seed": src.get("seed", ""),
+            "loss": src.get("loss", ""),
+            "label_encoding": src.get("label_encoding", ""),
+            "gaussian_sigma": src.get("gaussian_sigma", ""),
+            "expected_mae_weight": src.get("expected_mae_weight", ""),
+            "emd_weight": src.get("emd_weight", ""),
+            "emd_p": src.get("emd_p", ""),
+            "emd_angle_weighted": src.get("emd_angle_weighted", ""),
+            "selection_status": selection_status,
+            "reference_baseline_id": reference_baseline_id,
+            "val_accuracy": src.get("val_accuracy", ""),
+            "val_mae_argmax": src.get("val_mae_argmax", ""),
+            "val_macro_f1": src.get("val_macro_f1", ""),
+            "val_high_angle_macro_f1": src.get("val_high_angle_macro_f1", ""),
+            "val_far_error_rate_abs_ge_20": src.get("val_far_error_rate_abs_ge_20", ""),
+            "test_accuracy": src.get("test_accuracy", ""),
+            "test_mae_argmax": src.get("test_mae_argmax", ""),
+            "test_macro_f1": src.get("test_macro_f1", ""),
+            "test_high_angle_macro_f1": src.get("test_high_angle_macro_f1", ""),
+            "test_far_error_rate_abs_ge_20": src.get("test_far_error_rate_abs_ge_20", ""),
+            "source_file": source_file,
+            "notes": notes,
+        })
+
+    for src in a2_runs():
+        add_row(
+            src,
+            "A2-best",
+            "alpha_reference_baseline_three_seed",
+            "Alpha A6 ordered-loss comparison",
+            "reference_baseline",
+            "A2-best:cross_entropy_onehot",
+            str(src.get("source_file", "")),
+            "Alpha CE one-hot baseline reused for A6; model selection must use validation only",
+        )
+
+    for path, experiment_id, phase in [
+        (OUTPUTS / "a6a_alpha_tot_ordinal_loss_seed42_runs.csv", "A6a", "seed42_screening"),
+        (OUTPUTS / "a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv", "A6b", "three_seed_verification"),
+    ]:
+        if not path.exists():
+            continue
+        for src in read_csv(path):
+            method = loss_method_id(src)
+            if experiment_id == "A6a":
+                status = "validation_selected_seed42_tie_break" if method == "ce_emd_lambda_0.02" else "screening_candidate"
+                note = "A6a seed42 screening; CE+EMD lambda=0.02 was only a tie-break-level validation candidate"
+            else:
+                status = "three_seed_rejected"
+                note = "A6b shows CE+EMD lambda=0.02 is weaker than A2 CE baseline on validation"
+            add_row(
+                src,
+                experiment_id,
+                phase,
+                "Alpha A6 ordered-loss comparison",
+                status,
+                "A2-best:cross_entropy_onehot",
+                str(path.relative_to(ROOT)).replace("\\", "/"),
+                note,
+            )
+
+    b1_path = OUTPUTS / "b1_proton_c7_resnet18_tot_best_patience8_3seed_runs.csv"
+    if b1_path.exists():
+        for src in read_csv(b1_path):
+            add_row(
+                src,
+                "B1-best",
+                "proton_reference_baseline_three_seed",
+                "Proton B3 ordered-loss comparison",
+                "reference_baseline",
+                "B1-best:cross_entropy_onehot",
+                str(b1_path.relative_to(ROOT)).replace("\\", "/"),
+                "Proton CE one-hot baseline reused for B3 ordered-loss comparison",
+            )
+
     for path, experiment_id, phase in [
         (OUTPUTS / "b3a_proton_c7_ordinal_loss_seed42_runs.csv", "B3a", "seed42_screening"),
         (OUTPUTS / "b3b_proton_c7_expected_mae_3seed_runs.csv", "B3b-main", "three_seed_verification"),
@@ -1086,42 +1361,149 @@ def build_loss_rows() -> list[dict[str, object]]:
         if not path.exists():
             continue
         for src in read_csv(path):
-            rows.append({
-                "experiment_id": experiment_id,
-                "phase": phase,
-                "method_id": src.get("loss", ""),
-                "dataset": src.get("dataset", ""),
-                "particle": src.get("particle", ""),
-                "modalities": src.get("modalities", ""),
-                "seed": src.get("seed", ""),
-                "loss": src.get("loss", ""),
-                "label_encoding": src.get("label_encoding", ""),
-                "gaussian_sigma": src.get("gaussian_sigma", ""),
-                "expected_mae_weight": src.get("expected_mae_weight", ""),
-                "emd_weight": src.get("emd_weight", ""),
-                "emd_p": src.get("emd_p", ""),
-                "emd_angle_weighted": src.get("emd_angle_weighted", ""),
-                "val_accuracy": src.get("val_accuracy", ""),
-                "val_mae_argmax": src.get("val_mae_argmax", ""),
-                "val_macro_f1": src.get("val_macro_f1", ""),
-                "val_high_angle_macro_f1": src.get("val_high_angle_macro_f1", ""),
-                "val_far_error_rate_abs_ge_20": src.get("val_far_error_rate_abs_ge_20", ""),
-                "test_accuracy": src.get("test_accuracy", ""),
-                "test_mae_argmax": src.get("test_mae_argmax", ""),
-                "test_macro_f1": src.get("test_macro_f1", ""),
-                "test_high_angle_macro_f1": src.get("test_high_angle_macro_f1", ""),
-                "test_far_error_rate_abs_ge_20": src.get("test_far_error_rate_abs_ge_20", ""),
-                "source_file": str(path.relative_to(ROOT)).replace("\\", "/"),
-                "notes": "B3a selects by validation; B3b reports final test only after selection",
+            method = loss_method_id(src)
+            if experiment_id == "B3a":
+                if method == "ce_expected_mae_lambda_0.05":
+                    status = "validation_selected_seed42"
+                elif method == "ce_emd_lambda_0.05":
+                    status = "optional_close_candidate"
+                else:
+                    status = "screening_candidate"
+                note = "B3a selects by validation; test is report-only"
+            elif experiment_id == "B3b-main":
+                status = "three_seed_selected"
+                note = "B3b ExpectedMAE is the current recommended Proton ordered loss"
+            else:
+                status = "three_seed_optional_control"
+                note = "B3b CE+EMD is a strong optional ordered-loss control"
+            add_row(
+                src,
+                experiment_id,
+                phase,
+                "Proton B3 ordered-loss comparison",
+                status,
+                "B1-best:cross_entropy_onehot",
+                str(path.relative_to(ROOT)).replace("\\", "/"),
+                note,
+            )
+    return rows
+
+
+def build_decision_rows(main_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    by_key = {
+        (str(row.get("experiment_id", "")), str(row.get("method_id", ""))): row
+        for row in main_rows
+    }
+
+    def delta(candidate: dict[str, object], baseline: dict[str, object], field: str, scale: float = 1.0) -> str:
+        cand = to_float(candidate.get(field))
+        base = to_float(baseline.get(field))
+        if cand is None or base is None:
+            return ""
+        return fmt((cand - base) * scale)
+
+    def append_decision(
+        out: list[dict[str, object]],
+        decision_id: str,
+        topic: str,
+        baseline_key: tuple[str, str],
+        candidate_key: tuple[str, str],
+        validation_rule: str,
+        decision: str,
+        final_status: str,
+        paper_interpretation: str,
+        notes: str,
+    ) -> None:
+        baseline = by_key.get(baseline_key)
+        candidate = by_key.get(candidate_key)
+        if not baseline or not candidate:
+            out.append({
+                "decision_id": decision_id,
+                "decision_topic": topic,
+                "baseline_experiment_id": baseline_key[0],
+                "baseline_method_id": baseline_key[1],
+                "candidate_experiment_id": candidate_key[0],
+                "candidate_method_id": candidate_key[1],
+                "decision": "source_missing",
+                "notes": f"Could not find baseline or candidate in 01_main_results_summary. {notes}",
             })
-    rows.append({
-        "experiment_id": "A6",
-        "phase": "planned_or_running",
-        "dataset": "Alpha_100",
-        "particle": "alpha",
-        "modalities": "ToT",
-        "notes": "A6 Alpha ordered-loss results were pending in the latest experiment log",
-    })
+            return
+        out.append({
+            "decision_id": decision_id,
+            "dataset": candidate.get("dataset", ""),
+            "particle": candidate.get("particle", ""),
+            "decision_topic": topic,
+            "baseline_experiment_id": baseline_key[0],
+            "baseline_method_id": baseline_key[1],
+            "baseline_label": baseline.get("method_label", ""),
+            "candidate_experiment_id": candidate_key[0],
+            "candidate_method_id": candidate_key[1],
+            "candidate_label": candidate.get("method_label", ""),
+            "validation_rule": validation_rule,
+            "val_accuracy_delta_pp": delta(candidate, baseline, "val_accuracy_mean", 100.0),
+            "val_mae_delta_deg": delta(candidate, baseline, "val_mae_argmax_mean"),
+            "val_macro_f1_delta": delta(candidate, baseline, "val_macro_f1_mean"),
+            "val_high_angle_macro_f1_delta": delta(candidate, baseline, "val_high_angle_macro_f1_mean"),
+            "test_accuracy_delta_pp": delta(candidate, baseline, "test_accuracy_mean", 100.0),
+            "test_mae_delta_deg": delta(candidate, baseline, "test_mae_argmax_mean"),
+            "test_macro_f1_delta": delta(candidate, baseline, "test_macro_f1_mean"),
+            "test_high_angle_macro_f1_delta": delta(candidate, baseline, "test_high_angle_macro_f1_mean"),
+            "decision": decision,
+            "final_status": final_status,
+            "paper_interpretation": paper_interpretation,
+            "source_files": f"{baseline.get('source_file', '')};{candidate.get('source_file', '')}",
+            "notes": notes,
+        })
+
+    rows: list[dict[str, object]] = []
+    append_decision(
+        rows,
+        "alpha_loss_a6b",
+        "Alpha ToT ordered-loss strategy",
+        ("A2-best", "alpha_tot_resnet18_no_maxpool_baseline"),
+        ("A6b", "ce_emd_lambda_0.02"),
+        "A6a candidate must survive three-seed validation comparison; test is report-only",
+        "reject_candidate_keep_baseline",
+        "Alpha final loss remains CE one-hot",
+        "CE+EMD lambda=0.02 had only a seed42 tie-break signal and became weaker than A2 CE after three seeds.",
+        "Do not migrate A6 loss to GMU or final Alpha model.",
+    )
+    append_decision(
+        rows,
+        "alpha_gmu_handcrafted_a7",
+        "Final Alpha GMU handcrafted-feature component",
+        ("A4c-1-3", "dual_stream_gmu_aux"),
+        ("A7", "gmu_aux_main_5feat_gated"),
+        "A7 must improve validation metrics over A4c GMU; test is report-only",
+        "reject_candidate_keep_gmu_no_handcrafted",
+        "Alpha final end-to-end model uses GMU without handcrafted scalars",
+        "main_5feat does not provide stable validation gain on top of GMU; Val Acc ties but Val MAE worsens.",
+        "A7 gate_tot/gate_toa are GMU image-branch gates, not handcrafted fusion weights.",
+    )
+    append_decision(
+        rows,
+        "alpha_final_end_to_end_gmu",
+        "Alpha final end-to-end multimodal architecture",
+        ("A2-best", "alpha_tot_resnet18_no_maxpool_baseline"),
+        ("A4c-1-3", "dual_stream_gmu_aux"),
+        "Select end-to-end multimodal architecture by validation balance and physical interpretability; test reports generalization only",
+        "adopt_candidate",
+        "Alpha final end-to-end multimodal model is dual_stream_gmu_aux + ToT/relative_minmax ToA + CE + no handcrafted",
+        "GMU is not chosen because of test back-selection; it has competitive validation accuracy, better A4c Val MAE, and gate behavior consistent with ToT-main/ToA-auxiliary physics.",
+        "A4b post-hoc fusion remains expert-level reference, not the final deployable end-to-end architecture.",
+    )
+    append_decision(
+        rows,
+        "proton_loss_b3b_expected_mae",
+        "Proton_C_7 ordered-loss strategy",
+        ("B1-best", "proton_tot_resnet18_no_maxpool_baseline"),
+        ("B3b-main", "ce_expected_mae_lambda_0.05"),
+        "B3a selects by validation accuracy; B3b verifies by three seeds",
+        "adopt_candidate",
+        "Proton recommended loss is CE + ExpectedMAE lambda=0.05",
+        "ExpectedMAE improves validation accuracy, MAE, macro-F1, and high-angle behavior relative to the CE baseline.",
+        "CE+EMD lambda=0.05 remains a strong optional ordered-loss control.",
+    )
     return rows
 
 
@@ -1199,6 +1581,7 @@ def main() -> int:
     handcrafted_rows = build_handcrafted_rows()
     handcrafted_classical_rows, handcrafted_importance_rows, handcrafted_cnn_rows = split_handcrafted_rows(handcrafted_rows)
     loss_rows = build_loss_rows()
+    decision_rows = build_decision_rows(main_rows)
     excluded_rows = build_excluded_rows(index)
     error_fields = list(error_rows[0].keys()) if error_rows else []
     modality_fields = list({key: None for row in modality_rows for key in row}.keys())
@@ -1207,6 +1590,7 @@ def main() -> int:
     handcrafted_importance_fields = list({key: None for row in handcrafted_importance_rows for key in row}.keys())
     handcrafted_cnn_fields = list({key: None for row in handcrafted_cnn_rows for key in row}.keys())
     loss_fields = list({key: None for row in loss_rows for key in row}.keys())
+    decision_fields = list({key: None for row in decision_rows for key in row}.keys())
     excluded_fields = list(excluded_rows[0].keys()) if excluded_rows else []
     audit_rows = build_missing_audit({
         "01_main_results_summary.csv": (main_rows, MAIN_FIELDS),
@@ -1220,6 +1604,7 @@ def main() -> int:
         "06c_handcrafted_cnn_fusion.csv": (handcrafted_cnn_rows, handcrafted_cnn_fields),
         "07_loss_strategy_results.csv": (loss_rows, loss_fields),
         "08_excluded_or_diagnostic_runs.csv": (excluded_rows, excluded_fields),
+        "10_final_decision_summary.csv": (decision_rows, decision_fields),
     })
 
     write_csv(PKG / "01_main_results_summary.csv", main_rows, MAIN_FIELDS)
@@ -1233,10 +1618,11 @@ def main() -> int:
     write_dynamic_csv(PKG / "06c_handcrafted_cnn_fusion.csv", handcrafted_cnn_rows)
     write_dynamic_csv(PKG / "07_loss_strategy_results.csv", loss_rows)
     write_dynamic_csv(PKG / "08_excluded_or_diagnostic_runs.csv", excluded_rows)
+    write_dynamic_csv(PKG / "10_final_decision_summary.csv", decision_rows)
     write_dynamic_csv(PKG / "09_missing_value_audit.csv", audit_rows)
 
     print("paper_data_package tables generated")
-    for path in sorted(PKG.glob("0*.csv")):
+    for path in sorted(PKG.glob("*.csv")):
         with path.open("r", encoding="utf-8-sig", newline="") as f:
             count = max(sum(1 for _ in f) - 1, 0)
         print(f"{path.name}: {count} rows")
