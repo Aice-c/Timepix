@@ -90,8 +90,8 @@ Alpha 主线阶段：
 | `A4` | 模态基础对比 | 已完成 | 比较 ToT、ToA、raw/log1p ToT+ToA；结论是 ToT 单模态最好，raw ToA 直接加入会降低效果。 |
 | `A4b` | ToA-assisted decision-level selective fusion | 已完成主体 | 研究 early fusion 失败后，`relative_minmax/no mask` candidate 是否可作为选择性辅助 expert。 |
 | `A4c` | End-to-end full bimodal fusion | 第一批与 A4c-4 已完成 | `A4c-1/2/3` 结果接近 A4b-5 的 Test Acc，并明显提升 Macro-F1；`A4c-4 freeze=true` 可作 warm-start gate 对照，但不是最佳融合方案。 |
-| `A5` | 物理/手工特征融合 | A5a/A5b/A5c 已完成；A5d 三 seed 配置已撰写 | 聚焦 ToT image + selected ToT/ToA scalar physical features；A5a 完成传统模型/置换重要性筛选，A5b 完成低冗余 CNN concat pilot，A5c 显示 gated 明显优于 concat；A5d 将验证五维完整组，并加入 ToA-only validation-best 诊断组。 |
-| `A6` | 损失函数与标签策略 | 待定 | 建议比较 CE one-hot、Gaussian soft label、ordinal/EMD-style loss、regression/hybrid 等。 |
+| `A5` | 物理/手工特征融合 | A5a/A5b/A5c/A5d 已完成 | 聚焦 ToT image + selected ToT/ToA scalar physical features；A5a 完成传统模型/置换重要性筛选，A5b 完成低冗余 CNN concat pilot，A5c 显示 gated 优于 concat；A5d 三 seed 表明手工标量 gated 融合可改善 validation 指标和部分 MAE/F1，但未稳定提升 Test Acc。 |
+| `A6` | Alpha 角度有序性损失与标签策略 | A6a 配置已撰写 | 作为 Alpha 版 B3，固定 A2 ToT baseline，仅比较 loss / label strategy；不混入 A5 handcrafted 或 A4 多模态结构。 |
 | `A7` | 最终模型确认 | 待定 | 汇总最优结构、训练配置、融合策略、loss/feature 设置，做最终三 seed 或更多 seed 认证。 |
 
 A4b 子阶段命名：
@@ -106,8 +106,8 @@ A4b 子阶段命名：
 | `A4b-4` | hard selector 系列 | 已完成 | rule selector 小幅有效，learned selector 不够稳定。 |
 | `A4b-4d` | selector switch diagnostics | 已完成 | 主要瓶颈不是切换不足，而是 beneficial/harmful switch 难以区分，switch precision 不够。 |
 | `A4b-4e` | rule selector 三 seed 验证 | 已完成 | validation-selected rule 三 seed 稳定小幅提升，但 rule 形式不稳定且远低于 oracle。 |
-| `A4b-5` | sample-wise gated late fusion | 已完成 | 当前 A4b 最强结果；frozen-expert gate 比 hard rule 更好。 |
-| `A4b-6` | residual gated fusion | 已完成 | 优于 ToT baseline，但正式 validation-selected 结果不如 A4b-5；作为 residual 对照。 |
+| `A4b-5` | sample-wise gated late fusion | 已完成 | frozen-expert gate 比 hard rule 更好；test 泛化表现强，但不作为基于 test 反选的最终架构依据。 |
+| `A4b-6` | residual gated fusion | 已完成 | validation-selected expert-level residual fusion；适合作为性能导向的后处理融合系统，但不是端到端多模态架构。 |
 
 A4c 计划命名：
 
@@ -645,6 +645,124 @@ python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_
 - 当前 A5d 配置只负责训练与标准汇总；如果后续需要 validation-set feature permutation 或更细的 handcrafted gate 统计，应另加诊断脚本，不能用 test set 做特征选择。
 - 本地 Windows dry-run 已通过，使用 `--data-root D:\Project\Timepix\Data\Alpha_100` 时规划 6 个 run，与预期一致。
 
+A5d 正式结果：
+
+结果文件：
+
+```text
+outputs/a5d_alpha_handcrafted_gated_3seed_runs.csv
+outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
+```
+
+三 seed 汇总：
+
+| 设置 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A2 ToT baseline | 69.03 ± 0.46% | 6.424 ± 0.127 | 0.622 ± 0.007 | **70.44 ± 0.15%** | 5.949 ± 0.068 | 0.636 ± 0.009 |
+| `main_5feat` | 70.23 ± 0.30% | 6.209 ± 0.083 | **0.651 ± 0.008** | 70.18 ± 0.95% | **5.875 ± 0.231** | **0.646 ± 0.005** |
+| `toa_only_diag` | **70.70 ± 0.31%** | **6.129 ± 0.040** | 0.650 ± 0.005 | 70.05 ± 0.21% | 5.959 ± 0.009 | 0.641 ± 0.003 |
+
+逐 seed 结果：
+
+| 组别 | Seed | Best/Stop | Val Acc | Val MAE | Val F1 | Test Acc | Test MAE | Test F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `main_5feat` | 42 | 21/25 | 70.53% | 6.129 | 0.647 | 71.07% | 5.651 | 0.652 |
+| `main_5feat` | 43 | 20/25 | 70.23% | 6.204 | 0.660 | 69.18% | 6.113 | 0.644 |
+| `main_5feat` | 44 | 24/25 | 69.93% | 6.294 | 0.645 | 70.28% | 5.860 | 0.643 |
+| `toa_only_diag` | 42 | 23/25 | 71.03% | 6.084 | 0.657 | 69.98% | 5.964 | 0.639 |
+| `toa_only_diag` | 43 | 18/25 | 70.63% | 6.159 | 0.646 | 70.28% | 5.964 | 0.640 |
+| `toa_only_diag` | 44 | 21/25 | 70.43% | 6.144 | 0.649 | 69.88% | 5.949 | 0.644 |
+
+相对 A2 ToT baseline：
+
+| 设置 | ΔVal Acc | ΔVal MAE | ΔVal F1 | ΔTest Acc | ΔTest MAE | ΔTest F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `main_5feat` | +1.20 pp | -0.215 | +0.029 | -0.27 pp | -0.075 | +0.010 |
+| `toa_only_diag` | +1.67 pp | -0.295 | +0.029 | -0.40 pp | +0.010 | +0.005 |
+
+关键结论：
+
+- 若严格按照 `validation accuracy` 选择 A5d 内部最佳设置，应选择 `toa_only_diag`，不是 `main_5feat`。
+- `main_5feat` 的 Test MAE 和 Test Macro-F1 最好，但不能反过来作为模型选择依据；它只能作为诊断说明五维物理组对误差幅度和类别均衡有一定补充。
+- 两组 A5d 都没有超过 A2 ToT baseline 的 Test Acc，因此 A5 不应表述为“手工特征稳定提升总体准确率”。
+- 更稳妥论文口径：低维手工标量具有独立物理判别力，`gated` 融合比 simple concat 更合适；但在 ResNet18 已经充分利用 ToT 图像结构后，显式标量特征主要带来 validation 和 MAE/F1 层面的有限补充，Test Acc 增益不稳定。
+
+## A6 Alpha ordinal loss / label strategy
+
+记录日期：2026-04-30。
+
+阶段目的：
+
+- A6 定义为 Alpha 版 B3，聚焦角度类别有序性相关的 loss / label strategy。
+- 固定模型结构、输入模态、训练超参和 split，只比较损失函数与标签策略是否能降低角度误差、改善 Macro-F1 和 `30 deg` 困难类别。
+- A6 不继续扩展 A5 handcrafted feature 组合，也不重新引入 A4 多模态架构大网格。
+
+关键决策：
+
+- A6a 先在最干净的 `Alpha_100 + ToT + resnet18_no_maxpool` baseline 上做 seed42 screening。
+- A6b 等 A6a 结果出来后，只对 validation-selected best 以及可选 second-best 做三 seed；A2-best CE one-hot 三 seed可直接作为 baseline 引用，不必重复训练。
+- A6c 仅在 A6b 证明某个 loss 有价值后，将 best loss 迁移到最终端到端多模态架构 `A4c-2 dual_stream_gmu_aux`。
+- 不做 pure EMD。原因与 B3 一致：当前任务仍需要 exact angle classification，pure EMD 可能使输出分布过宽，损害精确分类边界。
+- 暂不做 hybrid CE + regression head，因为当前项目已有 `ce_expected_mae`，无需新增 head / trainer 逻辑来表达连续角度误差辅助监督。
+- A6c 如果使用 `dual_stream_gmu_aux`，当前 trainer 会把同一个 criterion 同时作用于 main logits 与 auxiliary heads，再乘 `weight_tot/weight_toa`。该实现可接受，但论文与日志中需说明；暂不引入 “main 用 ordinal loss、aux 仍用 CE” 的额外 trainer 分支。
+
+A6a 正式配置：
+
+```text
+configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml
+```
+
+固定设置：
+
+- Dataset: `Alpha_100`
+- Input: `ToT only`
+- Model: `resnet18_no_maxpool`
+- Stem: `conv1_kernel_size=2`, `conv1_stride=1`, `conv1_padding=0`
+- Training config: A2 best
+- Handcrafted: disabled
+- Fusion: none
+- Split: `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
+- Screening seed: `training.seed=42`
+
+A6a 共 10 个 seed42 run：
+
+1. `cross_entropy + onehot`
+2. `cross_entropy + gaussian`:
+   - `gaussian_sigma=5.0`
+   - `gaussian_sigma=7.5`
+   - `gaussian_sigma=10.0`
+3. `ce_expected_mae`:
+   - `expected_mae_weight=0.02`
+   - `expected_mae_weight=0.05`
+   - `expected_mae_weight=0.10`
+4. `ce_emd`:
+   - `emd_weight=0.02`
+   - `emd_weight=0.05`
+   - `emd_weight=0.10`
+
+A6a 选择规则：
+
+- A6a 只做 seed42 screening，不作为最终三 seed 结论。
+- 模型选择只使用 validation，不使用 test。
+- Primary: `Val Acc`
+- Tie-break 1: `Val MAE`
+- Tie-break 2: `Val Macro-F1`
+- 额外关注：`30 deg` recall/F1、`far_error_rate_abs_ge_20`、confusion matrix。
+
+服务器 `tmux` 持久化运行：
+
+```bash
+tmux new -s a6a
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a6a_alpha_tot_ordinal_loss_seed42 --out outputs/a6a_alpha_tot_ordinal_loss_seed42_runs.csv
+```
+
+本地验证：
+
+- Windows 本地 `python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root D:\Project\Timepix\Data\Alpha_100 --dry-run` 已通过，计划 10 个 run。
+
 B2 决策影响：
 
 - 由于 A5b 没有得到明确正向的 Alpha 手工特征 concat 结果，B2 不应表述为“迁移 Alpha 最优手工特征方案”。
@@ -1004,8 +1122,8 @@ Proton/C 主线阶段：
 当前推进顺序决策：
 
 1. A4b 已形成完整闭环：A4/A4b-1/A4b-3/A4b-4/A4b-5/A4b-6。
-2. A4b-5 继续作为当前多模态主结果；A4c 作为完整端到端双模态补充验证组。
-3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，是否推进需要结合时间和论文主线再决定。
+2. A4 系列最终分层：`A4b-6` 作为 validation-selected expert-level 后处理融合系统；`A4c-2 dual_stream_gmu_aux` 作为论文主推的端到端 ToT/ToA 多模态架构。GMU 的选择依据来自 validation 侧均衡指标、Val MAE、稳定性和 gate 物理解释，不能用 test 结果反选。
+3. A4c 第一批 `A4c-1/2/3` 已完成；第二批 `A4c-4 warm_started_expert_gate` 也已完成；`A4c-5 mmtm_lite` 仍为选做，但当前多模态结构探索建议收束，不优先继续扩展新架构。
 4. B1 已完成 patience=8 正式 B1-best，可作为 Proton_C_7 baseline。
 5. A5b 没有证明 handcrafted concat 能稳定提升 Alpha ToT CNN；B2 因此改为低成本 seed42 验证，而不是直接做三 seed 迁移。B2a concat 与 B2b gated 均已完成，结论是 Proton_C_7 手工标量收益极小，gated 主要体现为抑制 `ToT_density` 坏特征的鲁棒性。
 
@@ -3171,8 +3289,53 @@ A4c 三 seed 汇总：
 论文口径：
 
 - A4c 第一阶段可表述为：端到端双模态融合没有显著刷新最高 accuracy，但提升了 Macro-F1 和 `30 deg` 困难类别识别能力，说明 ToA 的价值更体现在类别互补和误差结构修正上。
-- A4c 内部如果按 Test Acc/MAE 选代表模型，可选 `dual_stream_concat_aux`；如果按机制解释、Macro-F1 和 gate 诊断，优先讲 `dual_stream_gmu_aux`。
+- A4c 端到端架构选择不能使用 test 结果反选。正式论文口径应基于 validation 侧指标和结构解释：`dual_stream_gmu_aux` 的 Val Acc 接近 FiLM，Val Macro-F1 与 FiLM 近似持平，Val MAE 在端到端 A4c 模型中最好，且 gate 机制与 A4b “ToA 选择性辅助” 的结论一致，因此可作为最终端到端多模态架构。
 - 下一步曾计划运行 `A4c-4 warm_started_expert_gate`，因为它结合 A4b-5 的 frozen expert 稳定性与 A4c 的端到端训练思想；该实验现已完成，结果见下一节。
+
+### A4 final multimodal architecture decision
+
+记录日期：2026-04-30。
+
+核心决策：最终多模态结果分成两个层面，而不是把 A4b 和 A4c 混成单一 winner。
+
+| 层面 | 推荐对象 | 选择依据 | 论文定位 |
+| --- | --- | --- | --- |
+| expert-level 后处理融合系统 | `A4b-6 residual gated fusion` | validation-selected residual fusion 的 Val Acc / Val MAE 最强 | 性能导向的 frozen-expert 后处理融合系统 |
+| 端到端多模态神经网络架构 | `A4c-2 dual_stream_gmu_aux` | A4c 内部 Val Macro-F1 与 FiLM 接近、Val MAE 最好、稳定性好，并且 gate 机制与物理解释一致 | 论文主推 final end-to-end ToT/ToA multimodal architecture |
+
+A4c 架构选择规则：
+
+```text
+1. 不使用 test 结果选择最终架构。
+2. 优先看 validation Macro-F1。
+3. Macro-F1 差异小于标准差量级时，看 validation MAE。
+4. 再看稳定性、是否有可解释 gate / modulation 诊断，以及是否符合 A4b 得到的物理结论。
+```
+
+GMU 的 validation 侧选择理由：
+
+```text
+dual_stream_gmu_aux:
+  Val Acc      = 70.20 ± 0.67%
+  Val MAE      = 6.274 ± 0.129
+  Val Macro-F1 = 0.668 ± 0.007
+
+toa_conditioned_film:
+  Val Macro-F1 = 0.669 ± 0.011
+```
+
+FiLM 的 Val Macro-F1 只比 GMU 高 0.001，远小于 std，不能认为 FiLM 明显优于 GMU。GMU 的 Val MAE 更好，std 也更小；同时 GMU 的显式 gate 更直接对应 “ToT 是主模态、relative ToA 是选择性辅助模态” 的 A4b 结论。
+
+test 结果只能用于泛化报告，不用于选择。可以写作：
+
+```text
+After selecting GMU based on validation-side balanced metrics and model interpretability,
+test-set results were used only for final generalization reporting.
+```
+
+论文建议表述：
+
+> 本文最终采用双分支 `ResNet18_no_maxpool + auxiliary heads + GMU gated fusion` 作为端到端 ToT/ToA 多模态架构。该模型不是由 test 指标反选得到，而是在 validation Macro-F1、validation MAE、训练稳定性、gate 可解释性和物理一致性之间取得了最合适的平衡。`A4b-6 residual gated fusion` 则作为 validation-selected expert-level 融合系统，用于说明 frozen-expert 后处理融合在 accuracy/MAE 口径下仍有优势。
 
 ### A4c-4 warm-started expert gate 实现与结果
 

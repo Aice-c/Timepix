@@ -17,7 +17,7 @@
 | `agent/` | Project handoff docs | Includes architecture notes, experiment guides, and the experiment log. |
 | `timepix/` | New experiment-driven training package | First-stage refactor target; old `Program/` is preserved. |
 | `configs/` | YAML dataset and experiment configs | Main user-facing way to define experiments. |
-| `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`. |
+| `scripts/` | CLI entry points | `train.py`, `run_grid.py`, `summarize.py`, `aggregate_seeds.py`, `export_result_tables.py`. |
 | `requirements.txt` | Refactored runtime dependencies | Minimal new-system dependencies including Optuna. |
 | `requirements-analysis.txt` | Analysis/screening dependencies | Adds `scikit-learn`, `scipy`, plotting, and UMAP dependencies used by data analysis and A5a feature screening. |
 | `generate_presentation.py` | Builds analysis PPT | Uses handcrafted feature CSV/plots for near-vertical analysis. |
@@ -115,11 +115,12 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a5a_alpha_handcrafted_screening.yaml` | A5a feature screening config | Alpha_100 ToT image plus ToT/ToA scalar source config for `scripts/screen_handcrafted_features.py`; no CNN training and no test-based selection. |
 | `configs/experiments/a5b_alpha_handcrafted_group_ablation.yaml` | A5b low-redundancy pilot | Seed42 CNN+handcrafted concat pilot; main progression is Geometry -> Geometry+ToT -> Geometry+ToT+ToA, with a ToA-only side diagnostic. |
 | `configs/experiments/a5b_alpha_handcrafted_group_ablation_TEMPLATE.yaml` | A5b template | Placeholder CNN + selected handcrafted feature-group ablation config; fill feature lists after A5a validation importance results. |
-| `configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml` | A5c gated diagnostic | Completed seed42 CNN+handcrafted gated diagnostic mirroring the four A5b low-redundancy feature groups; best result is five-feature Geometry+ToT+ToA gated. |
+| `configs/experiments/a5c_alpha_handcrafted_gated_seed42.yaml` | A5c gated diagnostic | Completed seed42 CNN+handcrafted gated diagnostic mirroring the four A5b low-redundancy feature groups; five-feature Geometry+ToT+ToA gated was the best A5c pilot setting. |
 | `configs/experiments/a5c_alpha_handcrafted_fusion_mode_TEMPLATE.yaml` | A5c fusion template | Placeholder for future explicit `concat`/`gated` comparison on one selected feature group; not the official current A5c run. |
 | `configs/experiments/a5c_alpha_handcrafted_only_TEMPLATE.yaml` | A5c handcrafted-only template | Placeholder `handcrafted_mlp` diagnostic config for selected A5 feature groups. |
-| `configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml` | A5d handcrafted gated verification | Official Alpha_100 three-seed verification over two gated handcrafted feature groups: five-feature Geometry+ToT+ToA main and ToA-only diagnostic. |
+| `configs/experiments/a5d_alpha_handcrafted_gated_3seed.yaml` | A5d handcrafted gated verification | Completed Alpha_100 three-seed verification over two gated handcrafted feature groups; validation-best is ToA-only diagnostic, while five-feature main has better test MAE/F1 but no test-accuracy gain over A2. |
 | `configs/experiments/a5d_alpha_handcrafted_best_3seed_TEMPLATE.yaml` | A5d template | Placeholder final 3-seed verification config kept for future single-setting confirmation runs; not the current official A5d config. |
+| `configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml` | A6a Alpha ordered-loss screening | Seed42 Alpha_100 ToT loss/label screening aligned with B3: CE one-hot, Gaussian soft CE, CE+ExpectedMAE, and CE+angle-weighted EMD; pure EMD is intentionally excluded. |
 | `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Completed seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups; geometry gives only a tiny positive result, while adding `ToT_density` hurts. |
 | `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
 | `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
@@ -155,6 +156,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `scripts/make_analysis_report.py` | Combined analysis report | Merges dataset and resolution-limit reports into `outputs/analysis_report.md`. |
 | `scripts/summarize.py` | Summarize outputs | Supports `--all`, `--group`, and explicit `--root`; writes CSV summaries with `experiment_group`, model hyperparameters, handcrafted feature fields, mixed-precision state, and timing fields. |
 | `scripts/aggregate_seeds.py` | Aggregate seed repeats | Reads a summary CSV and writes mean/std metrics grouped by stable config fields, including A4c gate/FiLM diagnostic means when present. |
+| `scripts/export_result_tables.py` | Paper-analysis result export | Scans standard training runs and root-level diagnostic outputs, then exports normalized train/validation/test tables to `E:\Analysis\Timepix_results`. |
 
 ## Legacy `Program/` Files
 

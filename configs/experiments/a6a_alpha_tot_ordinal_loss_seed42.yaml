@@ -1,0 +1,35 @@
+base: alpha_tot_a2_best_base.yaml
+
+experiment_name: a6a_alpha_tot_ordinal_loss_seed42
+experiment_group: a6a_alpha_tot_ordinal_loss_seed42
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}
+
+model:
+  fusion_mode: none
+
+training:
+  seed: 42
+
+grid:
+  loss:
+    # A6a-0: CE one-hot baseline, included for same-run comparison.
+    - {name: cross_entropy, label_encoding: onehot}
+
+    # A6a-1: soft-target CE. Sigma is in physical degrees, not class-index units.
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 5.0}
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 7.5}
+    - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 10.0}
+
+    # A6a-2: keep CE as the main objective and add expected-angle MAE.
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.02, normalize_by_angle_range: true}
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.05, normalize_by_angle_range: true}
+    - {name: ce_expected_mae, label_encoding: onehot, expected_mae_weight: 0.10, normalize_by_angle_range: true}
+
+    # A6a-3: CE plus an angle-weighted CDF/EMD auxiliary term. Pure EMD is intentionally excluded.
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.02, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.05, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}
+    - {name: ce_emd, label_encoding: onehot, emd_weight: 0.10, emd_p: 1, emd_angle_weighted: true, normalize_by_angle_range: true}
