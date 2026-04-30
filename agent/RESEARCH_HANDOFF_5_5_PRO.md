@@ -51,6 +51,7 @@ agent/SERVER_TRAINING.md
 agent/A4B_IMPLEMENTATION_PLAN.md
 agent/A4B_SELECTOR_FUSION_PLAN.md
 agent/EXPERIMENT_LOG.old.md
+agent/EXPERIMENT_LOG.pre_rebuild.old.md
 agent/RESEARCH_HANDOFF_5_5_PRO.old.md
 configs/README.old.md
 ```
@@ -213,7 +214,7 @@ A5d 三 seed：
 
 ### A6：Alpha 有序角度损失
 
-当前状态：A6a 正在运行。
+当前状态：A6a 已完成，A6b 待讨论和配置。
 
 A6 设计对齐 B3：固定 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best`，只比较 loss / label strategy。
 
@@ -227,7 +228,9 @@ CE+EMD: lambda = 0.02, 0.05, 0.10
 
 CE one-hot baseline 不重跑，直接复用 A2-best seed42 与 three-seed baseline。
 
-A6b 等 A6a 结果后再写配置。A6c 只有在 A6b 证明 best loss 有价值后，才迁移到 `A4c-2 dual_stream_gmu_aux`。
+A6a 结果没有复现 Proton B3b 那样的强 loss 改进。按 validation selection，主候选是 `CE+EMD lambda=0.02`：Val Acc 与 A2 CE baseline 持平，Val MAE 和 Val Macro-F1 略好。这个收益属于 tie-break 级别，不是明确 accuracy 提升；test 侧也不优于 A2 baseline。`CE+ExpectedMAE lambda=0.02` 虽然对 test Macro-F1 和 30 deg test recall/F1 更好，但 validation 不支持它作为主模型，且 A6b 已决定收窄为只跑 `CE+EMD lambda=0.02`。Gaussian soft label 不进入 A6b，尤其不能因为 `sigma=10` 的 test accuracy 高而反选。
+
+A6b 配置已创建为 `configs/experiments/a6b_alpha_tot_ce_emd_0p02_3seed.yaml`，只做 `CE+EMD lambda=0.02` 三 seed；CE baseline 继续复用 A2-best three-seed，不重跑。A6c 只有在 A6b 证明 best loss 有稳定 validation/MAE/F1 价值后，才迁移到 `A4c-2 dual_stream_gmu_aux`；如果 A6b 仍然只是弱 tie-break 收益，则不优先推进 A6c。
 
 ## 五、Proton_C_7 主线结论
 
@@ -298,7 +301,7 @@ B3b 结果：
 4. A4b 证明选择性后处理融合可以利用一部分互补性。
 5. A4c 证明端到端双流 GMU 架构能从 feature level 利用 ToA 辅助信息，提升类别均衡性。
 6. A5 显示物理标量有解释性辅助价值，但不是稳定 accuracy gain 的主线。
-7. A6 正在验证角度有序性 loss 是否改善 Alpha 的 MAE/F1/30 deg。
+7. A6a 显示角度有序性 loss 在 Alpha-ToT 上只有弱收益；A6b 已收窄为只验证 `CE+EMD lambda=0.02` 三 seed。
 
 ### Proton_C_7 叙事
 
@@ -314,7 +317,7 @@ B3b 结果：
 2. 提炼 ToT 与 ToA 的物理互补性，解释为什么 ToA 不适合 raw early fusion，却适合作为选择性辅助信息。
 3. 帮助构建论文方法章节：结构适配、模态融合、物理标量、角度有序损失。
 4. 帮助撰写 A4c GMU 的理论动机与实验解释，特别强调不能用 test 反选模型。
-5. 帮助分析 A6a/A6b 结果，决定是否迁移到 GMU 多模态架构。
+5. 帮助分析 A6b 结果，尤其判断弱 tie-break 级别的 `CE+EMD lambda=0.02` 是否值得迁移到 GMU 多模态架构。
 6. 帮助组织 Proton_C_7 的 B3 正结果，突出 expected-angle MAE auxiliary loss 的物理意义。
 
 ## 八、重要注意事项
@@ -324,7 +327,7 @@ B3b 结果：
 - 不要用 test 指标解释模型选择过程。
 - 不要把 A4b-6 和 A4c GMU 混成单一 winner：A4b-6 是 expert-level 后处理系统，A4c GMU 是 final end-to-end multimodal architecture。
 - 不要把 A5d `main_5feat` 写成 validation-selected best；A5d validation-best 是 `toa_only_diag`。
-- A6 当前仍在运行，A6b/A6c 需要等 A6a 结果后再定。
+- A6a 已完成但收益较弱；A6b 只验证 `CE+EMD lambda=0.02`，A6c 不应自动推进，需要先看 A6b 是否有稳定收益。
 
 ## 九、建议给 5.5 Pro 的初始提示
 
@@ -334,11 +337,10 @@ agent/PHYSICS_CONTEXT.md、configs/README.md 和 agent/FILE_MAP.md。
 
 本课题研究基于 Timepix/Timepix3 探测器 ToT/ToA 像素矩阵的带电粒子入射极角识别。
 当前正式数据主线为 Alpha_100 和 Proton_C_7。Alpha 主线已完成 A1-A5 和 A4/A4b/A4c
-多模态融合分析，A6 有序角度损失筛选正在运行；Proton_C_7 主线已完成 B1-B3，
+多模态融合分析，A6a 有序角度损失筛选已完成但收益较弱；Proton_C_7 主线已完成 B1-B3，
 B3b 证明 CE+ExpectedMAE lambda=0.05 是当前推荐损失。
 
 请协助进行文献调研、论文结构设计、创新点提炼和实验结果解释。请特别注意：
 模型选择只依据 validation，test 只用于最终报告；A4c GMU 是基于 validation 侧均衡指标
 与物理解释选择的端到端多模态架构，而不是由 test 反选得到。
 ```
-

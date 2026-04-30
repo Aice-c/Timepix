@@ -1,0 +1,12 @@
+base: a2_best_alpha_resnet18_tot_3seed.yaml
+
+experiment_name: a6b_alpha_tot_ce_emd_0p02_3seed
+experiment_group: a6b_alpha_tot_ce_emd_0p02_3seed
+
+loss:
+  name: ce_emd
+  label_encoding: onehot
+  emd_weight: 0.02
+  emd_p: 1
+  emd_angle_weighted: true
+  normalize_by_angle_range: true

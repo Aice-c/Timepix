@@ -338,7 +338,7 @@ python scripts/aggregate_seeds.py --summary outputs/a5d_alpha_handcrafted_gated_
 
 ### 5.9 A6 ordinal loss screening
 
-A6a 当前正在运行：
+A6a 已完成。CE one-hot baseline 复用 A2-best，不在 A6a 中重跑。
 
 ```bash
 cd /root/Timepix
@@ -347,11 +347,42 @@ python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_lo
 python scripts/summarize.py --group a6a_alpha_tot_ordinal_loss_seed42 --out outputs/a6a_alpha_tot_ordinal_loss_seed42_runs.csv
 ```
 
-注意：
+A6a 主结果：
+
+| 方法 | Val Acc | Val MAE | Val Macro-F1 | Test Acc | Test MAE | Test Macro-F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A2 CE onehot baseline | **69.53%** | 6.279 | 0.630 | 70.48% | 5.964 | 0.646 |
+| Gaussian sigma=5 | 68.83% | 6.414 | 0.620 | 69.38% | 6.054 | 0.628 |
+| Gaussian sigma=7.5 | 68.33% | 6.533 | 0.615 | 70.68% | 5.949 | 0.643 |
+| Gaussian sigma=10 | 68.63% | 6.414 | 0.612 | **71.17%** | **5.755** | 0.642 |
+| CE+ExpectedMAE lambda=0.02 | 69.03% | 6.399 | 0.629 | 69.98% | 5.934 | **0.648** |
+| CE+ExpectedMAE lambda=0.05 | 69.03% | 6.489 | 0.614 | 70.58% | 5.994 | 0.636 |
+| CE+ExpectedMAE lambda=0.10 | 68.53% | 6.489 | 0.622 | 69.09% | 6.113 | 0.629 |
+| CE+EMD lambda=0.02 | **69.53%** | **6.264** | **0.636** | 69.68% | 5.964 | 0.641 |
+| CE+EMD lambda=0.05 | 69.13% | 6.444 | 0.605 | 70.38% | 5.964 | 0.621 |
+| CE+EMD lambda=0.10 | 68.53% | 6.533 | 0.586 | 70.68% | 5.994 | 0.621 |
+
+阶段判断：
 
 - CE one-hot baseline 复用 A2-best，不在 A6a 中重跑。
-- A6b 需等待 A6a validation 结果后创建配置。
-- A6c 需等待 A6b 证明 best loss 有价值后再迁移到 `dual_stream_gmu_aux`。
+- 按 validation selection，A6a-main 候选是 `CE+EMD lambda=0.02`。它与 A2 baseline Val Acc 持平，Val MAE 与 Val Macro-F1 更好。
+- 该收益很弱，属于 tie-break 级别，不是 Proton B3b 那样的强正结果。
+- `CE+ExpectedMAE lambda=0.02` 仅作为 A6a 结果解释中的诊断点；它对 test Macro-F1 和 30 deg test recall/F1 更好，但不能作为 validation-selected 主模型，因此不进入 A6b。
+- A6b 收窄为只验证 validation-selected `CE+EMD lambda=0.02`。
+- Gaussian soft label 不进入 A6b。`sigma=10` 虽然 test accuracy 最高，但 validation 不支持，不能用 test 反选。
+- A6b 配置已创建；CE baseline 继续复用 A2-best three-seed。
+- A6c 需等待 A6b 证明 best loss 有稳定价值后再迁移到 `dual_stream_gmu_aux`。
+
+A6b `CE+EMD lambda=0.02` three-seed：
+
+```bash
+tmux new -s a6b
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/a6b_alpha_tot_ce_emd_0p02_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/a6b_alpha_tot_ce_emd_0p02_3seed.yaml --data-root /root/autodl-tmp/Alpha_100 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group a6b_alpha_tot_ce_emd_0p02_3seed --out outputs/a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/a6b_alpha_tot_ce_emd_0p02_3seed_runs.csv --out outputs/a6b_alpha_tot_ce_emd_0p02_3seed_mean_std.csv
+```
 
 ## 六、Proton_C_7 主线配置与命令
 
@@ -478,4 +509,3 @@ configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
 ```
 
 其中 `b1_proton_c7_resnet18_tot_best_3seed.yaml` 使用 `early_stopping_patience=5`，只作为 Proton_C_7 早停过激诊断；正式 B1-best 使用 patience=8 版本。
-
