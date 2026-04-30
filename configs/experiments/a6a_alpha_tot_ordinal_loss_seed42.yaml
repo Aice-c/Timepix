@@ -16,9 +16,6 @@ training:
 
 grid:
   loss:
-    # A6a-0: CE one-hot baseline, included for same-run comparison.
-    - {name: cross_entropy, label_encoding: onehot}
-
     # A6a-1: soft-target CE. Sigma is in physical degrees, not class-index units.
     - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 5.0}
     - {name: cross_entropy, label_encoding: gaussian, gaussian_sigma: 7.5}

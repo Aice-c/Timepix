@@ -699,8 +699,9 @@ outputs/a5d_alpha_handcrafted_gated_3seed_mean_std.csv
 
 关键决策：
 
-- A6a 先在最干净的 `Alpha_100 + ToT + resnet18_no_maxpool` baseline 上做 seed42 screening。
-- A6b 等 A6a 结果出来后，只对 validation-selected best 以及可选 second-best 做三 seed；A2-best CE one-hot 三 seed可直接作为 baseline 引用，不必重复训练。
+- A6a 先在最干净的 `Alpha_100 + ToT + resnet18_no_maxpool` baseline 上做 seed42 screening，只跑新增 loss / label strategy。
+- CE one-hot baseline 不在 A6a 中重复训练；直接复用同配置的 A2-best seed42 和 A2-best 三 seed 结果。
+- A6b 等 A6a 结果出来后，只对 validation-selected best 以及可选 second-best 做三 seed；A2-best CE one-hot 三 seed直接作为 baseline 引用。
 - A6c 仅在 A6b 证明某个 loss 有价值后，将 best loss 迁移到最终端到端多模态架构 `A4c-2 dual_stream_gmu_aux`。
 - 不做 pure EMD。原因与 B3 一致：当前任务仍需要 exact angle classification，pure EMD 可能使输出分布过宽，损害精确分类边界。
 - 暂不做 hybrid CE + regression head，因为当前项目已有 `ce_expected_mae`，无需新增 head / trainer 逻辑来表达连续角度误差辅助监督。
@@ -724,18 +725,17 @@ configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml
 - Split: `outputs/splits/Alpha_100_ToT_seed42_0.8_0.1_0.1.json`
 - Screening seed: `training.seed=42`
 
-A6a 共 10 个 seed42 run：
+A6a 共 9 个 seed42 run，CE one-hot baseline 复用 A2-best：
 
-1. `cross_entropy + onehot`
-2. `cross_entropy + gaussian`:
+1. `cross_entropy + gaussian`:
    - `gaussian_sigma=5.0`
    - `gaussian_sigma=7.5`
    - `gaussian_sigma=10.0`
-3. `ce_expected_mae`:
+2. `ce_expected_mae`:
    - `expected_mae_weight=0.02`
    - `expected_mae_weight=0.05`
    - `expected_mae_weight=0.10`
-4. `ce_emd`:
+3. `ce_emd`:
    - `emd_weight=0.02`
    - `emd_weight=0.05`
    - `emd_weight=0.10`
@@ -761,7 +761,7 @@ python scripts/summarize.py --group a6a_alpha_tot_ordinal_loss_seed42 --out outp
 
 本地验证：
 
-- Windows 本地 `python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root D:\Project\Timepix\Data\Alpha_100 --dry-run` 已通过，计划 10 个 run。
+- Windows 本地 `python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml --data-root D:\Project\Timepix\Data\Alpha_100 --dry-run` 已通过，计划 9 个 run。
 
 B2 决策影响：
 

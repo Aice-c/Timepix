@@ -1490,7 +1490,7 @@ A5d 三 seed 汇总：
 
 ## A6 Alpha ordinal loss / label strategy
 
-A6 是 Alpha 版 B3：固定 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best`，只比较角度有序性相关的 loss / label strategy。A6 不继续扩展 A5 手工特征，也不把 A4 多模态架构混入第一轮筛选。
+A6 是 Alpha 版 B3：固定 `Alpha_100 + ToT + resnet18_no_maxpool + A2 best`，只比较角度有序性相关的 loss / label strategy。A6 不继续扩展 A5 手工特征，也不把 A4 多模态架构混入第一轮筛选。CE one-hot baseline 不在 A6a 中重复训练，直接复用同配置 A2-best seed42 和三 seed 结果。
 
 A6a seed42 screening 配置：
 
@@ -1513,7 +1513,7 @@ configs/experiments/a6a_alpha_tot_ordinal_loss_seed42.yaml
 A6a loss matrix:
 
 ```text
-A6a-0: cross_entropy + onehot
+A6a-baseline: CE onehot, reuse A2-best, not rerun
 A6a-1: cross_entropy + gaussian, sigma = 5.0
 A6a-2: cross_entropy + gaussian, sigma = 7.5
 A6a-3: cross_entropy + gaussian, sigma = 10.0
@@ -1529,7 +1529,7 @@ A6a-9: ce_emd, lambda = 0.10
 
 - 不做 pure EMD。原因与 B3 一致：Alpha 仍需 exact angle classification，pure EMD 可能让输出分布过宽。
 - 暂不做 hybrid CE + regression head；当前已有 `ce_expected_mae`，无需新增 head / trainer 分支。
-- A6a 只做 seed42 screening。A6b 需等 A6a 结果出来后，再创建 validation-selected best loss 的三 seed 配置。
+- A6a 只做 9 个新增策略的 seed42 screening。A6b 需等 A6a 结果出来后，再创建 validation-selected best loss 的三 seed 配置；CE baseline 复用 A2-best。
 - A6c 仅在 A6b 证明有收益后，将 best loss 迁移到 `A4c-2 dual_stream_gmu_aux`。当前 GMU auxiliary heads 会使用同一个 criterion 并乘 `weight_tot/weight_toa`。
 
 选择规则：
@@ -1551,7 +1551,7 @@ python scripts/run_grid.py --config configs/experiments/a6a_alpha_tot_ordinal_lo
 python scripts/summarize.py --group a6a_alpha_tot_ordinal_loss_seed42 --out outputs/a6a_alpha_tot_ordinal_loss_seed42_runs.csv
 ```
 
-本地验证：Windows 本地 dry-run 已通过，规划 10 个 run。
+本地验证：Windows 本地 dry-run 已通过，规划 9 个 run。
 
 ## B2 Proton_C_7 handcrafted transfer plan
 
