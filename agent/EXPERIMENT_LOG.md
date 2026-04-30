@@ -260,6 +260,78 @@ python scripts/screen_handcrafted_features.py \
   --n-repeats 30
 ```
 
+## B3a 结果与 B3b 决策
+
+记录日期：2026-04-30。
+
+B3a 已完成 9 个 seed42 run，输出文件：
+
+```text
+outputs/b3a_proton_c7_ordinal_loss_seed42_runs.csv
+```
+
+固定设置：
+
+- Dataset: `Proton_C_7`
+- Modality: `ToT`
+- Model: `resnet18_no_maxpool`
+- Handcrafted: disabled
+- Training config: B1-best patience=8
+- Seed: `42`
+
+主结果摘要：
+
+| 方法 | Val Acc | Test Acc | Test MAE | Test F1 | High-angle F1 | 45<->50 | 60<->70 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B1-best CE onehot | 93.88% | 94.09% | 0.562 | 0.958 | 0.927 | 111 | 407 |
+| Gaussian sigma=5 | 93.77% | 94.07% | 0.549 | 0.957 | 0.925 | 127 | 399 |
+| Gaussian sigma=10 | 93.82% | 93.68% | 0.589 | 0.954 | 0.921 | 126 | 432 |
+| Gaussian sigma=15 | 92.97% | 92.40% | 0.702 | 0.945 | 0.905 | 151 | 531 |
+| CE+ExpectedMAE lambda=0.05 | 94.26% | 94.32% | 0.540 | 0.959 | 0.930 | 105 | 398 |
+| CE+ExpectedMAE lambda=0.10 | 93.31% | 93.47% | 0.623 | 0.953 | 0.920 | 116 | 458 |
+| CE+ExpectedMAE lambda=0.20 | 94.03% | 93.93% | 0.569 | 0.956 | 0.925 | 116 | 414 |
+| CE+EMD lambda=0.05 | 94.13% | 94.28% | 0.537 | 0.959 | 0.930 | 106 | 400 |
+| CE+EMD lambda=0.10 | 93.95% | 94.15% | 0.552 | 0.957 | 0.927 | 116 | 399 |
+| CE+EMD lambda=0.20 | 94.13% | 94.18% | 0.559 | 0.958 | 0.928 | 101 | 399 |
+
+阶段判断：
+
+- B3a 最优候选是 `CE+ExpectedMAE lambda=0.05`。它在 validation accuracy 上排名第一，且 test accuracy、MAE、Macro-F1 与 high-angle F1 同步优于 B1-best seed42。
+- `CE+EMD lambda=0.05` 非常接近，并取得最低 Test MAE，但 validation accuracy 低于 `CE+ExpectedMAE lambda=0.05`。按照“模型选择只看 validation”的原则，它作为 optional 对照，不作为 B3b 主配置。
+- Gaussian soft label 不继续推进，尤其 `sigma=15` 明显软化分类边界，导致 exact accuracy 和 MAE 变差。
+- B3 系列继续遵循 CE 主导策略，不引入 pure EMD。
+
+B3b 配置：
+
+```text
+configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml
+configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml
+```
+
+B3b-main 使用 `CE+ExpectedMAE lambda=0.05` 做三 seed 认证；B3b-optional 使用 `CE+EMD lambda=0.05`，仅在服务器空间和时间允许时运行。
+
+B3b-main 服务器命令：
+
+```bash
+tmux new -s b3b
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_expected_mae_3seed --out outputs/b3b_proton_c7_expected_mae_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_expected_mae_3seed_runs.csv --out outputs/b3b_proton_c7_expected_mae_3seed_mean_std.csv
+```
+
+B3b-optional 服务器命令：
+
+```bash
+tmux new -s b3b_emd
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_ce_emd_optional_3seed --out outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv --out outputs/b3b_proton_c7_ce_emd_optional_3seed_mean_std.csv
+```
+
 A5a 输出目录：
 
 ```text
@@ -918,7 +990,7 @@ Proton/C 主线阶段：
 | `B1-2` | Proton_C_7 第二轮训练超参搜索：`weight_decay` | 已完成 | 固定 B1-1 最佳 `learning_rate=3e-4`、`batch_size=128`，搜索 `weight_decay = [0, 1e-5, 1e-4]`；最终仍选择 `weight_decay=1e-4`。 |
 | `B1-best` | Proton_C_7 最佳训练配置三 seed 认证 | 已完成 | 固定 B1-2 最佳组合 `learning_rate=3e-4`、`batch_size=128`、`weight_decay=1e-4`；正式版本使用 `early_stopping_patience=8`，旧 patience=5 只作早停过激诊断。 |
 | `B2` | Proton_C_7 手工特征低成本验证 | B2a concat 与 B2b gated 均已完成 | 废弃原“主干/结构迁移验证”定位；Proton_C_7 固定使用 B1-best 架构和训练配置。B2a 显示几何标量仅带来极小正收益，`ToT_density` concat 明显变差；B2b gated 可抑制 `ToT_density` 的负面影响，但没有形成显著提升。 |
-| `B3` | Proton_C_7 损失/近角度分类策略 | B3a 配置已完成，待运行 | 与 A6 对齐，特别关注角度有序性。B3a 先做 seed42 loss/label strategy screening；若有明确候选，再进入 B3b 三 seed 认证。 |
+| `B3` | Proton_C_7 损失/近角度分类策略 | B3a 已完成，B3b 配置已撰写 | B3a seed42 选择 `CE+ExpectedMAE lambda=0.05` 作为 B3b-main；`CE+EMD lambda=0.05` 保留为 optional 对照。 |
 | `B4` | Proton_C_7 最终模型确认 | 待定 | 最终报告用。 |
 
 数据分析链路：

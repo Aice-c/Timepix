@@ -124,6 +124,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
 | `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
 | `configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml` | B3a Proton_C_7 ordered-loss screening | Seed42 grid over Gaussian soft-target CE, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD. Pure EMD is intentionally excluded because Proton_C_7 already has high exact accuracy under CE. |
+| `configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml` | B3b-main Proton_C_7 ordered-loss verification | Three-seed verification of B3a validation-selected `CE+ExpectedMAE lambda=0.05`. |
+| `configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml` | B3b optional CE+EMD verification | Optional three-seed verification of `CE+EMD lambda=0.05`, kept as a physics-oriented ordered-loss backup because it had the lowest seed42 Test MAE but lower validation accuracy than B3b-main. |
 | `configs/experiments/compare_losses.yaml` | Grid config | Compares CE and EMD variants. |
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |

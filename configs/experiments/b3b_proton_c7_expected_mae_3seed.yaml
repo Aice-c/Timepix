@@ -1,0 +1,10 @@
+base: b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+
+experiment_name: b3b_proton_c7_expected_mae_3seed
+experiment_group: b3b_proton_c7_expected_mae_3seed
+
+loss:
+  name: ce_expected_mae
+  label_encoding: onehot
+  expected_mae_weight: 0.05
+  normalize_by_angle_range: true

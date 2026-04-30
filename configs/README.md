@@ -1645,4 +1645,26 @@ python scripts/summarize.py --group b3a_proton_c7_ordinal_loss_seed42 --out outp
 
 不做 pure EMD。原因是 Proton_C_7 的 B1-best CE baseline 已经有很高 exact classification accuracy；pure EMD 可能让输出分布变宽，降低精确分类准确率。B3a 采用 CE 主导策略，在保留 CE 分类边界的同时，用有序角度辅助项尝试降低相邻大角度混淆。
 
-B3a 是 seed42 screening，只需要 `summarize.py`。如有候选进入 B3b 三 seed，再补充 `aggregate_seeds.py` 命令。
+B3a 是 seed42 screening，只需要 `summarize.py`。B3a 已完成，最优候选是 `CE+ExpectedMAE lambda=0.05`。它在 validation accuracy 上排名第一，并且 test accuracy、MAE、Macro-F1 与 high-angle F1 均优于 B1-best seed42。`CE+EMD lambda=0.05` 的 Test MAE 最低但 validation accuracy 略低，因此只作为 optional 对照。Gaussian soft label 不继续推进，尤其 `sigma=15` 明显软化分类边界。
+
+B3b-main 三 seed 认证：
+
+```bash
+tmux new -s b3b
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_expected_mae_3seed --out outputs/b3b_proton_c7_expected_mae_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_expected_mae_3seed_runs.csv --out outputs/b3b_proton_c7_expected_mae_3seed_mean_std.csv
+```
+
+B3b-optional `CE+EMD lambda=0.05` 对照：
+
+```bash
+tmux new -s b3b_emd
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b3b_proton_c7_ce_emd_optional_3seed --out outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_ce_emd_optional_3seed_runs.csv --out outputs/b3b_proton_c7_ce_emd_optional_3seed_mean_std.csv
+```

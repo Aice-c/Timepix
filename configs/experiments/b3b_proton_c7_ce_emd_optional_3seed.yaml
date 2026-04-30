@@ -1,0 +1,12 @@
+base: b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+
+experiment_name: b3b_proton_c7_ce_emd_optional_3seed
+experiment_group: b3b_proton_c7_ce_emd_optional_3seed
+
+loss:
+  name: ce_emd
+  label_encoding: onehot
+  emd_weight: 0.05
+  emd_p: 1
+  emd_angle_weighted: true
+  normalize_by_angle_range: true
