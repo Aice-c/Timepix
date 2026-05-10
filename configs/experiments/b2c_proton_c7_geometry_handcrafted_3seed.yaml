@@ -1,0 +1,21 @@
+base: b1_proton_c7_resnet18_tot_best_patience8_3seed.yaml
+
+experiment_name: b2c_proton_c7_geometry_handcrafted_3seed
+experiment_group: b2c_proton_c7_geometry_handcrafted_3seed
+
+handcrafted_features:
+  enabled: true
+  standardize: true
+  source_modalities: [ToT]
+  features:
+    - active_pixel_count
+    - bbox_fill_ratio
+
+grid:
+  model.fusion_mode:
+    - concat
+    - gated
+  training.seed:
+    - 42
+    - 43
+    - 44
