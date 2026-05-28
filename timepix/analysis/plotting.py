@@ -11,7 +11,30 @@ from .io import read_matrix
 
 
 PNG_DPI = 300
-CORE_FEATURES = ["active_count", "active_sum", "bbox_aspect_ratio", "rms_radius", "energy_entropy"]
+CORE_FEATURES = ["active_count", "active_sum", "aspect_ratio", "weighted_radius_mean", "spatial_entropy"]
+FEATURE_LABELS = {
+    "active_count": "Active Pixels",
+    "active_sum": "Total ToT",
+    "active_mean": "Mean ToT",
+    "active_max": "Max ToT",
+    "bbox_width": "Bounding Box Width",
+    "bbox_height": "Bounding Box Height",
+    "bbox_area": "Bounding Box Area",
+    "bbox_fill_ratio": "Bounding Box Fill Ratio",
+    "aspect_ratio": "Aspect Ratio",
+    "bbox_aspect_ratio": "Aspect Ratio",
+    "pca_major_axis": "PCA Major Axis",
+    "pca_minor_axis": "PCA Minor Axis",
+    "pca_axis_ratio": "PCA Axis Ratio",
+    "weighted_radius_mean": "Weighted Radius",
+    "central_energy_ratio_r1": "Central Energy Ratio r=1",
+    "central_energy_ratio_r2": "Central Energy Ratio r=2",
+    "central_energy_ratio_r3": "Central Energy Ratio r=3",
+    "spatial_entropy": "Spatial Entropy",
+    "toa_span": "ToA Span",
+    "toa_std": "ToA Std.",
+    "toa_major_axis_corr_abs": "Abs. ToA-Axis Correlation",
+}
 ACADEMIC_COLORS = [
     "#0072B2",
     "#D55E00",
@@ -35,7 +58,8 @@ def _plt():
         {
             "figure.dpi": PNG_DPI,
             "savefig.dpi": PNG_DPI,
-            "font.family": "DejaVu Sans",
+            "font.family": "Times New Roman",
+            "font.serif": ["Times New Roman", "DejaVu Serif"],
             "font.size": 9,
             "axes.titlesize": 10,
             "axes.labelsize": 9,
@@ -57,6 +81,10 @@ def _plt():
     )
 
     return plt
+
+
+def pretty_label(name: str) -> str:
+    return FEATURE_LABELS.get(name, name.replace("_", " ").title())
 
 
 def save_figure(fig, path_without_suffix: str | Path, *, dpi: int = PNG_DPI) -> tuple[Path, Path]:
@@ -131,9 +159,14 @@ def _display_matrix(array: np.ndarray) -> np.ndarray:
     return x
 
 
+def _row_path(item) -> str:
+    return getattr(item, "source_path", None) or getattr(item, "path")
+
+
 def plot_representative_grid(representatives: pd.DataFrame, out_path: str | Path, title: str, *, max_cols: int = 6) -> tuple[Path, Path]:
     plt = _plt()
-    reps = representatives.sort_values(["angle_value", "modality", "sample_key"]) if "angle_value" in representatives else representatives
+    sort_cols = [col for col in ["angle_value", "modality", "sample_id", "sample_key"] if col in representatives.columns]
+    reps = representatives.sort_values(sort_cols) if sort_cols else representatives
     n = len(reps)
     if n == 0:
         fig, ax = plt.subplots()
@@ -145,9 +178,11 @@ def plot_representative_grid(representatives: pd.DataFrame, out_path: str | Path
     for ax in axes.ravel():
         ax.axis("off")
     for ax, item in zip(axes.ravel(), reps.itertuples(index=False)):
-        array = read_matrix(item.path)
+        array = read_matrix(_row_path(item))
         ax.imshow(_display_matrix(array), cmap="viridis", interpolation="nearest")
-        ax.set_title(f"{item.angle} deg\n{item.modality}", fontsize=8)
+        rule = getattr(item, "selection_rule", "")
+        suffix = f"\n{rule}" if rule else ""
+        ax.set_title(f"{item.angle} deg {item.modality}{suffix}", fontsize=8)
         ax.axis("off")
     fig.suptitle(title)
     return save_figure(fig, out_path)
@@ -157,14 +192,15 @@ def plot_alpha_pair_grid(tot_reps: pd.DataFrame, toa_features: pd.DataFrame, out
     plt = _plt()
     rows = []
     toa_lookup = {
-        (row.dataset, row.sample_key): row.path
+        (row.dataset, row.sample_id if hasattr(row, "sample_id") else row.sample_key): _row_path(row)
         for row in toa_features.itertuples(index=False)
         if getattr(row, "modality", None) == "ToA"
     }
     for row in tot_reps.itertuples(index=False):
-        toa_path = toa_lookup.get((row.dataset, row.sample_key))
+        sample_key = row.sample_id if hasattr(row, "sample_id") else row.sample_key
+        toa_path = toa_lookup.get((row.dataset, sample_key))
         if toa_path:
-            rows.append((row.angle, row.path, toa_path))
+            rows.append((row.angle, _row_path(row), toa_path))
     if not rows:
         return plot_representative_grid(tot_reps, out_path, "Alpha_100 representative ToT samples")
     fig, axes = plt.subplots(len(rows), 2, figsize=(5.2, 2.3 * len(rows)), squeeze=False)
@@ -200,7 +236,7 @@ def plot_feature_violin(features: pd.DataFrame, out_path: str | Path, title: str
             ax.violinplot(data, showmeans=False, showmedians=True)
             ax.set_xticks(range(1, len(labels) + 1))
             ax.set_xticklabels(labels, rotation=45)
-        ax.set_title(feature)
+        ax.set_title(pretty_label(feature))
         ax.grid(axis="y", alpha=0.25)
     fig.suptitle(title)
     return save_figure(fig, out_path)
@@ -221,7 +257,7 @@ def plot_feature_kde(features: pd.DataFrame, out_path: str | Path, title: str, f
             if len(values) < 3:
                 continue
             ax.hist(values, bins=60, density=True, histtype="step", label=str(angle), alpha=0.8)
-        ax.set_title(feature)
+        ax.set_title(pretty_label(feature))
         ax.grid(alpha=0.25)
     axes.ravel()[0].legend(fontsize=7)
     fig.suptitle(title)
@@ -235,8 +271,8 @@ def plot_feature_scatter(features: pd.DataFrame, out_path: str | Path, title: st
     for angle, group in features.sort_values("angle_value").groupby("angle"):
         ax.scatter(group["active_count"], group["active_sum"], s=5, alpha=0.35, label=str(angle))
         plotted = True
-    ax.set_xlabel("active_count")
-    ax.set_ylabel("active_sum")
+    ax.set_xlabel("Active Pixels")
+    ax.set_ylabel("Total ToT")
     ax.set_title(title)
     ax.grid(alpha=0.25)
     if plotted:
@@ -258,8 +294,94 @@ def plot_box_by_angle(features: pd.DataFrame, feature: str, out_path: str | Path
         ax.boxplot(data, labels=labels, showfliers=False)
     ax.set_title(title)
     ax.set_xlabel("Angle (deg)")
-    ax.set_ylabel(feature)
+    ax.set_ylabel(pretty_label(feature))
     ax.grid(axis="y", alpha=0.25)
+    return save_figure(fig, out_path)
+
+
+def plot_feature_panels(
+    features: pd.DataFrame,
+    feature_cols: list[str],
+    out_path: str | Path,
+    title: str,
+    *,
+    kind: str = "violin",
+) -> tuple[Path, Path]:
+    plt = _plt()
+    feature_cols = [f for f in feature_cols if f in features.columns]
+    if not feature_cols:
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, "No feature data", ha="center", va="center")
+        ax.set_title(title)
+        return save_figure(fig, out_path)
+    cols = min(4, len(feature_cols))
+    rows = int(np.ceil(len(feature_cols) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(3.3 * cols, 3.0 * rows), squeeze=False)
+    for ax in axes.ravel():
+        ax.axis("off")
+    for ax, feature in zip(axes.ravel(), feature_cols):
+        ax.axis("on")
+        data = []
+        labels = []
+        for angle, group in features.sort_values("angle_value").groupby("angle"):
+            values = pd.to_numeric(group[feature], errors="coerce").replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
+            if len(values) > 0:
+                data.append(values)
+                labels.append(str(angle))
+        if data and kind == "box":
+            ax.boxplot(data, labels=labels, showfliers=False)
+        elif data:
+            ax.violinplot(data, showmeans=False, showmedians=True)
+            ax.set_xticks(range(1, len(labels) + 1))
+            ax.set_xticklabels(labels)
+        ax.set_title(pretty_label(feature))
+        ax.set_xlabel("Angle (deg)")
+        ax.tick_params(axis="x", rotation=45)
+        ax.grid(axis="y", alpha=0.22)
+    fig.suptitle(title)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    return save_figure(fig, out_path)
+
+
+def plot_mean_or_occupancy_grid(
+    features: pd.DataFrame,
+    out_path: str | Path,
+    title: str,
+    *,
+    mode: str = "mean",
+    sample_cap_per_angle: int = 1000,
+    cmap: str = "viridis",
+) -> tuple[Path, Path]:
+    plt = _plt()
+    groups = list(features.sort_values("angle_value").groupby("angle"))
+    if not groups:
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, "No data", ha="center", va="center")
+        return save_figure(fig, out_path)
+    arrays_by_angle = []
+    for angle, group in groups:
+        paths = list(group["source_path" if "source_path" in group.columns else "path"].head(sample_cap_per_angle))
+        arrays = [read_matrix(path) for path in paths]
+        if mode == "occupancy":
+            matrix = np.mean([arr > 0 for arr in arrays], axis=0)
+        else:
+            matrix = np.mean(arrays, axis=0)
+        arrays_by_angle.append((angle, matrix))
+    if mode == "mean":
+        display_arrays = [(angle, _display_matrix(matrix)) for angle, matrix in arrays_by_angle]
+    else:
+        display_arrays = arrays_by_angle
+    vmin = min(float(np.nanmin(matrix)) for _, matrix in display_arrays)
+    vmax = max(float(np.nanmax(matrix)) for _, matrix in display_arrays)
+    fig, axes = plt.subplots(1, len(display_arrays), figsize=(2.6 * len(display_arrays), 2.9), squeeze=False)
+    im = None
+    for ax, (angle, matrix) in zip(axes.ravel(), display_arrays):
+        im = ax.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax, interpolation="nearest")
+        ax.set_title(f"{angle} deg", fontsize=8)
+        ax.axis("off")
+    if im is not None:
+        fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.75)
+    fig.suptitle(title)
     return save_figure(fig, out_path)
 
 
@@ -337,7 +459,8 @@ def plot_mean_images_by_angle(features: pd.DataFrame, out_path: str | Path, titl
     fig, axes = plt.subplots(1, len(groups), figsize=(2.4 * len(groups), 2.6), squeeze=False)
     means = []
     for (_, group), ax in zip(groups, axes.ravel()):
-        paths = list(group["path"].head(sample_cap))
+        path_col = "source_path" if "source_path" in group.columns else "path"
+        paths = list(group[path_col].head(sample_cap))
         arrays = [read_matrix(path) for path in paths]
         means.append(np.mean(arrays, axis=0))
         ax.imshow(_display_matrix(means[-1]), cmap="viridis", interpolation="nearest")
@@ -352,7 +475,8 @@ def plot_adjacent_difference_maps(features: pd.DataFrame, angles: list[float], o
     means = {}
     for angle in angles:
         group = features[features["angle_value"] == float(angle)]
-        paths = list(group["path"].head(sample_cap))
+        path_col = "source_path" if "source_path" in group.columns else "path"
+        paths = list(group[path_col].head(sample_cap))
         if paths:
             means[angle] = np.mean([read_matrix(path) for path in paths], axis=0)
     pairs = [(a, b) for a, b in zip(angles[:-1], angles[1:]) if a in means and b in means]

@@ -499,11 +499,18 @@ python scripts/run_grid.py --config configs/experiments/b2_proton_c7_handcrafted
 python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out outputs/b2_proton_c7_handcrafted_gated_seed42_runs.csv
 ```
 
-B2c 暂不优先推进；若后期需要三 seed 确认，使用：
+B2c geometry three-seed confirmation：
 
-```text
-configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml
+```bash
+tmux new -s b2c
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2c_proton_c7_geometry_handcrafted_3seed --out outputs/b2c_proton_c7_geometry_handcrafted_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b2c_proton_c7_geometry_handcrafted_3seed_runs.csv --out outputs/b2c_proton_c7_geometry_handcrafted_3seed_mean_std.csv
 ```
+
+B2c 只验证 `active_pixel_count + bbox_fill_ratio`，并比较 `concat` 与 `gated`。不再加入 `ToT_density`，因为它在 B2a concat 中明显伤害结果，B2b gated 只证明能抑制坏特征，并未证明其有稳定增益。
 
 ### 6.5 B3 ordinal loss
 

@@ -34,14 +34,48 @@ def iqr_overlap_ratio(a: np.ndarray, b: np.ndarray) -> float:
     return float(intersection / max(union, 1e-12))
 
 
-def feature_pair_effects(features: pd.DataFrame, angles: list[float], feature_names: list[str]) -> pd.DataFrame:
+def ks_interpretation(value: float) -> str:
+    if value < 0.05:
+        return "very_small_distribution_difference"
+    if value < 0.10:
+        return "small_distribution_difference"
+    if value < 0.20:
+        return "moderate_distribution_difference"
+    return "large_distribution_difference"
+
+
+def cliffs_interpretation(value: float) -> str:
+    abs_value = abs(value)
+    if abs_value < 0.147:
+        return "negligible"
+    if abs_value < 0.33:
+        return "small"
+    if abs_value < 0.474:
+        return "medium"
+    return "large"
+
+
+def _feature_pairs(angles: list[float], *, adjacent_only: bool) -> list[tuple[float, float]]:
+    angles = [float(angle) for angle in angles]
+    if adjacent_only:
+        return list(zip(angles[:-1], angles[1:]))
+    return [(left, right) for idx, left in enumerate(angles) for right in angles[idx + 1 :]]
+
+
+def feature_pair_effects(
+    features: pd.DataFrame,
+    angles: list[float],
+    feature_names: list[str],
+    *,
+    adjacent_only: bool = True,
+) -> pd.DataFrame:
     try:
         from scipy.stats import ks_2samp, wasserstein_distance
     except ImportError as exc:  # pragma: no cover - dependency guidance
         raise ImportError("scipy is required for statistical distance analysis") from exc
 
     rows = []
-    for left, right in zip(angles[:-1], angles[1:]):
+    for left, right in _feature_pairs(angles, adjacent_only=adjacent_only):
         left_group = features[features["angle_value"] == float(left)]
         right_group = features[features["angle_value"] == float(right)]
         for feature in feature_names:
@@ -50,22 +84,32 @@ def feature_pair_effects(features: pd.DataFrame, angles: list[float], feature_na
             if a.size == 0 or b.size == 0:
                 continue
             ks = ks_2samp(a, b)
+            a25, a75 = np.percentile(a, [25, 75])
+            b25, b75 = np.percentile(b, [25, 75])
+            scale = max(float(np.percentile(np.concatenate([a, b]), 75) - np.percentile(np.concatenate([a, b]), 25)), 1e-12)
+            cliffs = cliffs_delta(a, b)
             rows.append(
                 {
-                    "angle_left": left,
-                    "angle_right": right,
+                    "angle_a": left,
+                    "angle_b": right,
                     "angle_pair": f"{left:g}-{right:g}",
                     "feature": feature,
-                    "n_left": int(a.size),
-                    "n_right": int(b.size),
+                    "n_a": int(a.size),
+                    "n_b": int(b.size),
                     "ks_statistic": float(ks.statistic),
                     "ks_pvalue": float(ks.pvalue),
                     "wasserstein_distance": float(wasserstein_distance(a, b)),
-                    "cliffs_delta": cliffs_delta(a, b),
+                    "wasserstein_distance_normalized": float(wasserstein_distance(a, b) / scale),
+                    "cliffs_delta": cliffs,
+                    "median_a": float(np.median(a)),
+                    "median_b": float(np.median(b)),
                     "median_difference": float(np.median(b) - np.median(a)),
+                    "iqr_a_low": float(a25),
+                    "iqr_a_high": float(a75),
+                    "iqr_b_low": float(b25),
+                    "iqr_b_high": float(b75),
                     "iqr_overlap_ratio": iqr_overlap_ratio(a, b),
-                    "left_median": float(np.median(a)),
-                    "right_median": float(np.median(b)),
+                    "effect_size_interpretation": f"{ks_interpretation(float(ks.statistic))}; cliffs_delta_{cliffs_interpretation(cliffs)}",
                 }
             )
     return pd.DataFrame(rows)
@@ -89,4 +133,3 @@ def pivot_metric(effect_df: pd.DataFrame, metric: str) -> pd.DataFrame:
     if effect_df.empty:
         return pd.DataFrame()
     return effect_df.pivot_table(index="feature", columns="angle_pair", values=metric, aggfunc="max").reset_index()
-

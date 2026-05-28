@@ -42,13 +42,14 @@ def _angle_mae(y_true: np.ndarray, y_pred: np.ndarray, labels: list[float]) -> f
 
 def _build_models(seed: int, include_rbf: bool):
     from sklearn.dummy import DummyClassifier
-    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.multiclass import OneVsRestClassifier
     from sklearn.neural_network import MLPClassifier
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     from sklearn.svm import LinearSVC, SVC
+    from sklearn.neighbors import KNeighborsClassifier
 
     models = [
         ("dummy_most_frequent", DummyClassifier(strategy="most_frequent")),
@@ -68,6 +69,10 @@ def _build_models(seed: int, include_rbf: bool):
             RandomForestClassifier(n_estimators=200, random_state=seed, class_weight="balanced", n_jobs=-1),
         ),
         (
+            "extra_trees",
+            ExtraTreesClassifier(n_estimators=300, random_state=seed, class_weight="balanced", n_jobs=-1),
+        ),
+        (
             "mlp",
             make_pipeline(
                 StandardScaler(),
@@ -77,6 +82,7 @@ def _build_models(seed: int, include_rbf: bool):
     ]
     if include_rbf:
         models.append(("rbf_svm", make_pipeline(StandardScaler(), SVC(kernel="rbf", class_weight="balanced", random_state=seed))))
+        models.append(("knn", make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7))))
     return models
 
 
@@ -87,6 +93,7 @@ def run_ml_baselines(
     sample_cap: int,
     seeds: list[int],
     include_rbf: bool = True,
+    feature_sets: dict[str, list[str]] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, np.ndarray], list[str]]:
     from sklearn.metrics import accuracy_score, balanced_accuracy_score, confusion_matrix, f1_score
     from sklearn.model_selection import train_test_split
@@ -96,32 +103,55 @@ def run_ml_baselines(
     labels_out: list[str] = []
     for seed in seeds:
         sampled = deterministic_sample(features, sample_cap, seed, stratify="angle")
-        x, y, labels = _prepare_xy(sampled, feature_cols)
-        labels_out = [f"{angle:g}" for angle in labels]
-        if len(np.unique(y)) < 2:
-            continue
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, stratify=y, random_state=seed)
-        rbf_ok = include_rbf and len(x_train) <= 5000
-        models = _build_models(seed, rbf_ok)
-        for name, model in iter_progress(models, total=len(models), desc=f"ML baselines seed={seed}", unit="model"):
-            model.fit(x_train, y_train)
-            y_pred = model.predict(x_test)
-            cm = confusion_matrix(y_test, y_pred, labels=list(range(len(labels))))
-            if seed == seeds[0] and name in {"logistic_regression", "random_forest", "mlp"}:
-                confusion_by_model[name] = cm
-            rows.append(
-                {
-                    "seed": seed,
-                    "model": name,
-                    "n_train": int(len(y_train)),
-                    "n_test": int(len(y_test)),
-                    "accuracy": float(accuracy_score(y_test, y_pred)),
-                    "balanced_accuracy": float(balanced_accuracy_score(y_test, y_pred)),
-                    "macro_f1": float(f1_score(y_test, y_pred, average="macro", zero_division=0)),
-                    "weighted_f1": float(f1_score(y_test, y_pred, average="weighted", zero_division=0)),
-                    "mae_in_degrees": _angle_mae(y_test, y_pred, labels),
-                }
+        feature_sets = feature_sets or {"all_features": feature_cols}
+        for feature_set_name, cols in feature_sets.items():
+            cols = [col for col in cols if col in sampled.columns]
+            if not cols:
+                continue
+            x, y, labels = _prepare_xy(sampled, cols)
+            labels_out = [f"{angle:g}" for angle in labels]
+            if len(np.unique(y)) < 2:
+                continue
+            x_train_full, x_test, y_train_full, y_test = train_test_split(
+                x, y, test_size=0.20, stratify=y, random_state=seed
             )
+            x_train, x_val, y_train, y_val = train_test_split(
+                x_train_full, y_train_full, test_size=0.25, stratify=y_train_full, random_state=seed
+            )
+            rbf_ok = include_rbf and len(x_train) <= 5000
+            models = _build_models(seed, rbf_ok)
+            for name, model in iter_progress(models, total=len(models), desc=f"ML baselines seed={seed} {feature_set_name}", unit="model"):
+                model.fit(x_train, y_train)
+                pred_train = model.predict(x_train)
+                pred_val = model.predict(x_val)
+                pred_test = model.predict(x_test)
+                cm = confusion_matrix(y_test, pred_test, labels=list(range(len(labels))))
+                if seed == seeds[0] and feature_set_name == "all_features" and name in {"logistic_regression", "random_forest", "mlp", "extra_trees"}:
+                    confusion_by_model[name] = cm
+                abs_errors = np.abs(np.asarray(labels)[y_test] - np.asarray(labels)[pred_test])
+                test_acc = float(accuracy_score(y_test, pred_test))
+                rows.append(
+                    {
+                        "seed": seed,
+                        "feature_set": feature_set_name,
+                        "model": name,
+                        "n_train": int(len(y_train)),
+                        "n_val": int(len(y_val)),
+                        "n_test": int(len(y_test)),
+                        "train_acc": float(accuracy_score(y_train, pred_train)),
+                        "val_acc": float(accuracy_score(y_val, pred_val)),
+                        "test_acc": test_acc,
+                        "accuracy": test_acc,
+                        "balanced_acc": float(balanced_accuracy_score(y_test, pred_test)),
+                        "balanced_accuracy": float(balanced_accuracy_score(y_test, pred_test)),
+                        "macro_f1": float(f1_score(y_test, pred_test, average="macro", zero_division=0)),
+                        "weighted_f1": float(f1_score(y_test, pred_test, average="weighted", zero_division=0)),
+                        "mae_deg": _angle_mae(y_test, pred_test, labels),
+                        "mae_in_degrees": _angle_mae(y_test, pred_test, labels),
+                        "p90_error_deg": float(np.percentile(abs_errors, 90)) if abs_errors.size else np.nan,
+                        "random_baseline_acc": float(1.0 / max(len(labels), 1)),
+                    }
+                )
     return pd.DataFrame(rows), confusion_by_model, labels_out
 
 
@@ -130,8 +160,12 @@ def aggregate_ml_results(results: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     metrics = ["accuracy", "balanced_accuracy", "macro_f1", "weighted_f1", "mae_in_degrees"]
     rows = []
-    for model, group in results.groupby("model"):
-        row = {"model": model, "runs": len(group)}
+    group_cols = ["feature_set", "model"] if "feature_set" in results.columns else ["model"]
+    for keys, group in results.groupby(group_cols):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        row = {col: value for col, value in zip(group_cols, keys)}
+        row["runs"] = len(group)
         for metric in metrics:
             row[f"{metric}_mean"] = group[metric].mean()
             row[f"{metric}_std"] = group[metric].std(ddof=0)

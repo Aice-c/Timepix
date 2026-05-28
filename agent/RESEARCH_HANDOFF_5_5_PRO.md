@@ -324,7 +324,7 @@ B2 固定 B1-best，只验证 ToT-only low-redundancy handcrafted features。
 - `geometry_lowcorr` 只有极小正收益。
 - `ToT_density` 在 concat 下明显破坏结果。
 - gated 可以抑制坏特征的负面影响，但没有证明手工特征能显著提升 Proton_C_7。
-- B2c three-seed 不优先推进。
+- B2c 已配置为最小 three-seed confirmation：只验证 `active_pixel_count + bbox_fill_ratio`，并比较 concat 与 gated；不再加入 `ToT_density`。
 
 ### B3：有序角度损失
 

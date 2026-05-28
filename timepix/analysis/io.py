@@ -111,7 +111,7 @@ def matrix_shape(path: Path) -> tuple[str, int | None, int | None, str]:
     return "ok", int(array.shape[0]), int(array.shape[1]), ""
 
 
-def scan_dataset(data_root: str | Path, dataset: str) -> pd.DataFrame:
+def scan_dataset(data_root: str | Path, dataset: str, *, read_shapes: bool = True) -> pd.DataFrame:
     base = Path(data_root)
     dataset_root = base / dataset
     modalities = infer_modalities(dataset, dataset_root)
@@ -124,7 +124,10 @@ def scan_dataset(data_root: str | Path, dataset: str) -> pd.DataFrame:
 
     rows = []
     for angle, modality, path in iter_progress(file_items, total=len(file_items), desc=f"Scan {dataset}", unit="file"):
-        status, rows_count, cols_count, error = matrix_shape(path)
+        if read_shapes:
+            status, rows_count, cols_count, error = matrix_shape(path)
+        else:
+            status, rows_count, cols_count, error = "unknown", None, None, ""
         rel_path = path.relative_to(base) if path.is_relative_to(base) else path
         rows.append(
             {
@@ -146,8 +149,8 @@ def scan_dataset(data_root: str | Path, dataset: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=INDEX_COLUMNS)
 
 
-def scan_datasets(data_root: str | Path, datasets: Iterable[str]) -> pd.DataFrame:
-    frames = [scan_dataset(data_root, dataset) for dataset in datasets]
+def scan_datasets(data_root: str | Path, datasets: Iterable[str], *, read_shapes: bool = True) -> pd.DataFrame:
+    frames = [scan_dataset(data_root, dataset, read_shapes=read_shapes) for dataset in datasets]
     frames = [frame for frame in frames if not frame.empty]
     if not frames:
         return pd.DataFrame(columns=INDEX_COLUMNS)
@@ -155,7 +158,7 @@ def scan_datasets(data_root: str | Path, datasets: Iterable[str]) -> pd.DataFram
 
 
 def paired_modality_report(index_df: pd.DataFrame, dataset: str, modality_a: str = "ToT", modality_b: str = "ToA") -> dict:
-    subset = index_df[(index_df["dataset"] == dataset) & (index_df["status"] == "ok")]
+    subset = index_df[(index_df["dataset"] == dataset) & (index_df["status"].isin(["ok", "unknown"]))]
     a_keys = set(subset.loc[subset["modality"] == modality_a, "sample_key"])
     b_keys = set(subset.loc[subset["modality"] == modality_b, "sample_key"])
     return {
@@ -170,7 +173,7 @@ def paired_modality_report(index_df: pd.DataFrame, dataset: str, modality_a: str
 
 
 def class_counts(index_df: pd.DataFrame, dataset: str, modalities: list[str] | None = None) -> pd.DataFrame:
-    subset = index_df[(index_df["dataset"] == dataset) & (index_df["status"] == "ok")]
+    subset = index_df[(index_df["dataset"] == dataset) & (index_df["status"].isin(["ok", "unknown"]))]
     if modalities is not None:
         subset = subset[subset["modality"].isin(modalities)]
     if subset.empty:

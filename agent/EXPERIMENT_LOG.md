@@ -13,7 +13,7 @@
 | `Alpha_100` | Alpha 主线正式数据集，100 x 100 输入，历史 A1/A2/A3/A4 结果均基于该数据故事线 | Alpha 后续实验默认使用 |
 | `Alpha_50` | 曾短暂用于重跑 A3，但效果和叙事不稳定 | 不作为后续正式主线 |
 | `Proton_C` | 质子/C 全量数据，用于论文数据分析链路 | 不作为训练主数据集 |
-| `Proton_C_7` | 质子/C 七分类训练数据，用于 B 系列训练实验 | Proton 后续训练默认使用 |
+| `Proton_C_7` | 质子/C 七分类训练数据，用于 B 系列训练实验；数据分析中从全量 `Proton_C` 过滤 `10,20,30,45,50,60,70` 得到 | Proton 后续训练默认使用 |
 
 关键决策：
 
@@ -77,7 +77,7 @@ python scripts/aggregate_seeds.py --summary outputs/<name>_runs.csv --out output
 | A6 | Alpha 有序角度损失 | 已完成 | A6b 三 seed 证明 `CE + EMD λ=0.02` 不稳定且弱于 A2 CE baseline；Alpha-ToT 继续采用 A2 CE one-hot |
 | A7 | Alpha 最终多模态组件确认 | 已完成 | `main_5feat` 未带来稳定 validation 收益；Alpha 最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted` |
 | B1 | Proton_C_7 训练超参数搜索 | 已完成 | B1-best 使用 `lr=3e-4`、`batch=128`、`wd=1e-4`、`patience=8` |
-| B2 | Proton_C_7 手工特征验证 | 已完成 | 手工特征增益极小；gated 可抑制坏特征但不形成显著提升 |
+| B2 | Proton_C_7 手工特征验证 | B2c 已配置 | B2c 只验证 `geometry_lowcorr` 的 concat/gated 三 seed，不再加入不稳定的 `ToT_density` |
 | B3 | Proton_C_7 有序角度损失 | 已完成 | `CE + ExpectedMAE λ=0.05` 是 Proton_C_7 当前推荐 loss |
 | B4 | Proton_C_7 最终模型确认 | 已形成建议 | 最终建议为 B1-best 结构与训练超参 + `CE + ExpectedMAE λ=0.05`；无需新增训练组 |
 
@@ -1435,17 +1435,45 @@ python scripts/summarize.py --group b2_proton_c7_handcrafted_gated_seed42 --out 
 
 #### B2c：three-seed verification
 
-状态：不推进。
+状态：已配置，待运行。
 
-模板配置：
+配置文件：
 
 - `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml`
+- `configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml`
 
 决策：
 
-- B2a/B2b 的提升幅度过小，且未明显改善高角度 F1。
-- 不优先消耗算力做 B2c three-seed。
-- B2 论文口径：Proton_C_7 的 ToT 图像形态已被 CNN 较充分利用，手工标量主要与 CNN 表征冗余；gated 的价值更多是稳定化，而非显著增益。
+- B2c 只验证 `geometry_lowcorr`，即 `active_pixel_count` 和 `bbox_fill_ratio`。
+- 不再加入 `ToT_density`。原因是 B2a 中 `geometry + ToT_density` concat 明显伤害结果，B2b gated 只是抑制其负面影响，并没有形成稳定增益。
+- 同时比较 `concat` 与 `gated`，形成 `2 fusion modes × 3 seeds = 6 runs` 的小矩阵。
+- 目的不是重新打开手工特征大网格，而是用 three-seed 正式确认 Proton_C_7 上最简单、最可迁移的几何标量是否真的能稳定补充 B1-best CNN。
+
+B2c 实验矩阵：
+
+| 编号 | 特征 | Fusion | Seeds |
+| --- | --- | --- | --- |
+| B2c-1 | `active_pixel_count`, `bbox_fill_ratio` | concat | 42, 43, 44 |
+| B2c-2 | `active_pixel_count`, `bbox_fill_ratio` | gated | 42, 43, 44 |
+
+服务器命令：
+
+```bash
+tmux new -s b2c
+cd /root/Timepix
+python scripts/run_grid.py --config configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --dry-run && \
+python scripts/run_grid.py --config configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml --data-root /root/autodl-tmp/Proton_C_7 --skip-existing --continue-on-error && \
+python scripts/summarize.py --group b2c_proton_c7_geometry_handcrafted_3seed --out outputs/b2c_proton_c7_geometry_handcrafted_3seed_runs.csv && \
+python scripts/aggregate_seeds.py --summary outputs/b2c_proton_c7_geometry_handcrafted_3seed_runs.csv --out outputs/b2c_proton_c7_geometry_handcrafted_3seed_mean_std.csv
+```
+
+选择与解释规则：
+
+- 对照基线为 B1-best patience=8 three-seed。
+- 只用 validation 判断几何标量是否形成稳定增益。
+- Primary: Val Acc。
+- Tie-break: Val MAE 更低、Val Macro-F1 更高，特别关注 45/50/60/70 deg 的 F1 和相邻混淆。
+- 若 B2c 无稳定收益，则 B2 最终口径为：Proton_C_7 的 ToT 图像形态已被 CNN 较充分利用，低维几何标量主要与 CNN 表征冗余；gated 的价值更多是稳定化，而非显著增益。
 
 ### B3：Proton_C_7 有序角度损失
 
@@ -1548,6 +1576,8 @@ python scripts/aggregate_seeds.py --summary outputs/b3b_proton_c7_ce_emd_optiona
 - `timepix/analysis/representative.py`
 - `timepix/analysis/tables.py`
 - `timepix/analysis/reports.py`
+- `timepix/analysis/progress.py`
+- `timepix/analysis/workbook.py`
 
 入口脚本：
 
@@ -1566,9 +1596,34 @@ python scripts/make_analysis_report.py
 关键决策：
 
 - `Proton_C` 用于全量数据分析，`Proton_C_7` 用于训练。
+- `Proton_C_7` 在数据分析脚本中不要求独立目录，直接从全量 `Proton_C` 派生，角度为 `10,20,30,45,50,60,70`；已修正为 45°，不是 40°。
 - 数据分析链路只按 ToT 分析 Proton_C，不假设 Proton 有 ToA。
-- Windows 本地可跳过 UMAP；Linux 服务器可安装 `requirements-analysis.txt` 后运行完整分析。
-- 输出 CSV + Markdown 表格，图片保存 PNG/PDF。
+- Windows 本地当前环境为 `timepix-local`；UMAP 已可用，t-SNE 默认跳过，需显式加 `--tsne`。
+- 输出 CSV + Markdown 表格，汇总表另存 xlsx；图片保存 PNG/PDF，PNG 使用 300 dpi。
+- `make_analysis_report.py` 默认不把 `04_event_features_*` 和 `proton_c_near_vertical_features.csv` 这类原始长表写入总 xlsx，避免工作簿巨大；这些长表仍以 CSV 保留。
+
+本地 v2 完整分析已完成：
+
+| 输出 | 路径 | 备注 |
+| --- | --- | --- |
+| 数据集分析 | `outputs/data_analysis_v2_local/` | 包含 `Alpha_100`、全量 `Proton_C`、派生 `Proton_C_7` |
+| 近垂直分析 | `outputs/resolution_limit_v2_local/` | `Proton_C` 的 `80,82,84,86,88,90`，ToT-only |
+| 汇总报告 | `outputs/analysis_report_v2_local.md` | 合并数据集分析与近垂直分析 |
+| 汇总表工作簿 | `outputs/analysis_tables/timepix_analysis_tables_v2_local.xlsx` | 37 个 sheet，汇总表为主 |
+
+本地数据审计结果：
+
+- `Proton_C` 实际角度为 `10,20,30,45,50,60,70,80,82,84,86,88,90`。
+- `Proton_C_7` 派生角度为 `10,20,30,45,50,60,70`，对应样本数分别为 `5620,7605,10985,12588,14075,22589,29476`。
+- `proton_input_shape_audit.csv` 确认 `Proton_C` 和派生 `Proton_C_7` 文件保存尺寸均为 `50x50`；训练配置 `data.crop_size=0`，Dataset loader 不 resize，ResNet 有效输入为 `1x50x50`。此前“32x32”属于人工记录冲突，不符合当前本地文件与训练配置。
+- `10_alpha_class_summary.csv` 已修复 Alpha split 翻倍：按样本 key 统计，15/30/45/60 的 train/val/test 分别为 `2803/350/351`、`1152/144/145`、`2820/352/354`、`1241/155/156`。
+- `alpha_toa_negative_audit.csv` 发现 `Alpha_100` 的 45° ToA 只有一个负值样本：`45/1_r1252__0003.txt`，对应 ToT 文件存在；raw ToA 非零值中 34 个为负，初步标记为单样本 raw ToA/timestamp 异常，后续论文中不宜直接扩大解释。
+- `proton_angle_consistency_audit.csv` 发现 75、83、85° 只存在于 `outputs/splits/Proton_C_ToT_seed42_0.8_0.1_0.1.json`，当前本地 `Proton_C` inventory 没有对应目录，标记为 `split_residual_no_current_data`，即旧 full split 残留或未同步旧数据。
+- 近垂直 `80-90°` 六分类传统 ML 基线最高约 `18.8%` accuracy，接近随机基线 `16.67%`，支持后续论文采用谨慎的“当前表示和已测模型/特征族下可分性弱”表述。
+- 近垂直单特征相邻角度 AUC 已输出为 `near_vertical_single_feature_auc.csv`，核心特征大多贴近 `0.50-0.52`；相邻角度效应量输出为 `near_vertical_pairwise_effect_size.csv`。
+- 小样本过拟合 sanity check 已输出 `near_vertical_overfit_experiment.csv` 和 `figures/near_vertical_overfit_learning_curve.png`；本地 CPU 跑到 200 epoch 后，每类 5/10/50/100 样本的最终 train acc 约为 `50.0%/50.0%/30.3%/29.0%`，没有接近 100%。这支持“需要进一步排查表示/标签/训练可分性”的谨慎表述，不能单独作为绝对不可分证明。
+- 未提供传感器厚度，因此几何投影长度只生成缺失说明；未发现原始候选事件和清洗日志，因此清洗阈值表基于清洗后最终数据集的 `active_count` / `active_sum` 范围推断。
+- 本地 `timepix-local` 的 PyTorch 是 `2.11.0+cpu`，`torch.cuda.is_available()` 为 `False`。未修改显卡驱动、系统 CUDA 或全局环境；如需 GPU，只建议新建独立 conda 环境安装匹配驱动的 CUDA 版 PyTorch。
 
 ## 六、历史配置、模板与过渡配置
 
@@ -1590,3 +1645,440 @@ python scripts/make_analysis_report.py
 1. 另一个窗口整理最终 CSV 结果后，回填本文档中仍需更精确的数值表。
 2. 论文写作时应将 A4c GMU 的选择依据写为 validation Macro-F1 接近最优、Val MAE 更好、结构解释更符合物理结论；不能用 test 结果反向选择 GMU。
 3. 5.5 Pro 交接文档需要与本日志同步，尤其是 A4c 最终架构口径、A5 收口口径、A6 负结果口径、A7 最终组件确认口径、B3 最终 loss 口径。
+
+## 八、Particle 粒子识别数据处理记录
+
+### Particle Stage-1：单粒子候选响应矩阵提取
+
+数据路径：
+
+- 原始数据：`E:\TimepixData\particle\raw`
+- 脚本目录：`ProcessProgram\Particle`
+- Stage-1 输出：`E:\TimepixData\particle\stage1_single_particle_candidates_100x100`
+
+关键决策：
+
+- 第一阶段目标是从原始 `256x256` 探测器帧中稳定提取“单粒子候选响应矩阵”，不在此阶段进行物理质量筛选。
+- 使用 ToT 连通域作为候选粒子区域，ToA/ToT 文件必须一一配对。
+- 采用 bbox 几何居中：以连通域 bbox 放入 `100x100` 画布中央，只复制连通域自身像素，周围补 0。
+- 默认拒绝触边事件，因为触边响应可能被探测器边缘截断。
+- 要求 ToT 与 ToA 候选连通区域完全一致；如果区域不一致，记录为 `toa_tot_region_mismatch` 并剔除。
+- 由于已经改为 bbox 几何居中，不再存在质心平移溢出这一失败路径。
+
+Stage-1 完成状态：
+
+- paired frames: `2522`
+- saved candidates: `119667`
+- rejected components: `4619`
+- failed pairs: `0`
+- Am: saved `5736`, rejected `451`
+- Co60: saved `98079`, rejected `3094`
+- Sr: saved `15852`, rejected `1074`
+- 主要拒绝原因：`touches_detector_edge = 4595`，`toa_tot_region_mismatch = 24`
+
+### Particle Stage-2a：原始 ToT/形态簇特征统计
+
+当前阶段不做聚类。先根据本数据集的原始特征分布判断是否需要偏态校正、特征删除或标准化策略，再进入 Stage-2b 聚类。
+
+输出路径：
+
+```text
+E:\TimepixData\particle\stage2_cluster_features_v1
+```
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage2_extract_cluster_features.py `
+  --stage1-root E:\TimepixData\particle\stage1_single_particle_candidates_100x100 `
+  --output-root E:\TimepixData\particle\stage2_cluster_features_v1
+```
+
+当前特征只使用 ToT 与几何形态，不使用 ToA 特征，并按用户要求去除 `mean_ToT`：
+
+- `Npix`: active pixel count
+- `S_total_ToT`: active pixels 上的 ToT 总和
+- `Pmax`: `max(ToT) / S_total_ToT`
+- `Rg`: active-pixel 坐标的 radius of gyration
+- `E_pca`: active-pixel 坐标 PCA 主/次轴伸长率，带小簇正则
+- `Fbox`: `active pixels / bbox area`
+
+Stage-2a 产物：
+
+- `features_raw.csv`
+- `feature_summary.csv`
+- `feature_correlation_pearson.csv`
+- `feature_correlation_spearman.csv`
+- `feature_notes.md`
+- `figures/stage2_raw_feature_histograms_by_particle_count.*`
+- `figures/stage2_raw_feature_scatter_pairs.*`
+- `figures/stage2_<particle>_raw_feature_histograms_by_angle_count.*`
+
+初步观察：
+
+- `Npix`、`S_total_ToT`、`Rg` 均明显偏态，后续聚类前大概率需要 `log1p` 或类似压缩。
+- `Npix` 与 `Rg` 的 Spearman correlation 约 `0.990`，二者高度冗余；`Npix` 与 `S_total_ToT` 也高度相关。
+- Am 呈现高 ToT / 高 Npix 主团，同时混有低 Npix / 低 ToT 小簇。
+- Co60 以小而紧凑候选为主，`Npix` 中位数约为 `3`，`S_total_ToT` 中位数约为 `87.9`。
+- Sr 分布比 Co60 更宽、更拉长，`Npix` 中位数约为 `6`，`E_pca` 中位数约为 `1.62`，更接近 electron-like 轨迹响应。
+- Stage-2b 不应直接使用原始数值聚类；下一步需要先决定变换、标准化和保留特征集合。
+
+### Particle Stage-2b：分粒子变换与无监督聚类诊断
+
+关键决策：
+
+- 聚类必须按粒子源独立进行：`Am`、`Co60`、`Sr` 分别拟合变换、scaler、HDBSCAN 和 GMM，不把不同粒子混在同一个 clustering 空间里。
+- 聚类输入仍然只使用 ToT/形态特征，不使用 ToA 特征。
+- 本阶段目标不是直接生成最终 beta/gamma/alpha 标签，而是检查每个源内部是否存在稳定可解释的响应形态结构。
+
+变换策略：
+
+- `Npix`、`S_total_ToT`、`Rg` 使用 `log1p`，压缩长尾。
+- `E_pca` 使用 `log1p(E_pca - 1)`，因为伸长率从 1 起。
+- `Pmax`、`Fbox` 保持 identity。
+- 每个粒子源单独做 robust scaling：`(x - median) / IQR`。
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage2b_particlewise_clustering.py `
+  --stage2a-root E:\TimepixData\particle\stage2_cluster_features_v1 `
+  --output-root E:\TimepixData\particle\stage2b_particlewise_clustering_v1
+```
+
+输出路径：
+
+```text
+E:\TimepixData\particle\stage2b_particlewise_clustering_v1
+```
+
+主要产物：
+
+- `features_transformed_clustered.csv`
+- `transform_parameters.csv`
+- `gmm_model_selection.csv`
+- `particle_cluster_summary.csv`
+- `cluster_feature_summary.csv`
+- `stage2b_notes.json`
+- `figures/stage2b_gmm_bic_by_particle.*`
+- `figures/<particle>_gmm_k2_label_*.png/pdf`
+- `figures/<particle>_gmm_k3_label_*.png/pdf`
+- `figures/<particle>_hdbscan_label_*.png/pdf`
+
+Stage-2b 结果摘要：
+
+| 粒子源 | 样本数 | GMM BIC 最优成分数 | HDBSCAN clusters | HDBSCAN noise rate | GMM k=3 主要结构 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Am | 5736 | 3 | 24 | 33.42% | 单像素低 ToT 小簇；高 Npix/高 ToT 主簇；低到中 Npix 混入簇 |
+| Co60 | 98079 | 3 | 47 | 4.33% | 单像素紧凑簇；2-4 像素紧凑主簇；更大/更分散扩展簇 |
+| Sr | 15852 | 3 | 14 | 24.57% | 小而峰值集中的紧凑簇；中等簇；高 Npix/低 Pmax/高 E_pca 延展簇 |
+
+GMM k=3 中位特征示例：
+
+- `Co60`：
+  - label 1: `n=14329`，`Npix median=1`，`S_total_ToT median=20.17`，`Pmax median=1.0`，极紧凑单像素簇。
+  - label 0: `n=57562`，`Npix median=3`，`S_total_ToT median=78.67`，`Pmax median=0.638`，小而紧凑主簇。
+  - label 2: `n=26188`，`Npix median=5`，`S_total_ToT median=167.79`，`Pmax median=0.434`，相对更大、更分散，可能对应 electron-like/track-like 候选。
+- `Sr`：
+  - label 0: `n=4168`，`Npix median=2`，`Pmax median=0.762`，紧凑簇。
+  - label 2: `n=6768`，`Npix median=6`，`Pmax median=0.385`，中等簇。
+  - label 1: `n=4916`，`Npix median=15`，`Pmax median=0.191`，`E_pca median=3.399`，明显延展轨迹簇。
+- `Am`：
+  - label 0: `n=1000`，单像素低 ToT 小簇。
+  - label 1: `n=3577`，`Npix median=39`，`S_total_ToT median=2711.93`，高 ToT/大簇主响应。
+  - label 2: `n=1159`，`Npix median=3` 但覆盖到较宽范围，属于混入/过渡候选。
+
+阶段判断：
+
+- GMM 的 3 成分结果有较清楚的形态解释：紧凑小簇、中等簇、延展轨迹/大响应簇。
+- HDBSCAN 对 Co60 噪声率较低，可作为异常/稀有形态诊断；但对 Am/Sr 噪声率较高，并且会把离散小簇和不同 Npix 模式切成许多小簇，暂不宜直接作为最终清洗标签。
+- 当前不能把某个 GMM label 直接命名为“纯 beta”或“纯 gamma”。下一步更适合抽样查看每个粒子源内部 GMM 簇的代表性 10x10 图像，再结合 Sr 作为 electron-like reference 和 Co60 的混合场性质解释簇。
+
+### Particle Stage-2c：GMM 簇代表样本图
+
+目的：从 Stage-2b 的分粒子 GMM 结果中抽取每个粒子/簇的代表样本，画出 `10x10` ToT crop，用于人工确认形态。此阶段仍不直接给 cluster 贴物理真值标签。
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage2c_cluster_representatives.py `
+  --stage1-root E:\TimepixData\particle\stage1_single_particle_candidates_100x100 `
+  --stage2b-root E:\TimepixData\particle\stage2b_particlewise_clustering_v1 `
+  --output-root E:\TimepixData\particle\stage2c_cluster_representatives_v1 `
+  --label-column gmm_k3_label `
+  --confidence-column gmm_k3_confidence `
+  --samples-per-cluster 10 `
+  --min-confidence 0.90
+```
+
+输出路径：
+
+```text
+E:\TimepixData\particle\stage2c_cluster_representatives_v1
+```
+
+产物：
+
+- `cluster_sample_manifest.csv`
+- `cluster_sample_summary.csv`
+- `stage2c_notes.json`
+- `figures/Am_gmm_k3_label_tot_samples_10x10.*`
+- `figures/Co60_gmm_k3_label_tot_samples_10x10.*`
+- `figures/Sr_gmm_k3_label_tot_samples_10x10.*`
+
+抽样规模：
+
+- 共抽取 `90` 个代表事件：`3` 个粒子源 × `3` 个 GMM cluster × 每簇 `10` 个样本。
+- 抽样优先使用 `gmm_k3_confidence >= 0.90` 的高置信候选。
+
+代表图观察：
+
+- `Am gmm_k3 label 1`：大而圆、ToT 很高的主响应，`Npix` 约 `25-46`，形态非常稳定，适合作为 alpha-like / heavy charged main response 的候选核心。
+- `Am label 0`：单像素低 ToT 小簇，明显不像 Am 主 alpha 响应，更可能是混入、低能次级响应或噪声候选。
+- `Am label 2`：混合性更强，既有 2-3 像素小簇，也有少量大形态/异常轨迹，不宜直接纳入高纯 alpha-like 主簇。
+- `Co60 label 1`：单像素紧凑簇。
+- `Co60 label 0`：2-4 像素小型紧凑簇，是 Co60 内部数量最大的紧凑响应之一。
+- `Co60 label 2`：更大、更分散，包含短轨迹/小段拖尾事件，比 label 0/1 更接近 electron-like 或 beta-like 候选响应。
+- `Sr label 1`：明显长轨迹/弯曲轨迹，`E_pca` 高、`Pmax` 低，更接近 electron-like/beta-like 主簇。
+- `Sr label 0`：小而峰值集中的紧凑簇。
+- `Sr label 2`：中等像素数的小簇/短簇，介于紧凑簇和明显轨迹簇之间。
+
+阶段判断：
+
+- 如果目标是先构建高置信训练子集，当前最稳的候选是：
+  - alpha-like: `Am gmm_k3 label 1`
+  - beta/electron-like: `Sr gmm_k3 label 1`
+  - gamma-like/photon-initiated-like: 还不能直接定，需要重点比较 Co60 紧凑簇 `label 0/1` 与 Sr 紧凑簇 `label 0/2` 的差异；仅凭这些形态图不能保证 Co60 紧凑簇就是纯 gamma。
+- 下一步建议不是立即导出最终数据集，而是先做候选簇筛选方案讨论：确定哪些 label 保留、哪些 label 作为不确定/剔除，再生成清洗后的 candidate dataset。
+
+### Particle Stage-2d：分粒子可视化聚类结构检查
+
+目的：在 Stage-2b/2c 的自动聚类结果之后，增加一个更直观的人工检查阶段。用户明确提出，不希望直接依赖 GMM/HDBSCAN 自动标签来生成训练标签，而是希望先像 PCA/KMeans 二维主轴图那样，肉眼检查每个放射源内部是否存在明显分离结构。因此 Stage-2d 定位为“可视化诊断”，不是“自动打标签”。
+
+关键决策：
+
+- 仍然按粒子源分别处理 `Am`、`Co60`、`Sr`，不把不同源混在同一个 PCA 或聚类空间。
+- 输入使用 Stage-2b 已经变换和 robust scaling 后的六个 ToT/形态特征，不引入 ToA 特征。
+- 输出四类图：
+  - `density_*`：二维密度/计数图，颜色条表示每个 bin 内的候选个数。
+  - `pca_kmeans_*_reference`：PCA 二维图上叠加 KMeans `k=2/3` 的参考颜色，仅用于观察可能边界，不能作为最终物理标签。
+  - `pca_gmm_*_reference` 与 `pca3_gmm_*_reference`：GMM 在 PCA 空间中的概率云参考颜色，其中 3D 图使用 `PC1/PC2/PC3` 重新拟合 `GMM k=3`。
+  - `angle_*`：按角度分面的密度图和参考聚类图，用于检查所谓簇结构是否主要来自角度效应。
+- 当前阶段不生成 cleaned dataset，也不把 KMeans 或 GMM label 直接写成 alpha/beta/gamma 标签。
+- 用户希望像 MATLAB 一样拖拽旋转 3D 点云，因此新增 `--interactive-html` 可选输出；该输出只服务人工观察，不改变聚类、清洗或标签策略。
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage2d_visual_cluster_inspection.py `
+  --stage2b-root E:\TimepixData\particle\stage2b_particlewise_clustering_v1 `
+  --output-root E:\TimepixData\particle\stage2d_visual_cluster_inspection_v1 `
+  --sample-size 30000
+```
+
+交互式 3D 输出命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage2d_visual_cluster_inspection.py `
+  --stage2b-root E:\TimepixData\particle\stage2b_particlewise_clustering_v1 `
+  --output-root E:\TimepixData\particle\stage2d_visual_cluster_inspection_v1 `
+  --sample-size 30000 `
+  --interactive-html `
+  --interactive-sample-size 30000
+```
+
+本地依赖：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe -m pip install plotly
+```
+
+输出路径：
+
+```text
+E:\TimepixData\particle\stage2d_visual_cluster_inspection_v1
+```
+
+主要产物：
+
+- `pca_scores_with_kmeans_reference.csv`
+- `pca_loadings.csv`
+- `pca_summary.csv`
+- `stage2d_notes.json`
+- `figures/<particle>_density_log1p_Npix_vs_Pmax.*`
+- `figures/<particle>_density_log1p_Rg_vs_log1p_Epca_minus1.*`
+- `figures/<particle>_pca_density_PC1_vs_PC2.*`
+- `figures/<particle>_pca_kmeans_k2_reference.*`
+- `figures/<particle>_pca_kmeans_k3_reference.*`
+- `figures/<particle>_pca_gmm_k2_reference.*`
+- `figures/<particle>_pca_gmm_k3_reference.*`
+- `figures/<particle>_pca3_gmm_k3_reference.*`
+- `figures/<particle>_angle_density_log1p_Npix_vs_Pmax.*`
+- `figures/<particle>_angle_density_log1p_Rg_vs_log1p_Epca_minus1.*`
+- `figures/<particle>_angle_pca_density_PC1_vs_PC2.*`
+- `figures/<particle>_angle_pca_kmeans_k3_reference.*`
+- `figures/<particle>_angle_pca_gmm_k3_reference.*`
+- `interactive/<particle>_pca3_gmm_k3_interactive.html`
+
+PCA 解释率：
+
+| 粒子源 | PC1 explained | PC2 explained | PC3 explained | PC1+PC2 | PC1+PC2+PC3 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Am | 0.804 | 0.183 | 0.011 | 0.986 | 0.997 |
+| Co60 | 0.807 | 0.082 | 0.048 | 0.889 | 0.937 |
+| Sr | 0.833 | 0.096 | 0.035 | 0.928 | 0.964 |
+
+PCA loading 摘要：
+
+- `Am` 的 PC1 主要由 `scaled_E_pca` 主导，PC2 主要区分峰值集中度与尺寸/总 ToT/扩展程度。
+- `Co60` 的 PC1 主要是尺寸/扩展轴：`Npix`、`Rg`、`S_total_ToT` 为正，`Pmax`、`Fbox` 为负；PC2 主要反映伸长率。
+- `Sr` 的 PC1 同样主要表示尺寸/扩展程度，PC2 在总 ToT 与伸长率之间形成对照。
+
+阶段观察：
+
+- `Am` 内部结构最明显，存在稳定的大响应主区域，和 Stage-2c 中 `Am gmm_k3 label 1` 的 alpha-like / heavy charged main response 观察一致。
+- `Sr` 呈现从紧凑簇到延展轨迹簇的连续过渡，右侧延展区域更符合 electron-like/beta-like 候选，但边界不是天然断裂。
+- `Co60` 也呈现紧凑到延展的连续结构。紧凑区域不能仅凭当前图称为 pure gamma，因为硅探测器记录到的 gamma 响应本质上也是 photon-initiated secondary electron response，并且 Sr 内部也存在紧凑小簇。
+- KMeans/GMM 参考图可以帮助定位“左侧紧凑 / 右侧延展”的视觉区域，但边界是算法强行切分或概率模型拟合出来的，不应直接作为训练标签。
+- 分角度图显示，Co60 和 Sr 在每个角度内部仍保留从紧凑到延展的形态梯度，说明结构并非完全由角度混合造成；但边界仍是连续过渡，不是天然断裂。
+- 3D PCA + GMM 图比二维图更直观地展示了条带状小簇与延展云团：`Am` 主响应与小簇/异常形态更清楚，`Co60` 和 `Sr` 仍表现为连续形态云团，不能直接用颜色当物理真值。
+- Plotly 交互式 HTML 已生成 `Am`、`Co60`、`Sr` 三个文件，可在浏览器中拖拽旋转、滚轮缩放，并通过 hover 查看 `sample_key`、粒子源、角度、核心特征、`GMM3D` label 与 confidence。该交互视图用于人工理解 3D 点云结构，不能作为自动标签来源。
+
+阶段决策更新：
+
+- 从 GMM/PCA 图来看，`Co60` 和 `Sr` 内部均没有可以直接切分的稳定结构簇；不再尝试从二者中自动分离纯 beta/gamma 事件。
+- `Am` 主响应与低像素小簇分离较明显，可以用简单 `Npix` 阈值清掉非主响应候选。
+- 后续标签改为放射源标签：`Am`、`Co60`、`Sr`。清洗目标改为去除各源内部明显异常事件，而不是生成逐事件粒子真值标签。
+
+### Particle Stage-3a：放射源标签保守清洗审计
+
+目的：基于 Stage-2a 的 ToT/形态特征，生成一个保守的 source-label cleaning audit。该阶段只提出 keep/reject 建议和审计图，不直接导出最终 cleaned dataset。
+
+关键决策：
+
+- 标签保持为放射源：`Am`、`Co60`、`Sr`。
+- 不使用 GMM/KMeans/HDBSCAN label 作为物理标签。
+- `Am` 使用简单 active pixel count 阈值清除低像素非主响应。
+- `Co60` 和 `Sr` 只剔除明显异常尾部，包括低信号噪声样、疑似堆叠的大事件、极端稀疏形态、多特征极端离群。
+- 该阶段输出审计结果，供人工确认后再决定 Stage-3b 是否正式导出清洗数据集。
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage3a_source_cleaning_audit.py `
+  --stage1-root E:\TimepixData\particle\stage1_single_particle_candidates_100x100 `
+  --stage2a-root E:\TimepixData\particle\stage2_cluster_features_v1 `
+  --output-root E:\TimepixData\particle\stage3a_source_cleaning_audit_v2
+```
+
+输出路径：
+
+```text
+E:\TimepixData\particle\stage3a_source_cleaning_audit_v2
+```
+
+主要产物：
+
+- `source_cleaning_audit.csv`
+- `rejected_candidate_audit.csv`
+- `rejected_sample_manifest.csv`
+- `cleaning_rule_summary.csv`
+- `cleaning_counts_by_source_angle.csv`
+- `stage3a_notes.json`
+- `figures/stage3a_keep_reject_feature_histograms.*`
+- `figures/stage3a_keep_reject_pca_overlay.*`
+- `figures/Am_stage3a_rejected_samples_10x10.*`
+- `figures/Co60_stage3a_rejected_samples_10x10.*`
+- `figures/Sr_stage3a_rejected_samples_10x10.*`
+
+Stage-3a v1 图像检查结论：
+
+- `Am` rejected crop 基本都是 `Npix=1-3` 的小点或小块，作为非主响应剔除合理。
+- `Co60`/`Sr` 的 `low_signal_noise_like` rejected crop 主要是 `Npix=1` 且低 ToT 的单像素点，剔除合理。
+- 但 `Co60`/`Sr` 的 `extreme_large_component`、`extreme_sparse_shape` 和 `multi_feature_outlier` 包含大量清楚的细长轨迹；这些在统计上是尾部，但物理上可能是有效 source response，尤其是 Sr 的 beta/electron-like 长轨迹。
+- 因此 v2 调整为：Co60/Sr 只拒绝 `low_signal_noise_like`；大轨迹、稀疏形态和多特征离群仅写入 `review_flags`，不影响 `recommended_keep`。
+
+Stage-3a v2 当前审计结果：
+
+| 粒子源 | Total | Kept | Rejected | Reject rate | 主要拒绝逻辑 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Am | 5736 | 3757 | 1979 | 34.50% | `am_low_npix` |
+| Co60 | 98079 | 93714 | 4365 | 4.45% | `low_signal_noise_like` |
+| Sr | 15852 | 15279 | 573 | 3.61% | `low_signal_noise_like` |
+| All | 119667 | 112750 | 6917 | 5.78% | 保守异常剔除 |
+
+规则摘要：
+
+- `Am` 的全局 `Npix` 阈值由 1D Otsu 在 Am `Npix` 分布上估计，当前为 `21`；即 `Npix < 21` 的 Am 候选标记为非主响应。
+- `Co60`/`Sr` 按 `particle + angle` 统计低信号阈值，避免角度依赖形态造成误删。
+- `Co60`/`Sr` 中小而紧凑的事件不会因为小 `Npix` 被直接删除；只有同时处于低像素与低 ToT 的低信号候选才标记为 `low_signal_noise_like` 并剔除。
+- `Co60`/`Sr` 的 `extreme_large_component`、`extreme_sparse_shape` 和 `multi_feature_outlier` 保留为 `review_flags`，对应保留候选数量为：Co60 `744/496/231`，Sr `140/81/0`。
+
+下一步建议：
+
+- 人工检查 `stage3a_keep_reject_feature_histograms`、`stage3a_keep_reject_pca_overlay` 和三张 rejected sample crop 图。
+- 先检查 v2 的 `Co60_stage3a_rejected_samples_10x10` 和 `Sr_stage3a_rejected_samples_10x10` 是否只剩低信号单像素/小簇。
+- 如果 v2 rejected samples 符合预期，则进入 Stage-3b，按 `source_cleaning_audit.csv` 中的 `recommended_keep` 生成 `particle_multimodal_cleaned_tot_toa`。
+- `review_flags` 可保留到最终 manifest 中，供后续误差分析或更严格清洗版本使用，但不作为当前主清洗规则。
+
+### Particle Stage-3b：放射源标签 cleaned ToT/ToA 数据集导出
+
+目的：根据 Stage-3a v2 的 `recommended_keep` 正式导出当前粒子识别数据集。标签保持为放射源标签 `Am`、`Co60`、`Sr`；不声明为逐事件纯 alpha/beta/gamma 真值。
+
+关键决策：
+
+- 只导出 `recommended_keep == true` 的 ToT/ToA 成对文件。
+- 原始 Stage-3a 的 `reject_reasons` 和 `review_flags` 保留在 manifest 中。
+- `review_flags` 对应的长轨迹/稀疏/离群样本仍被保留，用于后续训练或误差分析。
+- 输出目录使用清晰命名：`particle_source_label_cleaned_tot_toa_v1`。
+
+命令：
+
+```powershell
+D:\Program\Anaconda\envs\timepix-local\python.exe `
+  ProcessProgram\Particle\stage3b_export_cleaned_dataset.py `
+  --stage1-root E:\TimepixData\particle\stage1_single_particle_candidates_100x100 `
+  --audit-path E:\TimepixData\particle\stage3a_source_cleaning_audit_v2\source_cleaning_audit.csv `
+  --output-root E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1
+```
+
+输出路径：
+
+```text
+E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1
+```
+
+主要产物：
+
+- `dataset/Am/ToT/*.txt`
+- `dataset/Am/ToA/*.txt`
+- `dataset/Co60/ToT/*.txt`
+- `dataset/Co60/ToA/*.txt`
+- `dataset/Sr/ToT/*.txt`
+- `dataset/Sr/ToA/*.txt`
+- `manifests/cleaned_manifest.csv`
+- `manifests/cleaned_rejected_manifest.csv`
+- `manifests/cleaned_counts_by_particle.csv`
+- `manifests/cleaned_review_flags.csv`
+- `summary.json`
+
+导出结果：
+
+| 粒子源 | Exported ToT | Exported ToA | Rejected retained in audit |
+| --- | ---: | ---: | ---: |
+| Am | 3757 | 3757 | 1979 |
+| Co60 | 93714 | 93714 | 4365 |
+| Sr | 15279 | 15279 | 573 |
+| All | 112750 | 112750 | 6917 |
+
+注意：
+
+- 第一次导出因命令超时被中断，产生了 partial output；用户手动删除 v1/v2 目录后重新导出 v1，最终导出成功。
+- `summary.json` 中记录 `total_count=119667`、`exported_count=112750`、`rejected_count=6917`、`reject_rate=5.78%`。
+- 后续训练应使用 `particle_source_label_cleaned_tot_toa_v1` 作为当前 source-label cleaned 数据集，而不是 Stage-1 技术候选目录。

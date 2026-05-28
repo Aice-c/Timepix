@@ -133,7 +133,8 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/a7_final_gmu_main5feat_gated_3seed.yaml` | A7 final multimodal handcrafted confirmation | Completed three-seed verification of final `dual_stream_gmu_aux + CE one-hot` with A5 `main_5feat` gated handcrafted fusion; A7 shows no stable validation gain, so final GMU model does not include handcrafted features. |
 | `configs/experiments/b2_proton_c7_handcrafted_lowcorr_seed42.yaml` | B2a Proton_C_7 handcrafted quick validation | Completed seed42 CNN+handcrafted concat comparison over transferable ToT-only low-redundancy feature groups; geometry gives only a tiny positive result, while adding `ToT_density` hurts. |
 | `configs/experiments/b2_proton_c7_handcrafted_gated_seed42.yaml` | B2b Proton_C_7 handcrafted gated quick validation | Seed42 CNN+handcrafted gated diagnostic mirroring B2a's two ToT-only feature groups. |
-| `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Optional Proton_C_7 ToT-only three-seed follow-up; not prioritized after B2a/B2b unless confirming a tiny geometry gain becomes necessary. |
+| `configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml` | B2c Proton_C_7 geometry handcrafted confirmation | Three-seed confirmation of `active_pixel_count + bbox_fill_ratio`, comparing concat and gated fusion; intentionally excludes unstable `ToT_density`. |
+| `configs/experiments/b2_proton_c7_handcrafted_transfer_TEMPLATE.yaml` | B2c handcrafted confirmation template | Legacy/template config retained for traceability; the current B2c confirmation uses `configs/experiments/b2c_proton_c7_geometry_handcrafted_3seed.yaml`. |
 | `configs/experiments/b3a_proton_c7_ordinal_loss_seed42.yaml` | B3a Proton_C_7 ordered-loss screening | Seed42 grid over Gaussian soft-target CE, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD. Pure EMD is intentionally excluded because Proton_C_7 already has high exact accuracy under CE. |
 | `configs/experiments/b3b_proton_c7_expected_mae_3seed.yaml` | B3b-main Proton_C_7 ordered-loss verification | Completed three-seed verification of B3a validation-selected `CE+ExpectedMAE lambda=0.05`; current recommended Proton_C_7 loss. |
 | `configs/experiments/b3b_proton_c7_ce_emd_optional_3seed.yaml` | B3b optional CE+EMD verification | Completed three-seed verification of `CE+EMD lambda=0.05`; kept as an ordered-loss comparison because Val MAE/far-error diagnostics are strong but primary validation metrics do not beat B3b-main. |
@@ -226,6 +227,24 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `AngleBatch_ActivatedStats.ipynb` | Activated-pixel statistics by angle | Exploratory statistics. |
 | `merge_modalities_by_categories.py` | General dataset merger | Supports modality-first and category-first layouts. |
 | `merge_alpha_0_1.py` | Specific class 0/1 alpha merger | Dry-run by default; custom paths assume older AlphaAnalysis layout. |
+
+## `ProcessProgram/Particle/`
+
+| Path | Role | Notes |
+| --- | --- | --- |
+| `README.md` | Particle preprocessing guide | Current guide for particle-identification data processing under `E:\TimepixData\particle`. Documents Stage-1 extraction, Stage-2 feature statistics, clustering diagnostics, representative crops, and visual-first PCA/KMeans inspection. |
+| `extract_single_particle_candidates.py` | Stage-1 single-particle candidate extraction | Pairs raw ToT/ToA 256x256 frames, extracts ToT connected components, requires exact ToT/ToA region match, bbox-centers candidates into 100x100 outputs, and writes manifests/reject summaries. |
+| `plot_stage1_cleaning_diagnostics.py` | Stage-1 feature-count diagnostics | Produces one-dimensional feature histograms and 2D count maps for cleaning discussion. |
+| `plot_co60_cleaning_detail.py` | Co60-specific diagnostics | Focused Co60 plots for mixed beta/gamma-like response inspection. |
+| `plot_stage1_angle_diagnostics.py` | Angle-stratified Stage-1 plots | Draws per-angle feature distributions and 2D count maps; feature-distribution y-axis is candidate count. |
+| `inspect_co60_peak_samples.py` | Co60 peak morphology sampler | Samples 10x10 visual crops from dominant Co60 joint modes. |
+| `inspect_co60_active_bins.py` | Co60 active-pixel bin sampler | Samples Co60 ToT crops by active-pixel-count bins for morphology inspection. |
+| `stage2_extract_cluster_features.py` | Stage-2a raw cluster feature statistics | Computes six ToT/morphology features (`Npix`, `S_total_ToT`, `Pmax`, `Rg`, `E_pca`, `Fbox`) without ToA features, transformation, standardization, or clustering. Output goes to `E:\TimepixData\particle\stage2_cluster_features_v1`. |
+| `stage2b_particlewise_clustering.py` | Stage-2b particle-wise transform and clustering diagnostics | Applies selected log transforms plus robust per-particle scaling, then runs HDBSCAN diagnostics and GMM 1/2/3 model selection independently inside each particle source. Output goes to `E:\TimepixData\particle\stage2b_particlewise_clustering_v1`. |
+| `stage2c_cluster_representatives.py` | Stage-2c cluster representative image sampler | Samples high-confidence events from each particle-wise GMM cluster and renders traceable 10x10 ToT crops. Output goes to `E:\TimepixData\particle\stage2c_cluster_representatives_v1`. |
+| `stage2d_visual_cluster_inspection.py` | Stage-2d visual cluster inspection | Draws per-particle raw-feature density maps, PCA density maps, KMeans/GMM k=2/k=3 reference colors, angle-faceted views, PCA-3D GMM k=3 reference plots, and optional draggable Plotly 3D HTML views via `--interactive-html`. Output goes to `E:\TimepixData\particle\stage2d_visual_cluster_inspection_v1`; KMeans/GMM labels are diagnostic colors, not final training labels. |
+| `stage3a_source_cleaning_audit.py` | Stage-3a source-label cleaning audit | Keeps radiation source labels (`Am`, `Co60`, `Sr`) and proposes conservative abnormal-event rejection rules without exporting the final cleaned dataset. Current v2 rejects Am low-`Npix` candidates and Co60/Sr low-signal noise-like candidates only; large/sparse/outlier Co60/Sr tracks are retained with `review_flags`. Outputs audit CSVs, rule summaries, keep/reject plots, PCA overlays, and rejected 10x10 crop samples to `E:\TimepixData\particle\stage3a_source_cleaning_audit_v2`. |
+| `stage3b_export_cleaned_dataset.py` | Stage-3b source-label cleaned dataset export | Exports rows with `recommended_keep == true` from Stage-3a v2 into a training-layout ToT/ToA dataset at `E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1`, preserving source labels and audit fields in manifests. |
 
 ## `ProcessProgram/C/`
 
