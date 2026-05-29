@@ -2147,7 +2147,102 @@ E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
 - `timepix/config_validation.py`
   - 校验 `dataset.label_type`、可选 `dataset.class_names`，并阻止 categorical task 使用角度损失。
 
-下一步：
+### C1：Particle source classification 单 seed 模态/融合基线
 
-- 编写 Particle source classification 的首个训练配置，建议先做 `P1` 或 `Particle-1` 命名规则讨论后再落地。
-- 首个训练建议固定 `ToT + ToA`、`categorical_folder`、`cross_entropy + onehot`，并以 `val_macro_f1` 或 `val_balanced_accuracy` 作为更适合不均衡类别的主选择指标。
+状态：已撰写实验配置，等待服务器运行。
+
+目的：
+
+- 在新的 `categorical_folder` 任务上确认训练框架可以正常处理非角度类别识别。
+- 比较 `ToT`、`RToA`、输入层拼接、双分支高层拼接和 GMU 门控融合在当前 source-label 数据集上的基础表现。
+- 单独保留 `RToA` 单模态实验，用来确认 ToA 时间结构本身是否具有 source / particle 判别能力。
+
+命名决策：
+
+- Particle/source 分类实验使用 `C` 系列编号，避免与 Alpha 角度实验 `A` 系列和 Proton/C 角度实验 `B` 系列混淆。
+- C1 是 single-seed screening，不作为最终模型结论；后续若需要正式结论，再根据 C1 validation 结果选择 1-2 个设置做多 seed。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `Particle_Source_3` |
+| 本地数据路径 | `E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset` |
+| 服务器数据路径 | `/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset` |
+| Label type | `categorical_folder` |
+| 当前类别 | `Am`, `Co60`, `Sr`，从文件夹自动提取 |
+| Split | stratified `0.8/0.1/0.1` |
+| Shared split | `outputs/splits/Particle_Source_3_ToT-ToA_seed42_0.8_0.1_0.1.json` |
+| Training seed | `42` |
+| Loss | `cross_entropy + onehot` |
+| Primary metric | `val_macro_f1` |
+| 关键报告指标 | `accuracy`, `balanced_accuracy`, `macro_f1`, `weighted_f1`, per-class F1, confusion matrix |
+| 不使用指标 | angle `MAE`, `P90`, high-angle F1, adjacent-angle confusion |
+
+训练设置：
+
+```yaml
+epochs: 15
+batch_size: 64
+learning_rate: 3e-4
+weight_decay: 1e-4
+scheduler: cosine
+eta_min: 1e-7
+early_stopping_patience: 5
+mixed_precision: true
+num_workers: 4
+```
+
+该训练设置是 C1 screening 默认值。由于当前数据有 `112750` 个配对样本，C1 先关注模态与架构排序，不在第一轮做训练超参数搜索。
+
+C1 实验矩阵：
+
+| 编号 | 配置文件 | 输入 | 模型 | 目的 |
+| --- | --- | --- | --- | --- |
+| C1a | `configs/experiments/c1a_particle_source_tot_seed42.yaml` | `ToT` | `resnet18_no_maxpool` | ToT source 分类基线 |
+| C1b | `configs/experiments/c1b_particle_source_rtoa_seed42.yaml` | `RToA` | `resnet18_no_maxpool` | 单独确认 ToA/relative-time 表达能力 |
+| C1c | `configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` | 输入层 concat baseline |
+| C1d | `configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` | 双分支高层 concat |
+| C1e | `configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` | 双分支 GMU 门控 |
+
+ToA 表达决策：
+
+- C1b/C1c/C1d/C1e 均使用 `data.toa_transform: relative_minmax`，记为 `RToA`。
+- 第一轮不扩展 raw ToA、`relative_centered`、`relative_rank` 或 mask 网格。
+
+类别不均衡注意：
+
+- 当前 `Co60` 样本远多于 `Am` 和 `Sr`，因此 C1 不能只看 overall accuracy。
+- C1 按 `val_macro_f1` 保存 best checkpoint；`balanced_accuracy` 和每类 F1 是必须报告的辅助指标。
+- C1 暂不启用 class-weighted loss 或 weighted sampler；如果 C1 显示 minority class 表现不足，后续 C2 再专门比较类别不均衡策略。
+
+服务器运行命令：
+
+```bash
+tmux new -s c1_particle
+cd /root/Timepix
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset
+
+$PY scripts/train.py --config configs/experiments/c1a_particle_source_tot_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1b_particle_source_rtoa_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml --data-root $DATA && \
+$PY scripts/summarize.py --group c1_particle_source_baseline_seed42 --out outputs/c1_particle_source_baseline_seed42_runs.csv
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
+  --log-level INFO
+```

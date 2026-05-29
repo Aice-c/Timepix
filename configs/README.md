@@ -74,6 +74,67 @@ class_names: [Am, Co60, Sr]
 
 普通类别任务不计算角度 `MAE`、`P90`，也不能使用 `gaussian` soft label、`emd`、`ce_expected_mae`、`ce_emd` 等角度有序损失。
 
+### 3.2 C1 Particle source baseline
+
+C1 是 `Particle_Source_3` 的首个 source-label 分类训练实验，使用 `categorical_folder`，类别名从顶层文件夹自动提取。当前类别为 `Am`、`Co60`、`Sr`；未来若数据集改为 `Alpha`、`Beta`、`Gamma`，同一框架仍按文件夹自动生成类别名。
+
+C1 是 single-seed screening，固定 `training.seed=42` 和 shared split：
+
+```text
+outputs/splits/Particle_Source_3_ToT-ToA_seed42_0.8_0.1_0.1.json
+```
+
+由于 `Co60` 样本量明显高于 `Am` 和 `Sr`，C1 的 `task.primary_metric` 固定为 `val_macro_f1`，并同时报告 `balanced_accuracy`、`weighted_f1`、per-class F1 和 confusion matrix。
+
+配置文件：
+
+| 编号 | 配置文件 | 输入 | 模型 |
+| --- | --- | --- | --- |
+| C1a | `configs/experiments/c1a_particle_source_tot_seed42.yaml` | `ToT` | `resnet18_no_maxpool` |
+| C1b | `configs/experiments/c1b_particle_source_rtoa_seed42.yaml` | `RToA` | `resnet18_no_maxpool` |
+| C1c | `configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` |
+| C1d | `configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` |
+| C1e | `configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` |
+
+`RToA` 表示：
+
+```yaml
+data:
+  toa_transform: relative_minmax
+  add_hit_mask: false
+```
+
+服务器一键运行：
+
+```bash
+tmux new -s c1_particle
+cd /root/Timepix
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset
+
+$PY scripts/train.py --config configs/experiments/c1a_particle_source_tot_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1b_particle_source_rtoa_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml --data-root $DATA && \
+$PY scripts/train.py --config configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml --data-root $DATA && \
+$PY scripts/summarize.py --group c1_particle_source_baseline_seed42 --out outputs/c1_particle_source_baseline_seed42_runs.csv
+```
+
+本地增量拉取结果：
+
+```powershell
+rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
+  --log-level INFO
+```
+
 ## 四、通用运行规范
 
 ### 4.1 单个训练

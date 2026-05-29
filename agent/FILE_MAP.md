@@ -144,6 +144,12 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/compare_models.yaml` | Grid config | Compares ShallowCNN, ShallowResNet, ResNet18, DenseNet121, EfficientNet-B0, ConvNeXt-Tiny, and ViT-Tiny. |
 | `configs/experiments/compare_mixed_precision.yaml` | Grid config | Compares FP32 and CUDA AMP under the current A1 best ResNet18 structure. |
 | `configs/experiments/a2_best_alpha_resnet18_tot_3seed.yaml` | Grid config | Re-runs the current A2 best Alpha ToT ResNet18 training setup with three training seeds and fixed `split.seed`. |
+| `configs/experiments/c1_particle_source_base.yaml` | Particle/source C1 base config | Shared `Particle_Source_3` categorical classification defaults: `val_macro_f1` primary metric, CE one-hot, shared ToT-ToA split, and screening training settings. |
+| `configs/experiments/c1a_particle_source_tot_seed42.yaml` | C1a config | Single-seed `ToT` baseline for source-label classification. |
+| `configs/experiments/c1b_particle_source_rtoa_seed42.yaml` | C1b config | Single-seed `RToA` baseline using `relative_minmax` ToA. |
+| `configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml` | C1c config | Single-seed input-level `[ToT, RToA]` concat with `resnet18_no_maxpool`. |
+| `configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml` | C1d config | Single-seed dual-stream high-level concat with auxiliary heads. |
+| `configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml` | C1e config | Single-seed dual-stream GMU gate with auxiliary heads. |
 | `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
 | `configs/search/a2_alpha_resnet18_tot_training.yaml` | A2 Optuna search config | Searches training hyperparameters after fixing the A1 ResNet18 structure. |
 

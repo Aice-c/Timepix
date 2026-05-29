@@ -1,0 +1,13 @@
+base: c1_particle_source_base.yaml
+
+experiment_name: c1b_particle_source_rtoa_seed42
+experiment_group: c1_particle_source_baseline_seed42
+
+dataset:
+  modalities: [ToA]
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: resnet18_no_maxpool

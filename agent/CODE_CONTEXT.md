@@ -192,6 +192,7 @@ Linux 服务器命令默认使用：
 ```bash
 /root/autodl-tmp/Alpha_100
 /root/autodl-tmp/Proton_C_7
+/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset
 ```
 
 ## 9. 当前实验状态对代码工作的影响
@@ -200,6 +201,8 @@ Linux 服务器命令默认使用：
 - A5 手工特征路线已经完成三 seed 验证，不建议扩展到 25 维大特征池或逐特征开关网格。
 - B2 手工特征路线已经收口，不优先推进 B2c。
 - B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前 Proton_C_7 推荐损失。
-- A6a 正在运行；A6b 和 A6c 需要等待 A6a validation 结果后再写配置。
+- A6b 已完成，Alpha-ToT 的 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
+- A7 已完成，最终 Alpha 端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
+- Particle/source 分类进入 C1 single-seed screening：C1a `ToT`、C1b `RToA`、C1c input concat、C1d dual-stream concat、C1e GMU；主指标使用 `val_macro_f1`，因为 `Co60` 明显多于 `Am` 和 `Sr`。
 
-新增代码时，应优先服务 A6 后续和论文结果整理，而不是继续扩大已经收束的 A4/A5/B2 搜索空间。
+新增代码时，应优先服务 Particle/source 分类的类别不均衡、模态融合和结果整理，而不是继续扩大已经收束的 A4/A5/A6/B2 搜索空间。
