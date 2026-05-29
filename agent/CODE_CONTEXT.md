@@ -22,7 +22,7 @@ legacy `Program/` 保留为历史参考，不再作为新实验入口。新的 A
 
 主要配置目录：
 
-- `configs/datasets/`：描述数据集事实，例如 `Alpha_100` 支持 `ToT`/`ToA`，`Proton_C_7` 只支持 `ToT`。
+- `configs/datasets/`：描述数据集事实，例如 `Alpha_100` 支持 `ToT`/`ToA`，`Proton_C_7` 只支持 `ToT`，`Particle_Source_3` 支持 `ToT`/`ToA` 和普通类别文件夹标签。
 - `configs/experiments/`：描述单次训练、网格对比、三 seed 验证或诊断实验。
 - `configs/search/`：描述 Optuna/TPE 超参数搜索空间。
 
@@ -32,6 +32,7 @@ legacy `Program/` 保留为历史参考，不再作为新实验入口。新的 A
 - `configs/datasets/alpha_50.yaml` 只作为历史/对照入口。
 - Proton/C 训练使用 `configs/datasets/proton_c_7.yaml`。
 - `configs/datasets/proton_c.yaml` 是兼容入口，训练配置不应优先使用它。
+- Particle/source 分类使用 `configs/datasets/particle_source_3.yaml`；类别名从数据集顶层文件夹自动提取，后续可从 `Am`/`Co60`/`Sr` 平滑切换到 `Alpha`/`Beta`/`Gamma` 等新类别名。
 
 更完整的配置与命令索引见 `configs/README.md`。
 
@@ -39,7 +40,7 @@ legacy `Program/` 保留为历史参考，不再作为新实验入口。新的 A
 
 核心模块位于 `timepix/data/`。其主要职责包括：
 
-- 扫描角度目录并建立 label map。
+- 扫描标签目录并建立 label map。`dataset.label_type: angle_folder` 要求文件夹名为数值角度；`dataset.label_type: categorical_folder` 将普通文件夹名作为类别名。
 - 按启用模态收集和配对样本。
 - 生成或复用 train/validation/test split manifest。
 - 读取 `.txt` 矩阵并转换为 tensor。
@@ -94,6 +95,8 @@ feature_dim
 
 B3 和 A6 的设计原则是保留 CE 作为主监督，再加入轻量有序角度辅助项。对于已经具有较高 exact accuracy 的 `Proton_C_7`，不采用 pure EMD 作为主线，因为它可能使输出分布过宽并损害精确分类。
 
+`categorical_folder` 任务不允许使用角度有序损失或 regression。当前只应使用无序分类监督，例如 `cross_entropy + onehot`。
+
 主要记录指标：
 
 - accuracy
@@ -104,6 +107,17 @@ B3 和 A6 的设计原则是保留 CE 作为主监督，再加入轻量有序角
 - per-class precision / recall / F1
 - confusion matrix
 - ordered-loss 诊断中的 adjacent / far error rate
+
+对于 `categorical_folder` 任务，训练与汇总只记录普通分类指标：
+
+- accuracy
+- balanced accuracy
+- macro-F1
+- weighted-F1
+- per-class precision / recall / F1 / support
+- confusion matrix
+
+这类任务不记录角度 MAE、P90、high-angle F1 或相邻角度混淆。
 
 ## 6. 训练层
 
@@ -158,6 +172,7 @@ A5a 特征筛选入口：
 Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
 Proton_C   -> E:\C1Analysis\Proton_C
 Proton_C_7 -> E:\C1Analysis\Proton_C_7
+Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
 ```
 
 训练脚本的 `--data-root` 指向具体数据集目录，例如：

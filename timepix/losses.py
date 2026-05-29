@@ -148,18 +148,38 @@ class CEWithEMDLoss(nn.Module):
         return self.ce(logits, targets) + self.emd_weight * self.emd(logits, targets)
 
 
-def build_loss(cfg: dict, num_classes: int, label_map: dict[int, str]) -> nn.Module:
+def _angle_values(label_map: dict[int, str]) -> list[float]:
+    try:
+        return [float(label_map[i]) for i in range(len(label_map))]
+    except ValueError as exc:
+        raise ValueError("Angle-aware loss requires numeric angle labels; set dataset.label_type='angle_folder'") from exc
+
+
+def build_loss(
+    cfg: dict,
+    num_classes: int,
+    label_map: dict[int, str],
+    label_type: str = "angle_folder",
+) -> nn.Module:
     task = cfg.get("task", {}).get("type", "classification")
     loss_cfg = cfg.get("loss", {})
     name = loss_cfg.get("name", "cross_entropy")
     if task == "regression":
+        if label_type != "angle_folder":
+            raise ValueError("Regression loss requires dataset.label_type='angle_folder'")
         if name == "mse":
             return nn.MSELoss()
         return nn.SmoothL1Loss()
 
-    angle_values = [float(label_map[i]) for i in range(num_classes)]
     label_encoding = loss_cfg.get("label_encoding", "onehot")
     gaussian_sigma = float(loss_cfg.get("gaussian_sigma", 2.0))
+    angle_aware = name in {"emd", "ce_expected_mae", "ce_emd"} or label_encoding == "gaussian"
+    if angle_aware and label_type != "angle_folder":
+        raise ValueError(
+            f"loss.name={name!r} with label_encoding={label_encoding!r} requires "
+            "dataset.label_type='angle_folder'"
+        )
+    angle_values = _angle_values(label_map) if label_type == "angle_folder" else [float(i) for i in range(num_classes)]
     if name == "cross_entropy":
         return SoftTargetCrossEntropyLoss(
             num_classes=num_classes,

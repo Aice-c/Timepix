@@ -36,8 +36,9 @@
 - Proton/C 正式训练主线使用 `Proton_C_7`，全量 `Proton_C` 仅用于论文数据分析。
 - Alpha A4 系列已经形成多模态结论：A4b-6 是 expert-level 后处理融合系统；A4c-2 `dual_stream_gmu_aux` 是论文主推的端到端 ToT/ToA 多模态架构。
 - Alpha A5 已完成，说明低维手工物理标量具备解释性和一定 MAE/F1 辅助价值，但没有稳定提升 test accuracy。
-- Alpha A6 正在推进，定位为 Alpha 版 B3，只比较 angle-ordinal loss / label strategy；CE one-hot baseline 复用 A2-best。
+- Alpha A6/A7 已完成：Alpha 有序损失未进入最终模型；最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted`。
 - Proton B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前推荐的 Proton_C_7 有序角度损失。
+- Particle/source 分类线开始框架适配，当前数据集为 `Particle_Source_3`，使用 `categorical_folder` 自动提取 `Am`、`Co60`、`Sr` 等类别名，并保留未来切换到 `Alpha`、`Beta`、`Gamma` 的兼容性。
 
 ## 文档维护原则
 

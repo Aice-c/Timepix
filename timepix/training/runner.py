@@ -292,16 +292,43 @@ def _initialize_model_from_config(model, cfg: dict, *, seed: int, output_root: P
     return info
 
 
-def _metrics_from_payload(payload: dict, task: str, angle_values: list[float], max_angle: float) -> dict:
+def _metrics_from_payload(
+    payload: dict,
+    task: str,
+    angle_values: list[float] | None,
+    max_angle: float,
+    label_type: str,
+    class_names: list[str],
+) -> dict:
     if task == "regression":
         return regression_metrics(payload["regression"], payload["labels"], max_angle)
-    return classification_metrics(payload["logits"], payload["labels"].astype(int), angle_values)
+    return classification_metrics(
+        payload["logits"],
+        payload["labels"].astype(int),
+        angle_values,
+        label_type=label_type,
+        class_names=class_names,
+    )
 
 
 def _primary_score(metrics: dict, task: str, primary_metric: str) -> float:
     lower_is_better = any(token in primary_metric for token in ("mae", "error", "rmse", "loss"))
-    if primary_metric in metrics:
-        value = float(metrics[primary_metric])
+    metric_key = primary_metric
+    if primary_metric.startswith("val_"):
+        metric_key = primary_metric[4:]
+    elif primary_metric.startswith("test_"):
+        metric_key = primary_metric[5:]
+
+    aliases = {
+        "balanced_accuracy": "balanced_accuracy",
+        "macro_f1": "macro_f1",
+        "weighted_f1": "weighted_f1",
+        "accuracy": "accuracy",
+    }
+    metric_key = aliases.get(metric_key, metric_key)
+
+    if metric_key in metrics:
+        value = float(metrics[metric_key])
         if lower_is_better:
             value = -value
     elif task == "classification" and primary_metric == "val_accuracy":
@@ -313,7 +340,15 @@ def _primary_score(metrics: dict, task: str, primary_metric: str) -> float:
     return value
 
 
-def _save_predictions(path: Path, payload: dict, task: str, angle_values: list[float], max_angle: float) -> None:
+def _save_predictions(
+    path: Path,
+    payload: dict,
+    task: str,
+    angle_values: list[float] | None,
+    max_angle: float,
+    label_type: str,
+    class_names: list[str],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         if task == "regression":
@@ -335,8 +370,28 @@ def _save_predictions(path: Path, payload: dict, task: str, angle_values: list[f
             labels = payload["labels"].astype(int)
             shifted = logits - logits.max(axis=1, keepdims=True)
             probs = np.exp(shifted) / np.exp(shifted).sum(axis=1, keepdims=True)
-            angles = np.asarray(angle_values, dtype=float)
             preds = probs.argmax(axis=1)
+            if label_type == "categorical_folder":
+                fieldnames = ["row", "true_label", "pred_label", "true_class", "pred_class"]
+                fieldnames.extend([f"prob_{name}" for name in class_names])
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for idx, (true, pred, prob) in enumerate(zip(labels, preds, probs)):
+                    row = {
+                        "row": idx,
+                        "true_label": int(true),
+                        "pred_label": int(pred),
+                        "true_class": class_names[int(true)],
+                        "pred_class": class_names[int(pred)],
+                    }
+                    for class_name, value in zip(class_names, prob):
+                        row[f"prob_{class_name}"] = float(value)
+                    writer.writerow(row)
+                return
+
+            if angle_values is None:
+                raise ValueError("angle_values is required when saving angle_folder predictions")
+            angles = np.asarray(angle_values, dtype=float)
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
@@ -444,7 +499,11 @@ def run_experiment(
     loaders, data_info = build_dataloaders(cfg, data_root_override=data_root_override)
     label_map = data_info["label_map"]
     num_classes = data_info["num_classes"]
-    angle_values = [float(label_map[i]) for i in range(num_classes)]
+    label_type = str(data_info.get("label_type", "angle_folder"))
+    class_names = [str(name) for name in data_info.get("class_names", [label_map[i] for i in range(num_classes)])]
+    angle_values = data_info.get("angle_values")
+    if label_type == "angle_folder" and angle_values is None:
+        angle_values = [float(label_map[i]) for i in range(num_classes)]
     max_angle = float(task_cfg.get("max_angle", 90.0))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -459,7 +518,7 @@ def run_experiment(
     model_initialization_info = _initialize_model_from_config(model, cfg, seed=seed, output_root=output_root)
     param_count = _count_parameters(model)
 
-    criterion = build_loss(cfg, num_classes, label_map).to(device)
+    criterion = build_loss(cfg, num_classes, label_map, label_type=label_type).to(device)
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=float(training_cfg.get("learning_rate", 1e-3)),
@@ -477,12 +536,16 @@ def run_experiment(
         "val_loss",
         "train_accuracy",
         "val_accuracy",
+        "train_balanced_accuracy",
+        "val_balanced_accuracy",
         "train_mae_argmax",
         "val_mae_argmax",
         "train_p90_error",
         "val_p90_error",
         "train_macro_f1",
         "val_macro_f1",
+        "train_weighted_f1",
+        "val_weighted_f1",
         "epoch_seconds",
     ]
     best_score = -float("inf")
@@ -563,8 +626,8 @@ def run_experiment(
         if scheduler is not None:
             scheduler.step()
 
-        train_metrics = _metrics_from_payload(train_payload, task, angle_values, max_angle)
-        val_metrics = _metrics_from_payload(val_payload, task, angle_values, max_angle)
+        train_metrics = _metrics_from_payload(train_payload, task, angle_values, max_angle, label_type, class_names)
+        val_metrics = _metrics_from_payload(val_payload, task, angle_values, max_angle, label_type, class_names)
         score = _primary_score(val_metrics, task, primary_metric)
         epoch_seconds = time.perf_counter() - epoch_started_at
 
@@ -576,12 +639,16 @@ def run_experiment(
                 "val_loss": val_payload["loss"],
                 "train_accuracy": train_metrics.get("accuracy", ""),
                 "val_accuracy": val_metrics.get("accuracy", ""),
+                "train_balanced_accuracy": train_metrics.get("balanced_accuracy", ""),
+                "val_balanced_accuracy": val_metrics.get("balanced_accuracy", ""),
                 "train_mae_argmax": train_metrics.get("mae_argmax", train_metrics.get("mae", "")),
                 "val_mae_argmax": val_metrics.get("mae_argmax", val_metrics.get("mae", "")),
                 "train_p90_error": train_metrics.get("p90_error", ""),
                 "val_p90_error": val_metrics.get("p90_error", ""),
                 "train_macro_f1": train_metrics.get("macro_f1", ""),
                 "val_macro_f1": val_metrics.get("macro_f1", ""),
+                "train_weighted_f1": train_metrics.get("weighted_f1", ""),
+                "val_weighted_f1": val_metrics.get("weighted_f1", ""),
                 "epoch_seconds": epoch_seconds,
             }
         )
@@ -598,16 +665,28 @@ def run_experiment(
         else:
             patience_counter += 1
 
-        print(
-            "Epoch summary | "
-            f"train_loss={train_payload['loss']:.5f} "
-            f"val_loss={val_payload['loss']:.5f} "
-            f"val_acc={val_metrics.get('accuracy', 0):.4f} "
-            f"val_mae={val_metrics.get('mae_argmax', val_metrics.get('mae', 0)):.3f} "
-            f"val_p90={val_metrics.get('p90_error', 0):.3f} "
-            f"time={epoch_seconds:.1f}s"
-            + (" | best" if is_better else "")
-        )
+        if label_type == "categorical_folder":
+            summary = (
+                "Epoch summary | "
+                f"train_loss={train_payload['loss']:.5f} "
+                f"val_loss={val_payload['loss']:.5f} "
+                f"val_acc={val_metrics.get('accuracy', 0):.4f} "
+                f"val_bal_acc={val_metrics.get('balanced_accuracy', 0):.4f} "
+                f"val_macro_f1={val_metrics.get('macro_f1', 0):.4f} "
+                f"time={epoch_seconds:.1f}s"
+            )
+        else:
+            summary = (
+                "Epoch summary | "
+                f"train_loss={train_payload['loss']:.5f} "
+                f"val_loss={val_payload['loss']:.5f} "
+                f"val_acc={val_metrics.get('accuracy', 0):.4f} "
+                f"val_macro_f1={val_metrics.get('macro_f1', 0):.4f} "
+                f"val_mae={val_metrics.get('mae_argmax', val_metrics.get('mae', 0)):.3f} "
+                f"val_p90={val_metrics.get('p90_error', 0):.3f} "
+                f"time={epoch_seconds:.1f}s"
+            )
+        print(summary + (" | best" if is_better else ""))
 
         if save_last_checkpoint:
             _save_last_checkpoint(
@@ -648,8 +727,8 @@ def run_experiment(
         aux_loss_cfg=aux_loss_cfg,
     )
     test_seconds = time.perf_counter() - test_started_at
-    test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle)
-    _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle)
+    test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle, label_type, class_names)
+    _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle, label_type, class_names)
     total_seconds = time.perf_counter() - run_started_at
 
     metrics = {

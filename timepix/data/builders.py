@@ -60,6 +60,11 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     configured_feature_modalities = list(handcrafted_cfg.get("source_modalities") or [])
     _validate_modalities(dataset_cfg, configured_feature_modalities)
 
+    label_type = str(dataset_cfg.get("label_type", "angle_folder")).strip().lower()
+    class_names = dataset_cfg.get("class_names")
+    if class_names is not None:
+        class_names = [str(name) for name in class_names]
+
     root = data_root_override or dataset_cfg.get("root")
     if root is None:
         raise ValueError("dataset.root is required")
@@ -71,7 +76,14 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     _validate_modalities(dataset_cfg, feature_source_modalities)
     collect_modalities = _unique_modalities(modalities, feature_source_modalities)
 
-    records, label_map = collect_samples(data_root, collect_modalities)
+    records, label_map = collect_samples(
+        data_root,
+        collect_modalities,
+        label_type=label_type,
+        class_names=class_names,
+    )
+    class_names = [str(label_map[i]) for i in sorted(label_map)]
+    angle_values = [float(label_map[i]) for i in sorted(label_map)] if label_type == "angle_folder" else None
 
     split_cfg = cfg.get("split", {})
     training_seed = int(cfg.get("training", {}).get("seed", 42))
@@ -134,6 +146,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         data_dtype=data_dtype,
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
+        label_type=label_type,
     )
     val_dataset = TimepixDataset(
         val_records,
@@ -150,6 +163,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         data_dtype=data_dtype,
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
+        label_type=label_type,
     )
     test_dataset = TimepixDataset(
         test_records,
@@ -166,6 +180,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         data_dtype=data_dtype,
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
+        label_type=label_type,
     )
 
     training_cfg = cfg.get("training", {})
@@ -191,6 +206,9 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "collect_modalities": collect_modalities,
         "feature_source_modalities": feature_source_modalities,
         "label_map": label_map,
+        "label_type": label_type,
+        "class_names": class_names,
+        "angle_values": angle_values,
         "num_classes": len(label_map),
         "training_seed": training_seed,
         "split_seed": split_seed,

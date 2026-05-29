@@ -1,0 +1,7 @@
+name: Particle_Source_3
+particle: mixed_source
+root: E:/TimepixData/particle/particle_source_label_cleaned_tot_toa_v1/dataset
+available_modalities: [ToT, ToA]
+default_modalities: [ToT, ToA]
+label_type: categorical_folder
+sample_shape: [100, 100]

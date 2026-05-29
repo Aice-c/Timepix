@@ -2082,3 +2082,72 @@ E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1
 - 第一次导出因命令超时被中断，产生了 partial output；用户手动删除 v1/v2 目录后重新导出 v1，最终导出成功。
 - `summary.json` 中记录 `total_count=119667`、`exported_count=112750`、`rejected_count=6917`、`reject_rate=5.78%`。
 - 后续训练应使用 `particle_source_label_cleaned_tot_toa_v1` 作为当前 source-label cleaned 数据集，而不是 Stage-1 技术候选目录。
+
+### Particle Framework-1：source / particle 分类任务框架适配
+
+状态：第一步框架适配已实施，尚未开始正式训练配置与实验编号。
+
+目的：
+
+- 在不破坏既有 Alpha / Proton 角度识别任务的前提下，让新训练框架支持 Timepix3 `ToT + ToA` 放射源/粒子类别识别任务。
+- 当前粒子数据集标签仍为 source label：`Am`、`Co60`、`Sr`；后续若人工或物理规则进一步分离出纯响应，标签可能变为 `Alpha`、`Beta`、`Gamma`。
+- 因此类别名称不能在代码中硬编码，必须能从数据集顶层文件夹自动提取。
+
+数据集：
+
+```text
+E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
+```
+
+当前导出计数：
+
+| 类别文件夹 | ToT | ToA | shape |
+| --- | ---: | ---: | --- |
+| `Am` | 3757 | 3757 | 100x100 |
+| `Co60` | 93714 | 93714 | 100x100 |
+| `Sr` | 15279 | 15279 | 100x100 |
+
+关键决策：
+
+- 新增 `dataset.label_type`，用于区分两类任务：
+  - `angle_folder`：原有角度识别任务，文件夹名必须能转为数值角度，继续输出 `MAE`、`P90`、角度混淆等指标。
+  - `categorical_folder`：普通类别识别任务，文件夹名作为类别名，不再计算角度 `MAE`、`P90`、`high-angle F1` 或相邻角度混淆。
+- `categorical_folder` 默认按顶层文件夹名字典序自动生成 `class_names` 和 `label_map`；如后续需要固定顺序，可在 dataset config 中显式写入 `class_names`。
+- `categorical_folder` 只允许无序分类监督，例如 `cross_entropy + onehot`。`gaussian` soft label、`emd`、`ce_expected_mae`、`ce_emd` 和 regression 只允许用于 `angle_folder`。
+- 类别识别任务的主要指标改为：
+  - `accuracy`
+  - `balanced_accuracy`
+  - `macro_f1`
+  - `weighted_f1`
+  - per-class `precision / recall / F1 / support`
+  - confusion matrix
+- 鉴于当前 `Co60` 数量远高于 `Am` 和 `Sr`，后续 Particle 实验不应只看 accuracy；建议优先记录 `macro_f1` 和 `balanced_accuracy`。
+
+已新增/修改的适配点：
+
+- `configs/datasets/particle_source_3.yaml`
+  - 新增 `Particle_Source_3` 数据集配置。
+  - `default_modalities: [ToT, ToA]`
+  - `label_type: categorical_folder`
+- `timepix/data/dataset.py`
+  - `collect_samples()` 支持 `angle_folder` 与 `categorical_folder`。
+  - 类别任务从文件夹名自动提取类别名；角度任务继续按数值角度排序。
+- `timepix/data/builders.py`
+  - 将 `label_type`、`class_names`、`angle_values` 写入 `data_info`。
+- `timepix/losses.py`
+  - 为 categorical task 禁用角度感知 loss / label encoding。
+- `timepix/training/metrics.py`
+  - 拆分 angle metrics 与 categorical metrics。
+- `timepix/training/runner.py`
+  - 根据 `label_type` 选择指标、训练日志字段、预测文件输出格式。
+- `scripts/train.py`
+  - 类别任务结束时打印 `balanced_accuracy` 与 `weighted-F1`，不打印角度 MAE/P90。
+- `scripts/summarize.py` / `scripts/aggregate_seeds.py`
+  - 汇总表增加 `label_type`、`class_names`、`balanced_accuracy`、`weighted_f1`。
+- `timepix/config_validation.py`
+  - 校验 `dataset.label_type`、可选 `dataset.class_names`，并阻止 categorical task 使用角度损失。
+
+下一步：
+
+- 编写 Particle source classification 的首个训练配置，建议先做 `P1` 或 `Particle-1` 命名规则讨论后再落地。
+- 首个训练建议固定 `ToT + ToA`、`categorical_folder`、`cross_entropy + onehot`，并以 `val_macro_f1` 或 `val_balanced_accuracy` 作为更适合不均衡类别的主选择指标。

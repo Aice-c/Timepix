@@ -33,6 +33,7 @@ SECTION_KEYS = {
         "available_modalities",
         "default_modalities",
         "label_type",
+        "class_names",
         "sample_shape",
         "modalities",
         "config_path",
@@ -120,6 +121,7 @@ SUPPORTED_FUSION_MODES = {"none", "concat", "gated"}
 SUPPORTED_DATA_DTYPES = {"float16", "float32", "float64"}
 SUPPORTED_TOA_TRANSFORMS = {"none", "raw_log1p", "relative_minmax", "relative_centered", "relative_rank"}
 SUPPORTED_MIXED_PRECISION_DTYPES = {"float16", "fp16", "bfloat16", "bf16"}
+SUPPORTED_LABEL_TYPES = {"angle_folder", "categorical_folder"}
 NORMALIZATION_KEYS = {"enabled", "log1p", "ignore_zero"}
 
 
@@ -176,6 +178,15 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
                 _check_unknown_keys(section_cfg, allowed, section, errors)
 
     dataset = _require_mapping(cfg.get("dataset", {}), "dataset", errors) or {}
+    label_type = str(dataset.get("label_type", "angle_folder")).strip().lower()
+    if label_type not in SUPPORTED_LABEL_TYPES:
+        errors.append(f"dataset.label_type must be one of {sorted(SUPPORTED_LABEL_TYPES)}, got {label_type!r}")
+    class_names = dataset.get("class_names")
+    if class_names is not None and (
+        not isinstance(class_names, list) or not all(isinstance(item, str) and item for item in class_names)
+    ):
+        errors.append("dataset.class_names must be a list of non-empty strings when provided")
+
     modalities = list(dataset.get("modalities") or dataset.get("default_modalities") or [])
     available = list(dataset.get("available_modalities") or [])
     if not modalities:
@@ -197,6 +208,8 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     task = task_cfg.get("type", "classification")
     if task not in SUPPORTED_TASKS:
         errors.append(f"task.type must be one of {sorted(SUPPORTED_TASKS)}, got {task!r}")
+    if task == "regression" and label_type != "angle_folder":
+        errors.append("task.type='regression' requires dataset.label_type='angle_folder'")
 
     model_cfg = _require_mapping(cfg.get("model", {}), "model", errors) or {}
     model_name = model_cfg.get("name", "resnet18")
@@ -240,6 +253,13 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
         errors.append(f"loss.name for regression must be one of {sorted(SUPPORTED_REGRESSION_LOSSES)}")
     if loss_cfg.get("label_encoding", "onehot") not in SUPPORTED_LABEL_ENCODINGS:
         errors.append(f"loss.label_encoding must be one of {sorted(SUPPORTED_LABEL_ENCODINGS)}")
+    if label_type == "categorical_folder":
+        label_encoding = loss_cfg.get("label_encoding", "onehot")
+        if loss_name in {"emd", "ce_expected_mae", "ce_emd"} or label_encoding == "gaussian":
+            errors.append(
+                "categorical_folder only supports unordered classification losses such as "
+                "cross_entropy with onehot labels"
+            )
     for key in ("gaussian_sigma", "emd_weight", "expected_mae_weight"):
         if key in loss_cfg:
             _check_float(loss_cfg[key], f"loss.{key}", errors, min_value=0.0)

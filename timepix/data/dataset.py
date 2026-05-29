@@ -25,6 +25,9 @@ class SampleRecord:
     modalities: dict[str, Path]
 
 
+SUPPORTED_LABEL_TYPES = {"angle_folder", "categorical_folder"}
+
+
 def _numeric_angle(name: str) -> float:
     try:
         return float(name)
@@ -42,29 +45,59 @@ def _normalize_key(file_name: str, modality: str) -> str:
     return f"{normalized}{suffix}"
 
 
-def collect_samples(data_root: str | Path, modalities: list[str]):
+def _normalize_label_type(label_type: str | None) -> str:
+    normalized = str(label_type or "angle_folder").strip().lower()
+    if normalized not in SUPPORTED_LABEL_TYPES:
+        supported = ", ".join(sorted(SUPPORTED_LABEL_TYPES))
+        raise ValueError(f"dataset.label_type must be one of: {supported}")
+    return normalized
+
+
+def _discover_label_dirs(root: Path, label_type: str, class_names: list[str] | None = None) -> list[tuple[str, Path]]:
+    available = {child.name: child for child in root.iterdir() if child.is_dir()}
+    if class_names:
+        missing = [name for name in class_names if name not in available]
+        if missing:
+            raise FileNotFoundError(f"Configured class folder does not exist: {missing[0]}")
+        label_dirs = [(name, available[name]) for name in class_names]
+    else:
+        label_dirs = list(available.items())
+        if label_type == "angle_folder":
+            label_dirs.sort(key=lambda item: _numeric_angle(item[0]))
+        else:
+            label_dirs.sort(key=lambda item: item[0].casefold())
+
+    if label_type == "angle_folder":
+        for name, _path in label_dirs:
+            _numeric_angle(name)
+
+    return label_dirs
+
+
+def collect_samples(
+    data_root: str | Path,
+    modalities: list[str],
+    label_type: str = "angle_folder",
+    class_names: list[str] | None = None,
+):
     root = Path(data_root)
     if not root.is_dir():
         raise FileNotFoundError(f"Dataset root does not exist: {root}")
 
-    label_dirs: list[tuple[str, Path]] = []
-    for child in root.iterdir():
-        if child.is_dir():
-            _numeric_angle(child.name)
-            label_dirs.append((child.name, child))
-    label_dirs.sort(key=lambda item: _numeric_angle(item[0]))
+    label_type = _normalize_label_type(label_type)
+    label_dirs = _discover_label_dirs(root, label_type, class_names)
 
     if not label_dirs:
-        raise RuntimeError(f"No numeric angle folders found in {root}")
+        raise RuntimeError(f"No label folders found in {root}")
 
     label_map: dict[int, str] = {}
     records: list[SampleRecord] = []
-    for label, (angle_name, angle_dir) in enumerate(label_dirs):
-        label_map[label] = angle_name
+    for label, (label_name, label_dir) in enumerate(label_dirs):
+        label_map[label] = label_name
         modality_maps: dict[str, dict[str, Path]] = {}
         key_sets = []
         for modality in modalities:
-            modality_dir = angle_dir / modality
+            modality_dir = label_dir / modality
             if not modality_dir.is_dir():
                 raise FileNotFoundError(f"Missing modality directory: {modality_dir}")
             files = _list_files(modality_dir)
@@ -79,14 +112,14 @@ def collect_samples(data_root: str | Path, modalities: list[str]):
 
         common_keys = set.intersection(*key_sets) if key_sets else set()
         if not common_keys:
-            raise RuntimeError(f"No paired samples for angle {angle_name} and modalities {modalities}")
+            raise RuntimeError(f"No paired samples for label {label_name} and modalities {modalities}")
 
         for sample_key in sorted(common_keys):
             records.append(
                 SampleRecord(
                     label=label,
-                    angle=angle_name,
-                    key=f"{angle_name}/{sample_key}",
+                    angle=label_name,
+                    key=f"{label_name}/{sample_key}",
                     modalities={m: modality_maps[m][sample_key] for m in modalities},
                 )
             )
@@ -126,6 +159,7 @@ class TimepixDataset(Dataset):
         data_dtype: str = "float32",
         toa_transform: str | None = None,
         add_hit_mask: bool = False,
+        label_type: str = "angle_folder",
     ) -> None:
         self.records = records
         self.label_map = dict(label_map)
@@ -141,6 +175,7 @@ class TimepixDataset(Dataset):
         self.data_dtype = data_dtype
         self.toa_transform = normalize_toa_transform(toa_transform)
         self.add_hit_mask = bool(add_hit_mask)
+        self.label_type = _normalize_label_type(label_type)
         self._expanded: list[tuple[SampleRecord, int]] = []
         for record in self.records:
             for rotation in self.augmentor.rotations(training):
@@ -202,6 +237,8 @@ class TimepixDataset(Dataset):
                 handcrafted = self.feature_scaler.apply(handcrafted)
 
         if self.task == "regression":
+            if self.label_type != "angle_folder":
+                raise ValueError("Regression task requires dataset.label_type='angle_folder'")
             angle = float(self.label_map[record.label])
             label = torch.tensor(angle / self.max_angle, dtype=torch.float32)
         else:

@@ -36,6 +36,7 @@ These paths are local Windows paths for notebook validation, checkpoint diagnost
 | `Alpha_100` | `D:\Project\Timepix\Data\Alpha_100` | Formal Alpha dataset; use this exact path for training/checkpoint `--data-root`, or parent `D:\Project\Timepix\Data` for analysis scripts. |
 | `Proton_C` | `E:\C1Analysis\Proton_C` | Full C/proton dataset for thesis data analysis and near-vertical separability analysis. |
 | `Proton_C_7` | `E:\C1Analysis\Proton_C_7` | Seven-class C/proton training dataset for B1 and later Proton/C training experiments. |
+| `Particle_Source_3` | `E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset` | Current cleaned Timepix3 source-label dataset with `Am`/`Co60`/`Sr` folders and paired `ToT`/`ToA`; used for upcoming categorical particle/source classification. |
 
 Local conda environment:
 
@@ -77,14 +78,14 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | Path | Role | Notes |
 | --- | --- | --- |
 | `timepix/config.py` | YAML loading and override helpers | Supports environment placeholders such as `${TIMEPIX_DATA_ROOT:-Data}`. |
-| `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs. |
-| `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features. |
+| `timepix/config_validation.py` | Config validation | Checks common schema errors before training or grid runs; now validates `dataset.label_type`, optional `dataset.class_names`, and blocks angle-aware losses for categorical folder labels. |
+| `timepix/data/` | New dataset subsystem | Modality validation, pairing, splits, normalization, handcrafted features; supports both numeric `angle_folder` labels and auto-discovered `categorical_folder` labels. |
 | `timepix/data/features.py` | Training handcrafted features | A5 feature registry and scaler; intentionally separate from `timepix/analysis/` feature code. Supports `source_modalities` for image-ToT plus scalar ToT/ToA experiments. |
 | `timepix/analysis/` | Thesis analysis subsystem | Dataset scanning, event features, statistical distances, ML baselines, plotting, and Markdown reports. |
 | `timepix/models/` | New model subsystem | Unified interface for ResNet18 variants, shallow models, DenseNet/EfficientNet/ConvNeXt, ViT-Tiny, A4c dual-stream ToT/ToA fusion models, A4c warm-started expert gate, and A5 handcrafted-only MLP. |
 | `timepix/models/handcrafted.py` | Handcrafted-only model | Optional `handcrafted_mlp` baseline for A5; ignores image tensors and trains on standardized scalar features only. Current formal A5c does not run this branch. |
-| `timepix/losses.py` | New loss module | Supports hard/soft CE, pure EMD, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD for ordered-angle experiments such as B3a. |
-| `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging. |
+| `timepix/losses.py` | New loss module | Supports hard/soft CE, pure EMD, CE + expected-angle MAE, and CE + angle-weighted CDF/EMD for ordered-angle experiments such as B3a; categorical tasks are restricted to unordered classification losses such as CE one-hot. |
+| `timepix/training/` | New training subsystem | Runner, epoch loops, metrics, logging; metrics/prediction export are label-type aware, so categorical tasks report balanced accuracy, weighted-F1, macro-F1, per-class tables, and confusion matrices without angle MAE/P90. |
 | `timepix/utils/` | Utility helpers | Seed and output path helpers. |
 
 ## `configs/`
@@ -96,6 +97,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/datasets/alpha.yaml` | Legacy Alpha alias | Kept for compatibility and points to Alpha_100. |
 | `configs/datasets/proton_c_7.yaml` | Proton_C_7 dataset description | Current formal Proton/C 7-class dataset; supports only `ToT`. |
 | `configs/datasets/proton_c.yaml` | Legacy Proton/C dataset alias | Compatibility entry; points to `Proton_C_7` and should not be used for new training configs. |
+| `configs/datasets/particle_source_3.yaml` | Particle_Source_3 dataset description | Current cleaned Timepix3 source-label dataset; supports `ToT` and `ToA`, uses `label_type: categorical_folder`, and auto-discovers class names from source folders. |
 | `configs/experiments/alpha_resnet18_tot.yaml` | Alpha ToT baseline | Single-modality baseline. |
 | `configs/experiments/alpha_resnet18_tot_toa.yaml` | Alpha ToT+ToA baseline | Multimodal alpha experiment. |
 | `configs/experiments/alpha_resnet18_tot_handcrafted_concat.yaml` | Handcrafted concat experiment | Uses ToT `total_energy`. |

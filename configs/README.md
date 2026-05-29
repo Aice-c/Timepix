@@ -39,6 +39,7 @@ python scripts/run_grid.py --config <config.yaml> --data-root /root/autodl-tmp/P
 Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
 Proton_C   -> E:\C1Analysis\Proton_C
 Proton_C_7 -> E:\C1Analysis\Proton_C_7
+Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
 ```
 
 训练/评估脚本的 `--data-root` 指向具体数据集目录；数据分析脚本的 `--data-root` 指向包含数据集文件夹的父目录。
@@ -52,8 +53,26 @@ Proton_C_7 -> E:\C1Analysis\Proton_C_7
 | `configs/datasets/alpha.yaml` | 兼容别名，指向 `Alpha_100`。 |
 | `configs/datasets/proton_c_7.yaml` | 当前 Proton/C 七分类训练主线，只支持 `ToT`。 |
 | `configs/datasets/proton_c.yaml` | 兼容入口，指向 `Proton_C_7`；新训练配置不再使用旧名。 |
+| `configs/datasets/particle_source_3.yaml` | 当前 Timepix3 放射源/粒子类别识别数据集，支持 `ToT` 与 `ToA`，类别名从文件夹自动提取。 |
 
 论文数据分析默认使用全量 `Proton_C`，训练默认使用 `Proton_C_7`，二者不能混淆。
+
+### 3.1 标签类型
+
+`dataset.label_type` 控制标签解释方式：
+
+| `label_type` | 用途 | 标签来源 | 指标 |
+| --- | --- | --- | --- |
+| `angle_folder` | Alpha / Proton 角度识别 | 数值角度文件夹，例如 `15`、`30`、`45`、`60` | accuracy、MAE、P90、Macro-F1、角度混淆等 |
+| `categorical_folder` | Particle source / particle type 分类 | 普通类别文件夹，例如 `Am`、`Co60`、`Sr`，未来也可为 `Alpha`、`Beta`、`Gamma` | accuracy、balanced accuracy、Macro-F1、weighted-F1、per-class 指标 |
+
+`categorical_folder` 默认自动按文件夹名生成 `class_names`。若后续需要固定类别顺序，可在 dataset config 中显式写：
+
+```yaml
+class_names: [Am, Co60, Sr]
+```
+
+普通类别任务不计算角度 `MAE`、`P90`，也不能使用 `gaussian` soft label、`emd`、`ce_expected_mae`、`ce_emd` 等角度有序损失。
 
 ## 四、通用运行规范
 

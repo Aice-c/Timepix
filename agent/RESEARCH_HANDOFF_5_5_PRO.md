@@ -15,6 +15,7 @@
 | --- | --- | --- |
 | `Alpha_100` | Alpha 粒子 4 类极角分类 | 支持 ToT 与 ToA，是 A 系列主线。 |
 | `Proton_C_7` | Proton/C 七分类角度识别 | 只支持 ToT，是 B 系列主线。 |
+| `Particle_Source_3` | Timepix3 source / particle 类别识别 | 支持 ToT 与 ToA，当前标签为 `Am`、`Co60`、`Sr`，框架已开始适配普通类别分类。 |
 
 研究核心问题不是简单追求一个最高 accuracy，而是系统回答：
 
@@ -23,6 +24,7 @@
 3. ToA 是否适合直接 early fusion，还是更适合作为选择性辅助模态？
 4. 物理标量特征是否能补充 CNN 表征？
 5. 角度类别具有有序性，普通 CE one-hot 是否忽略了物理角度误差？
+6. 在非角度任务中，如何复用 ToT/ToA 图像分类框架识别 source / particle type，并正确处理类别名称、类别不均衡和非角度指标？
 
 ## 二、建议阅读顺序
 

@@ -63,8 +63,13 @@ def main() -> int:
     if metadata["task"] == "classification":
         print(f"Val accuracy: {metrics['validation'].get('accuracy', 0):.4f}")
         print(f"Test accuracy: {metrics['test'].get('accuracy', 0):.4f}")
-        print(f"Test MAE(argmax): {metrics['test'].get('mae_argmax', 0):.3f}")
-        print(f"Test P90 Error: {metrics['test'].get('p90_error', 0):.3f}")
+        print(f"Test Macro-F1: {metrics['test'].get('macro_f1', 0):.4f}")
+        if metadata.get("data_info", {}).get("label_type", "angle_folder") == "categorical_folder":
+            print(f"Test balanced accuracy: {metrics['test'].get('balanced_accuracy', 0):.4f}")
+            print(f"Test weighted-F1: {metrics['test'].get('weighted_f1', 0):.4f}")
+        else:
+            print(f"Test MAE(argmax): {metrics['test'].get('mae_argmax', 0):.3f}")
+            print(f"Test P90 Error: {metrics['test'].get('p90_error', 0):.3f}")
     else:
         print(f"Val MAE: {metrics['validation'].get('mae', 0):.3f}")
         print(f"Test MAE: {metrics['test'].get('mae', 0):.3f}")

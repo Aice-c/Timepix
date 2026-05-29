@@ -34,6 +34,7 @@ configs/experiments/*.yaml
 | `Alpha_50` | 历史/对照数据集 | `ToT`, `ToA` |
 | `Proton_C_7` | Proton/C 七分类训练主线 | `ToT` |
 | `Proton_C` | 论文数据分析与近垂直分辨极限分析 | `ToT` |
+| `Particle_Source_3` | Timepix3 source / particle 类别识别 | `ToT`, `ToA` |
 
 本地 Windows 路径：
 
@@ -41,7 +42,10 @@ configs/experiments/*.yaml
 Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
 Proton_C   -> E:\C1Analysis\Proton_C
 Proton_C_7 -> E:\C1Analysis\Proton_C_7
+Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
 ```
+
+标签类型由 `dataset.label_type` 指定：`angle_folder` 用于数值角度识别，`categorical_folder` 用于普通类别文件夹识别。普通类别任务自动从顶层文件夹提取类别名，输出 `balanced_accuracy`、`macro_f1`、`weighted_f1` 和 per-class 指标，不输出角度 MAE/P90。
 
 训练脚本的 `--data-root` 指向具体数据集目录：
 
