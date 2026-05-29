@@ -89,6 +89,14 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def _class_counts_by_id(data_info: dict[str, Any]) -> list[int] | None:
+    train_counts = data_info.get("split_label_counts", {}).get("train")
+    label_map = data_info.get("label_map", {})
+    if not isinstance(train_counts, Mapping) or not isinstance(label_map, Mapping):
+        return None
+    return [int(train_counts.get(str(label_map[i]), 0)) for i in range(len(label_map))]
+
+
 def _environment_info(device: torch.device) -> dict[str, Any]:
     return {
         "python": sys.version.split()[0],
@@ -518,7 +526,13 @@ def run_experiment(
     model_initialization_info = _initialize_model_from_config(model, cfg, seed=seed, output_root=output_root)
     param_count = _count_parameters(model)
 
-    criterion = build_loss(cfg, num_classes, label_map, label_type=label_type).to(device)
+    criterion = build_loss(
+        cfg,
+        num_classes,
+        label_map,
+        label_type=label_type,
+        class_counts=_class_counts_by_id(data_info),
+    ).to(device)
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=float(training_cfg.get("learning_rate", 1e-3)),

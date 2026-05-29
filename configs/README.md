@@ -135,6 +135,79 @@ rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-level INFO
 ```
 
+C1 seed42 阶段结果已经完成。按预设主指标 `val_macro_f1`，当前排序为：
+
+| 编号 | 输入/模型 | Val Macro-F1 | Test Macro-F1 | 阶段判断 |
+| --- | --- | ---: | ---: | --- |
+| C1d | dual-stream concat aux | **0.820** | **0.824** | 当前最强候选 |
+| C1c | input concat | 0.812 | 0.814 | 轻量融合备选 |
+| C1b | RToA single modality | 0.799 | 0.804 | 证明 ToA/RToA 具有 source 判别力 |
+| C1a | ToT single modality | 0.635 | 0.634 | `Sr` 基本失败 |
+| C1e | GMU aux | 0.413 | 0.410 | 本轮训练异常，不进入主候选 |
+
+C1 不作为最终结论。后续 C2 应优先处理类别不均衡和 `Sr` 少数类召回，而不是继续扩大架构网格。
+
+### 3.3 C2 Particle source weighted-CE stability run
+
+C2 是 C1 后的稳定性复跑。它保留 C1 的五组模态/融合结构，但加入 train split 自动类别权重，降低学习率，并延长训练周期。C2 暂不引入 weighted sampler，避免一次改变过多变量。
+
+固定变化：
+
+| 项目 | C1 | C2 |
+| --- | --- | --- |
+| Loss | CE one-hot | CE one-hot + `class_weight: balanced` |
+| Learning rate | `3e-4` | `1e-4` |
+| Epochs | `15` | `30` |
+| Early stopping patience | `5` | `8` |
+| Primary metric | `val_macro_f1` | `val_macro_f1` |
+
+配置文件：
+
+| 编号 | 配置文件 | 输入 | 模型 |
+| --- | --- | --- | --- |
+| C2a | `configs/experiments/c2a_particle_source_tot_weighted_seed42.yaml` | `ToT` | `resnet18_no_maxpool` |
+| C2b | `configs/experiments/c2b_particle_source_rtoa_weighted_seed42.yaml` | `RToA` | `resnet18_no_maxpool` |
+| C2c | `configs/experiments/c2c_particle_source_tot_rtoa_input_concat_weighted_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` |
+| C2d | `configs/experiments/c2d_particle_source_tot_rtoa_dual_concat_weighted_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` |
+| C2e | `configs/experiments/c2e_particle_source_tot_rtoa_gmu_weighted_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` |
+
+服务器一键运行：
+
+```bash
+tmux new -s c2_particle
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset
+LOG=outputs/c2_particle_source_weighted_ce_seed42_tmux.log
+
+{
+  echo "[C2] start $(date)"
+  $PY scripts/train.py --config configs/experiments/c2a_particle_source_tot_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2b_particle_source_rtoa_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2c_particle_source_tot_rtoa_input_concat_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2d_particle_source_tot_rtoa_dual_concat_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2e_particle_source_tot_rtoa_gmu_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group c2_particle_source_weighted_ce_seed42 --out outputs/c2_particle_source_weighted_ce_seed42_runs.csv
+  echo "[C2] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地增量拉取结果仍使用：
+
+```powershell
+rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
+  --log-level INFO
+```
+
 ## 四、通用运行规范
 
 ### 4.1 单个训练

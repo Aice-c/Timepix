@@ -1,0 +1,13 @@
+base: c2_particle_source_weighted_base.yaml
+
+experiment_name: c2a_particle_source_tot_weighted_seed42
+experiment_group: c2_particle_source_weighted_ce_seed42
+
+dataset:
+  modalities: [ToT]
+
+data:
+  toa_transform: none
+
+model:
+  name: resnet18_no_maxpool

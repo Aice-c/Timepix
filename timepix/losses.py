@@ -41,15 +41,20 @@ class SoftTargetCrossEntropyLoss(nn.Module, AngleTargetMixin):
         angle_values: list[float],
         label_encoding: str = "onehot",
         gaussian_sigma: float = 2.0,
+        class_weights: list[float] | torch.Tensor | None = None,
     ) -> None:
         nn.Module.__init__(self)
         AngleTargetMixin.__init__(self, num_classes, angle_values, label_encoding, gaussian_sigma)
+        weights = torch.as_tensor(class_weights, dtype=torch.float32) if class_weights is not None else None
+        self.register_buffer("class_weights", weights)
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         if self.label_encoding == "onehot" and targets.dim() == 1:
-            return F.cross_entropy(logits, targets.long())
+            return F.cross_entropy(logits, targets.long(), weight=self.class_weights)
         target_probs = self._encode_targets(targets)
         log_probs = F.log_softmax(logits, dim=-1)
+        if self.class_weights is not None:
+            target_probs = target_probs * self.class_weights.unsqueeze(0)
         return -(target_probs * log_probs).sum(dim=-1).mean()
 
 
@@ -155,11 +160,41 @@ def _angle_values(label_map: dict[int, str]) -> list[float]:
         raise ValueError("Angle-aware loss requires numeric angle labels; set dataset.label_type='angle_folder'") from exc
 
 
+def _resolve_class_weights(
+    loss_cfg: dict,
+    num_classes: int,
+    class_counts: list[int] | None,
+) -> list[float] | None:
+    weight_cfg = loss_cfg.get("class_weight", loss_cfg.get("class_weights"))
+    if weight_cfg in (None, False, "none"):
+        return None
+    if isinstance(weight_cfg, str):
+        if weight_cfg != "balanced":
+            raise ValueError("loss.class_weight must be 'balanced', 'none', or a list of weights")
+        if class_counts is None:
+            raise ValueError("loss.class_weight='balanced' requires train split class counts")
+        if len(class_counts) != num_classes:
+            raise ValueError(f"class_counts length {len(class_counts)} does not match num_classes={num_classes}")
+        if any(count <= 0 for count in class_counts):
+            raise ValueError("loss.class_weight='balanced' requires every class to have at least one train sample")
+        total = float(sum(class_counts))
+        return [total / (num_classes * float(count)) for count in class_counts]
+    if isinstance(weight_cfg, (list, tuple)):
+        if len(weight_cfg) != num_classes:
+            raise ValueError(f"loss.class_weight length {len(weight_cfg)} does not match num_classes={num_classes}")
+        weights = [float(value) for value in weight_cfg]
+        if any(value < 0 for value in weights):
+            raise ValueError("loss.class_weight values must be non-negative")
+        return weights
+    raise ValueError("loss.class_weight must be 'balanced', 'none', or a list of weights")
+
+
 def build_loss(
     cfg: dict,
     num_classes: int,
     label_map: dict[int, str],
     label_type: str = "angle_folder",
+    class_counts: list[int] | None = None,
 ) -> nn.Module:
     task = cfg.get("task", {}).get("type", "classification")
     loss_cfg = cfg.get("loss", {})
@@ -179,6 +214,7 @@ def build_loss(
             f"loss.name={name!r} with label_encoding={label_encoding!r} requires "
             "dataset.label_type='angle_folder'"
         )
+    class_weights = _resolve_class_weights(loss_cfg, num_classes, class_counts)
     angle_values = _angle_values(label_map) if label_type == "angle_folder" else [float(i) for i in range(num_classes)]
     if name == "cross_entropy":
         return SoftTargetCrossEntropyLoss(
@@ -186,6 +222,7 @@ def build_loss(
             angle_values=angle_values,
             label_encoding=label_encoding,
             gaussian_sigma=gaussian_sigma,
+            class_weights=class_weights,
         )
     if name == "ce_expected_mae":
         return CEExpectedAngleMAELoss(

@@ -62,6 +62,8 @@ SECTION_KEYS = {
     "loss": {
         "name",
         "label_encoding",
+        "class_weight",
+        "class_weights",
         "emd_p",
         "emd_weight",
         "emd_angle_weighted",
@@ -268,6 +270,17 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
     for key in ("emd_angle_weighted", "normalize_by_angle_range"):
         if key in loss_cfg:
             _check_bool(loss_cfg[key], f"loss.{key}", errors)
+    for key in ("class_weight", "class_weights"):
+        if key in loss_cfg:
+            value = loss_cfg[key]
+            if isinstance(value, str):
+                if value not in {"balanced", "none"}:
+                    errors.append(f"loss.{key} must be 'balanced', 'none', or a list of non-negative numbers")
+            elif isinstance(value, list):
+                for idx, item in enumerate(value):
+                    _check_float(item, f"loss.{key}[{idx}]", errors, min_value=0.0)
+            elif value is not None and value is not False:
+                errors.append(f"loss.{key} must be 'balanced', 'none', or a list of non-negative numbers")
 
     training_cfg = _require_mapping(cfg.get("training", {}), "training", errors) or {}
     for key in ("epochs", "batch_size"):

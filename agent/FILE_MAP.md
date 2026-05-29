@@ -64,6 +64,7 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `agent/DATA_ANALYSIS_GUIDE.md` | Data analysis script guide | Documents the new `timepix/analysis/` subsystem, output layout, server commands, and thesis wording boundaries. |
 | `agent/README.md` | Current documentation entrypoint | Recommended reading order and current project status for future agents. |
 | `agent/README.old.md` | Archived documentation entrypoint | Previous README retained for traceability; contains encoding damage and stale status. |
+| `agent/SUBAGENT_WORKFLOW.md` | Subagent workflow guide | 固化实验员/分析员 subagent 的职责边界、服务器监督命令、结果拉取规范、反馈格式和常见坑；后续派发 subagent 时应先让其阅读。 |
 | `agent/NEW_SYSTEM_GUIDE.md` | Current usage guide | Main how-to for the refactored experiment system: paths, training, grid runs, summaries, tmux, and resume. |
 | `agent/NEW_SYSTEM_GUIDE.old.md` | Archived usage guide | Previous guide retained for traceability; contains encoding damage and should not be used as the current reference. |
 | `agent/CODE_CONTEXT.md` | Current code context | Practical overview of the new training pipeline, modules, losses, models, scripts, and active engineering boundaries. |
@@ -150,6 +151,12 @@ prefer `configs/` + `scripts/` + `timepix/`.
 | `configs/experiments/c1c_particle_source_tot_rtoa_input_concat_seed42.yaml` | C1c config | Single-seed input-level `[ToT, RToA]` concat with `resnet18_no_maxpool`. |
 | `configs/experiments/c1d_particle_source_tot_rtoa_dual_concat_seed42.yaml` | C1d config | Single-seed dual-stream high-level concat with auxiliary heads. |
 | `configs/experiments/c1e_particle_source_tot_rtoa_gmu_seed42.yaml` | C1e config | Single-seed dual-stream GMU gate with auxiliary heads. |
+| `configs/experiments/c2_particle_source_weighted_base.yaml` | Particle/source C2 base config | Shared C2 stability settings: balanced class-weighted CE, lower LR, longer training, patience 8, `val_macro_f1` primary metric. |
+| `configs/experiments/c2a_particle_source_tot_weighted_seed42.yaml` | C2a config | Weighted-CE `ToT` single-seed stability rerun. |
+| `configs/experiments/c2b_particle_source_rtoa_weighted_seed42.yaml` | C2b config | Weighted-CE `RToA` single-seed stability rerun. |
+| `configs/experiments/c2c_particle_source_tot_rtoa_input_concat_weighted_seed42.yaml` | C2c config | Weighted-CE input-level `[ToT, RToA]` concat stability rerun. |
+| `configs/experiments/c2d_particle_source_tot_rtoa_dual_concat_weighted_seed42.yaml` | C2d config | Weighted-CE dual-stream high-level concat stability rerun. |
+| `configs/experiments/c2e_particle_source_tot_rtoa_gmu_weighted_seed42.yaml` | C2e config | Weighted-CE dual-stream GMU stability rerun; retained because GMU is the desired target architecture despite C1 instability. |
 | `configs/search/alpha_resnet18_tot_training.yaml` | Optuna search config | Searches representative Alpha ToT ResNet18 training hyperparameters. |
 | `configs/search/a2_alpha_resnet18_tot_training.yaml` | A2 Optuna search config | Searches training hyperparameters after fixing the A1 ResNet18 structure. |
 

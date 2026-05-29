@@ -87,6 +87,7 @@ feature_dim
 当前支持的主要损失包括：
 
 - `cross_entropy`
+- `cross_entropy` with optional `loss.class_weight: balanced` or explicit class-weight list
 - Gaussian soft-target CE
 - `ce_expected_mae`
 - `ce_emd` / angle-weighted CDF-style ordered loss
@@ -133,6 +134,8 @@ B3 和 A6 的设计原则是保留 CE 作为主监督，再加入轻量有序角
 - `training_log.csv`、`metrics.json`、`metadata.json`、`predictions.csv`、`confusion_matrix.csv` 输出。
 
 服务器长期训练应使用 `tmux`。断点恢复和持久化训练说明见 `agent/SERVER_TRAINING.md`。
+
+当实验执行或结果分析交给 subagent 时，主控 agent 仍负责所有代码、配置、文档和实验决策。subagent 只执行或分析，不在服务器直接改代码或调整实验。具体角色边界、监督命令、结果拉取和反馈格式见 `agent/SUBAGENT_WORKFLOW.md`。
 
 ## 7. 脚本入口
 
@@ -203,6 +206,7 @@ Linux 服务器命令默认使用：
 - B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前 Proton_C_7 推荐损失。
 - A6b 已完成，Alpha-ToT 的 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
 - A7 已完成，最终 Alpha 端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
-- Particle/source 分类进入 C1 single-seed screening：C1a `ToT`、C1b `RToA`、C1c input concat、C1d dual-stream concat、C1e GMU；主指标使用 `val_macro_f1`，因为 `Co60` 明显多于 `Am` 和 `Sr`。
+- Particle/source 分类 C1 single-seed screening 已完成：C1d dual-stream concat 按 `val_macro_f1` 最强，C1c input concat 是轻量备选，C1b `RToA` 单模态显著优于 C1a `ToT`，C1e GMU 本轮异常。后续 C2 应优先处理类别不均衡和 `Sr` 少数类召回，而不是继续扩大架构网格。
+- Particle/source C2 已撰写配置：在 C1 五组结构上加入 balanced class-weighted CE，降低学习率到 `1e-4`，训练 `30` epochs，patience `8`，暂不加入 weighted sampler，继续按 `val_macro_f1` 选择。
 
 新增代码时，应优先服务 Particle/source 分类的类别不均衡、模态融合和结果整理，而不是继续扩大已经收束的 A4/A5/A6/B2 搜索空间。

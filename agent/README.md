@@ -30,6 +30,9 @@
 8. `agent/SERVER_TRAINING.md`  
    Linux 服务器持久化训练、`tmux`、断点恢复、AMP 和运行环境说明。
 
+9. `agent/SUBAGENT_WORKFLOW.md`
+   实验员/分析员 subagent 的固定工作流程、权限边界、监督命令、结果拉取规范和反馈格式。后续派发 subagent 时应先让其阅读该文档，再补充当次任务上下文。
+
 ## 当前实验主线
 
 - Alpha 正式训练主线使用 `Alpha_100`，不再使用 `Alpha_50` 作为正式结果线。
@@ -38,11 +41,12 @@
 - Alpha A5 已完成，说明低维手工物理标量具备解释性和一定 MAE/F1 辅助价值，但没有稳定提升 test accuracy。
 - Alpha A6/A7 已完成：Alpha 有序损失未进入最终模型；最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted`。
 - Proton B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前推荐的 Proton_C_7 有序角度损失。
-- Particle/source 分类线开始框架适配，当前数据集为 `Particle_Source_3`，使用 `categorical_folder` 自动提取 `Am`、`Co60`、`Sr` 等类别名，并保留未来切换到 `Alpha`、`Beta`、`Gamma` 的兼容性。
+- Particle/source 分类线已完成 C1 single-seed screening。当前 `Particle_Source_3` 使用 `categorical_folder` 自动提取 `Am`、`Co60`、`Sr` 等类别名，并保留未来切换到 `Alpha`、`Beta`、`Gamma` 的兼容性。C1 显示 `RToA` 对 source 分类很关键，C1d `dual_stream_concat_aux` 按 `val_macro_f1` 最好。C2 已进入 weighted-CE 稳定性复跑阶段，用 balanced class weights、较低学习率、更长训练和更大 patience 重新训练 C1 五组结构。
 
 ## 文档维护原则
 
 - 新增或修改实验配置时，必须同步更新 `agent/EXPERIMENT_LOG.md` 和相关指南。
 - 每个对比实验必须同时记录训练命令、汇总命令；三 seed 实验还要记录 mean/std 聚合命令。
 - 论文和实验结论不得使用 test set 反向选择模型、阈值、特征组或超参数。
+- subagent 只承担执行或分析任务，不在服务器直接修改代码、配置或实验决策；具体边界见 `agent/SUBAGENT_WORKFLOW.md`。
 - 若某个文档需要大改，应先将原文件归档为 `.old.md`，再重写当前版。

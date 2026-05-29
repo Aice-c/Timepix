@@ -2149,7 +2149,7 @@ E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
 
 ### C1：Particle source classification 单 seed 模态/融合基线
 
-状态：已撰写实验配置，等待服务器运行。
+状态：已完成服务器运行，结果已拉回本地并完成初步分析。
 
 目的：
 
@@ -2246,3 +2246,164 @@ rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
   --log-level INFO
 ```
+
+结果文件：
+
+- `outputs/c1_particle_source_baseline_seed42_runs.csv`
+- 5/5 runs 均有 `metrics.json`、`training_log.csv`、`predictions.csv`、`confusion_matrix.csv`
+
+主结果：
+
+| 编号 | 输入/模型 | Val Acc | Val Macro-F1 | Test Acc | Test Balanced Acc | Test Macro-F1 | Test Weighted-F1 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| C1a | `ToT` / `resnet18_no_maxpool` | 86.33% | 0.635 | 86.30% | 0.661 | 0.634 | 0.800 |
+| C1b | `RToA` / `resnet18_no_maxpool` | **88.58%** | 0.799 | **88.95%** | 0.779 | 0.804 | 0.877 |
+| C1c | `[ToT, RToA]` input concat | 87.55% | 0.812 | 87.80% | 0.807 | 0.814 | 0.875 |
+| C1d | dual-stream concat aux | 87.94% | **0.820** | 88.31% | **0.815** | **0.824** | **0.881** |
+| C1e | dual-stream GMU aux | 16.85% | 0.413 | 16.85% | 0.661 | 0.410 | 0.066 |
+
+每类表现要点：
+
+- 当前类别分布严重不均衡：test support 约为 `Am=377`、`Co60=9372`、`Sr=1529`。
+- C1a `ToT` 几乎完全漏掉 `Sr`，test 中 `Sr -> Co60` 为 `1528/1529`，说明 ToT 单模态无法区分当前 source-label 数据中的 `Sr`。
+- C1b `RToA` 单模态显著强于 C1a，说明 ToA 相对时间结构对 source-label 分类很关键。
+- C1c/C1d 能进一步改善 `Sr`：C1d test `Sr` recall/F1 为 `0.524/0.549`，是本轮最高。
+- C1e GMU 明显异常，几乎把 `Co60` 全判成 `Sr`，test `Co60 -> Sr` 为 `9367/9372`，不进入下一阶段主候选。
+
+阶段判断：
+
+- 按 C1 预设主指标 `val_macro_f1`，C1d `dual_stream_concat_aux` 是当前最强候选。
+- C1c input concat 与 C1d 接近，训练成本更低，可作为轻量融合备选。
+- C1b 单模态 RToA 是非常重要的诊断结果，证明 ToA/RToA 对 source 分类不是噪声，而是主要判别来源之一。
+- C1a ToT 不适合作为单独推进方向，因为 `Sr` 类别完全失败。
+- C1e GMU 暂不推进，除非后续专门诊断 GMU 在 categorical imbalance 任务上的门控/训练不稳定问题。
+
+注意事项：
+
+- C1d 未 early stop，best epoch = stopped epoch = 15，可能仍未完全收敛；后续 C2 若推进 C1d，应考虑增加 epochs 或 patience。
+- summary 中记录 `git_dirty=True`。原因是本地/服务器存在未提交文档或工作区状态差异；C1 代码和配置来自 commit `4c951a7`，但正式复现实验前应确保 clean git state。
+- C1 是 single-seed screening，只用于确定 C2 候选，不作为最终模型结论。
+
+下一步建议：
+
+- C2 优先围绕类别不均衡与少数类 `Sr` 改善展开，而不是继续扩展更多多模态结构。
+- 候选方向：
+  - C2a：C1d `dual_stream_concat_aux` 多 seed 或延长训练验证。
+  - C2b：C1c/C1d + class-weighted CE。
+  - C2c：C1c/C1d + weighted sampler 或 balanced sampler。
+  - C2d：必要时比较 focal loss，但不作为第一优先。
+
+### C2：Particle source weighted-CE 稳定性复跑
+
+状态：已撰写配置，等待服务器运行。
+
+目的：
+
+- 解决 C1 中 validation 指标大幅震荡、`Sr` 少数类召回不稳定、GMU 训练塌缩等问题。
+- 在不引入 weighted sampler 的前提下，先验证 train split 自动类别权重、较低学习率、更长训练周期是否能稳定 C1 五组模态/融合结构。
+- 仍然保留 GMU，因为它是理想目标架构之一，但本轮先把它放在同一稳定化条件下重新评估。
+
+关键决策：
+
+- 实现 `loss.class_weight: balanced`，按 train split 类别计数计算 CE 权重：
+
+```text
+weight_i = N_train / (num_classes * count_i)
+```
+
+- 暂不加入 weighted sampler / balanced sampler，避免同时改变优化目标和采样分布。
+- 暂不做三 seed。C2 仍是 seed42 完整五组稳定性复跑；只有当曲线和 validation macro-F1 稳定后，再选 1-2 个设置进入多 seed。
+- 主指标继续使用 `val_macro_f1`，因为 `Co60` 主类明显支配 overall accuracy。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `Particle_Source_3` |
+| Label type | `categorical_folder` |
+| Split | 复用 `outputs/splits/Particle_Source_3_ToT-ToA_seed42_0.8_0.1_0.1.json` |
+| Seed | `42` |
+| Loss | `cross_entropy + onehot + class_weight: balanced` |
+| Primary metric | `val_macro_f1` |
+| Learning rate | `1e-4` |
+| Epochs | `30` |
+| Early stopping patience | `8` |
+| Batch size | `64` |
+| Scheduler | cosine |
+| Mixed precision | true |
+
+C2 实验矩阵：
+
+| 编号 | 配置文件 | 输入 | 模型 |
+| --- | --- | --- | --- |
+| C2a | `configs/experiments/c2a_particle_source_tot_weighted_seed42.yaml` | `ToT` | `resnet18_no_maxpool` |
+| C2b | `configs/experiments/c2b_particle_source_rtoa_weighted_seed42.yaml` | `RToA` | `resnet18_no_maxpool` |
+| C2c | `configs/experiments/c2c_particle_source_tot_rtoa_input_concat_weighted_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` |
+| C2d | `configs/experiments/c2d_particle_source_tot_rtoa_dual_concat_weighted_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` |
+| C2e | `configs/experiments/c2e_particle_source_tot_rtoa_gmu_weighted_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` |
+
+服务器运行命令：
+
+```bash
+tmux new -s c2_particle
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_v1/dataset
+LOG=outputs/c2_particle_source_weighted_ce_seed42_tmux.log
+
+{
+  echo "[C2] start $(date)"
+  $PY scripts/train.py --config configs/experiments/c2a_particle_source_tot_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2b_particle_source_rtoa_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2c_particle_source_tot_rtoa_input_concat_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2d_particle_source_tot_rtoa_dual_concat_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/c2e_particle_source_tot_rtoa_gmu_weighted_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group c2_particle_source_weighted_ce_seed42 --out outputs/c2_particle_source_weighted_ce_seed42_runs.csv
+  echo "[C2] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地拉取与分析：
+
+```powershell
+rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
+  --log-level INFO
+```
+
+## 流程决策：Subagent 工作流程固化
+
+状态：已新增流程文档。
+
+新增文档：
+
+- `agent/SUBAGENT_WORKFLOW.md`
+
+目的：
+
+- 固化主控 agent、实验员 subagent、分析员 subagent 的职责边界。
+- 避免多窗口各自修改代码、配置、环境或实验编号导致实验链路混乱。
+- 降低后续派发 subagent 时的上下文压力：subagent 先阅读固定流程文档，再接收当次实验的最小必要上下文。
+
+关键决策：
+
+- 主控 agent 是唯一实验负责人，负责实验设计、代码实现、配置撰写、文档日志、git 同步、服务器配置判断和最终结果口径。
+- 实验员 subagent 只负责 SSH、tmux 持久化运行、训练监督和异常反馈；不修改代码、配置、环境，不自行重跑。
+- 分析员 subagent 只负责基于已拉回本地的结果做 summary、mean/std、per-class、confusion matrix 和初步分析；不修改代码、配置或结论。
+- 所有代码和配置仍然必须先在本地完成，通过 git 同步到服务器。
+- 服务器结果拉取使用 `rclone copy` 增量复制到本地 `outputs/`，默认不拉 checkpoint，避免覆盖或删除其他服务器结果。
+- subagent 发现问题时只按 `BLOCKED` 格式反馈证据，由主控 agent 决定是否修复、清理磁盘、重跑或调整实验方案。
+
+配套文档更新：
+
+- `agent/README.md` 增加 `SUBAGENT_WORKFLOW.md` 阅读入口。
+- `agent/FILE_MAP.md` 登记新文档。
+- `agent/CODE_CONTEXT.md` 补充 subagent 角色边界说明。
