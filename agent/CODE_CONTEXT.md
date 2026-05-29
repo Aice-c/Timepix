@@ -206,7 +206,7 @@ Linux 服务器命令默认使用：
 - B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前 Proton_C_7 推荐损失。
 - A6b 已完成，Alpha-ToT 的 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
 - A7 已完成，最终 Alpha 端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
-- Particle/source 分类 C1 single-seed screening 已完成：C1d dual-stream concat 按 `val_macro_f1` 最强，C1c input concat 是轻量备选，C1b `RToA` 单模态显著优于 C1a `ToT`，C1e GMU 本轮异常。后续 C2 应优先处理类别不均衡和 `Sr` 少数类召回，而不是继续扩大架构网格。
-- Particle/source C2 已撰写配置：在 C1 五组结构上加入 balanced class-weighted CE，降低学习率到 `1e-4`，训练 `30` epochs，patience `8`，暂不加入 weighted sampler，继续按 `val_macro_f1` 选择。
+- Particle/source 分类 C1 single-seed screening 已完成：C1d dual-stream concat 按 `val_macro_f1` 最强，C1c input concat 是轻量备选，C1b `RToA` 单模态显著优于 C1a `ToT`，C1e GMU 本轮异常。
+- Particle/source C2 weighted-CE 稳定性复跑已完成：balanced CE 能把 GMU 从 C1 的塌缩中救回，C2e 是 C2 内部最强；但 balanced 权重对 `Co60` 惩罚过强，整体未超过 C1c/C1d。后续 C3 若推进，应优先尝试更温和的类别权重或 focal-style 方案，不要直接叠加 weighted sampler。
 
 新增代码时，应优先服务 Particle/source 分类的类别不均衡、模态融合和结果整理，而不是继续扩大已经收束的 A4/A5/A6/B2 搜索空间。

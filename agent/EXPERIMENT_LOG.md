@@ -2295,7 +2295,7 @@ rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
 
 ### C2：Particle source weighted-CE 稳定性复跑
 
-状态：已撰写配置，等待服务器运行。
+状态：已完成 seed42 复跑与本地结果拉取分析。
 
 目的：
 
@@ -2378,6 +2378,44 @@ rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-file D:/Project/Timepix/outputs/rclone_autodl37655_pull.log `
   --log-level INFO
 ```
+
+结果文件：
+
+- `outputs/c2_particle_source_weighted_ce_seed42_runs.csv`
+
+C2 主结果：
+
+| 编号 | 输入 / 模型 | Best/Stop | Val Acc | Val Macro-F1 | Test Acc | Test Balanced Acc | Test Macro-F1 | Test Weighted-F1 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| C2a | `ToT` / `resnet18_no_maxpool` | 1/9 | 62.18% | 0.688 | 62.99% | 0.784 | 0.691 | 0.686 |
+| C2b | `RToA` / `resnet18_no_maxpool` | 1/9 | 79.80% | 0.768 | 80.89% | 0.807 | 0.776 | 0.827 |
+| C2c | `[ToT, RToA]` input concat | 1/9 | 83.40% | 0.792 | 84.34% | 0.818 | 0.799 | 0.853 |
+| C2d | dual-stream concat aux | 1/9 | 77.34% | 0.760 | 78.41% | 0.815 | 0.767 | 0.809 |
+| C2e | dual-stream GMU aux | 17/25 | 83.44% | **0.797** | 83.88% | **0.825** | **0.801** | 0.850 |
+
+和 C1 的关键对比：
+
+| 对比 | Δ Val Macro-F1 | Δ Test Macro-F1 | 主要变化 |
+| --- | ---: | ---: | --- |
+| C1a -> C2a | +0.052 | +0.058 | `Sr` recall 大幅提高，但 `Co60` recall 大幅下降，balanced CE 过度补偿少数类。 |
+| C1b -> C2b | -0.030 | -0.028 | `Sr` recall 提高，但 precision / macro-F1 下降。 |
+| C1c -> C2c | -0.020 | -0.015 | input concat 仍然较稳，但低于 C1c。 |
+| C1d -> C2d | -0.061 | -0.056 | dual concat 受 weighted CE 影响较大，低于 C1d。 |
+| C1e -> C2e | +0.384 | +0.391 | GMU 从 C1 的塌缩状态恢复为可用模型，但仍未超过 C1c/C1d。 |
+
+阶段判断：
+
+- C2 验证了 `class_weight: balanced` 能显著缓解 GMU 在 C1 中的灾难性塌缩，C2e 成为 C2 内部最强结果。
+- 但 C2 没有超过 C1 的最强候选：C1d `Val Macro-F1=0.820`，C1c `0.812`，而 C2e 为 `0.797`。
+- balanced CE 对当前类别不均衡任务压力过强：它提高 `Sr` recall，但明显牺牲 `Co60`，导致不少设置 best epoch 停在 epoch 1。
+- C2a/C2b/C2c/C2d 均在 epoch 1 取得 best，并在 epoch 9 early stop；C2e best epoch 为 17，但训练中仍有震荡。
+- 因此，C2 不作为最终模型结论。下一步如果继续稳定化，应避免直接叠加 weighted sampler；更合理的是比较更温和的类别权重，例如 `sqrt_balanced`、`balanced_power=0.25/0.5` 或 effective-number style 权重。
+
+当前建议：
+
+- 保留 C1c/C1d 作为 C1 中的强基线。
+- 保留 C2e 作为“GMU 可被 class weighting 部分救回”的重要诊断。
+- C3 若推进，应聚焦少数组强候选，例如 input concat、dual concat、GMU，而不是再次跑全五组。
 
 ## 流程决策：Subagent 工作流程固化
 

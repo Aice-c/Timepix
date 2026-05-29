@@ -208,6 +208,18 @@ rclone copy autodl37655:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-level INFO
 ```
 
+C2 seed42 结果已完成。按主指标 `val_macro_f1`，C2 内部排序为：
+
+| 编号 | 模型 / 输入 | Val Macro-F1 | Test Macro-F1 | 阶段判断 |
+| --- | --- | ---: | ---: | --- |
+| C2e | GMU aux / `ToT+RToA` | **0.797** | **0.801** | balanced CE 将 GMU 从 C1 塌缩中救回，但仍低于 C1c/C1d。 |
+| C2c | input concat / `ToT+RToA` | 0.792 | 0.799 | C2 中轻量强候选，但低于 C1c。 |
+| C2b | `RToA` single modality | 0.768 | 0.776 | 继续证明 RToA 有 source 判别力，但 balanced CE 后不如 C1b。 |
+| C2d | dual-stream concat aux | 0.760 | 0.767 | 相比 C1d 明显下降。 |
+| C2a | `ToT` single modality | 0.688 | 0.691 | `Sr` recall 被拉高，但 `Co60` 被明显牺牲。 |
+
+C2 结论：`class_weight: balanced` 能缓解少数类与 GMU 塌缩问题，但对 `Co60` 主类惩罚过强，整体未超过 C1 的强候选。后续若继续 C3，应优先尝试更温和的类别权重，而不是叠加 weighted sampler。
+
 ## 四、通用运行规范
 
 ### 4.1 单个训练
