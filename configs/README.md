@@ -139,6 +139,15 @@ LOG=outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_tmux.log
 
 分析时除 `Val/Test Macro-F1` 外，还要检查每个 run 的 `training_log.csv`：`val_macro_f1 < 0.8` 的 collapse epoch 数、best epoch 后是否持续塌陷、final 与 best 的 gap，以及 `Sr -> Co60` 混淆是否减少。
 
+P1lr 已完成。`5e-5` 的 best validation/test 指标最高，但仍有 `8` 个 collapse epoch；`3e-5` 的 `Val/Test Macro-F1=0.980/0.979`，collapse 仅 `1` 次，best 后没有再次塌陷，且 `Sr -> Co60` 最少。因此后续 P1 模态诊断默认使用：
+
+```yaml
+training:
+  learning_rate: 0.00003
+  epochs: 40
+  early_stopping_patience: 12
+```
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。

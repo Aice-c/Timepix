@@ -2529,7 +2529,7 @@ Per-class test：
 
 ### P1lr：Particle/source ToT-only 学习率稳定性诊断
 
-状态：已撰写配置，等待服务器运行。
+状态：已完成，结果已拉回本地。
 
 目的：
 
@@ -2590,6 +2590,49 @@ LOG=outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_tmux.log
 
 - 若 `5e-5` 或 `3e-5` 明显减少 collapse，同时 `Val/Test Macro-F1` 接近或超过 P1a，则作为后续 P1 模态对比默认学习率。
 - 若所有学习率仍明显塌陷，则下一步转向检查 AMP、BatchNorm、batch size 或 split/样本分布，而不是直接扩大模态网格。
+
+P1lr 结果文件：
+
+- `outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_runs.csv`
+- `outputs/experiments/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42/`
+
+P1lr 主指标：
+
+| LR | Val Acc | Test Acc | Val Balanced Acc | Test Balanced Acc | Val Macro-F1 | Test Macro-F1 | Best / stop | Early stop |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| P1a old `1e-4` | 97.13% | 97.21% | 97.44% | 97.51% | 0.9773 | 0.9779 | `6 / 14` | yes |
+| `1e-4` | 97.39% | 97.21% | 97.70% | 97.47% | 0.9794 | 0.9776 | `8 / 20` | yes |
+| `5e-5` | **97.57%** | **97.35%** | **97.83%** | **97.65%** | **0.9808** | **0.9791** | `25 / 37` | yes |
+| `3e-5` | 97.49% | 97.28% | 97.78% | 97.61% | 0.9802 | 0.9785 | `38 / 40` | no |
+| `1e-5` | 97.39% | 97.28% | 97.66% | 97.52% | 0.9793 | 0.9782 | `5 / 17` | yes |
+
+稳定性诊断：
+
+| LR | Collapse epochs `val_macro_f1 < 0.8` | Best 后 collapse | Final Val Macro-F1 | Best-final gap | Max Val Loss | `Sr -> Co60` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1a old `1e-4` | 11 | 8 | 0.5335 | 0.4438 | 65.790 | 77 |
+| `1e-4` | 14 | 11 | 0.1811 | 0.7983 | 97.455 | 73 |
+| `5e-5` | 8 | 2 | 0.9805 | 0.0003 | 12.054 | 71 |
+| `3e-5` | **1** | **0** | 0.9799 | 0.0003 | 2.333 | **70** |
+| `1e-5` | **0** | **0** | 0.9793 | 0.0000 | **0.136** | 73 |
+
+阶段判断：
+
+- `1e-4` 在统一 `40 / 12` 预算下仍严重不稳定，后期 `val_macro_f1` 直接塌到 `0.1811`，不再作为后续 P1 模态诊断默认学习率。
+- `5e-5` 的 best validation/test 指标最高，但中途仍有 `8` 个 collapse epoch，不适合直接作为稳定性优先的默认设置。
+- `3e-5` 的分数几乎贴近 `5e-5`，collapse 只剩 `1` 次，best 之后没有再次塌陷，并且 `Sr -> Co60` 最少。
+- `1e-5` 最稳但更保守，可能压低后续复杂模型学习能力，因此作为 fallback 而不是默认。
+
+当前决策：
+
+```text
+后续 P1 模态诊断默认使用：
+learning_rate = 3e-5
+epochs = 40
+early_stopping_patience = 12
+```
+
+若后续 `ToA`、input concat、dual concat 或 GMU 在 `3e-5` 下仍出现大幅震荡，再检查 AMP、BatchNorm、batch size 或 split/样本分布。
 
 ## 流程决策：Subagent 工作流程固化
 
