@@ -1,0 +1,16 @@
+base: p1_particle_ps3_totgmmk2_v1_base.yaml
+
+experiment_name: p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42
+experiment_group: p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42
+
+training:
+  epochs: 40
+  early_stopping_patience: 12
+  seed: 42
+
+grid:
+  training.learning_rate:
+    - 0.0001
+    - 0.00005
+    - 0.00003
+    - 0.00001

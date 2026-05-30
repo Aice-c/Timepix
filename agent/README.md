@@ -41,7 +41,7 @@
 - Alpha A5 已完成，说明低维手工物理标量具备解释性和一定 MAE/F1 辅助价值，但没有稳定提升 test accuracy。
 - Alpha A6/A7 已完成：Alpha 有序损失未进入最终模型；最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted`。
 - Proton B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前推荐的 Proton_C_7 有序角度损失。
-- Particle/source 分类线切换到 P 系列。旧 C1/C2 因数据集版本混杂全部降级为 deprecated diagnostic；当前新主线数据集短名为 `ps3_totgmmk2_v1`。P1a `ToT-only` seed42 已完成，`Val/Test Macro-F1` 约 `0.977/0.978`，说明新提纯数据集上 ToT 单模态很强；但训练仍有明显 validation 震荡，后续 P1/P2 需要继续关注稳定性。
+- Particle/source 分类线切换到 P 系列。旧 C1/C2 因数据集版本混杂全部降级为 deprecated diagnostic；当前新主线数据集短名为 `ps3_totgmmk2_v1`。P1a `ToT-only` seed42 已完成，`Val/Test Macro-F1` 约 `0.977/0.978`，说明新提纯数据集上 ToT 单模态很强；但训练仍有明显 validation 震荡。当前新增 P1lr 学习率稳定性诊断，先比较 `1e-4/5e-5/3e-5/1e-5`，再决定是否展开 ToA、concat 和 GMU。
 
 ## 文档维护原则
 

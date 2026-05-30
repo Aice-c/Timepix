@@ -111,6 +111,34 @@ LOG=outputs/p1_ps3_totgmmk2_v1_modality_seed42_tmux.log
 
 P1a seed42 已完成。`ToT-only` 在 `ps3_totgmmk2_v1` 上取得 `Val Macro-F1=0.977`、`Test Macro-F1=0.978`，主要错误为 `Sr -> Co60`。该结果说明新提纯数据集上 ToT 单模态已经很强，但训练过程中 validation 多次塌陷后恢复，后续 P1/P2 仍需要关注训练稳定性。
 
+#### P1lr ToT-only learning-rate stability diagnostic
+
+P1lr 是 P1a 后的学习率稳定性诊断，不改变输入模态、模型、loss、split 或 seed，只比较较小学习率是否缓解 validation collapse。该阶段暂不加入 class weight / sampler，也不展开 `ToA`、concat 或 GMU。
+
+| 编号 | 配置文件 | 搜索项 | 固定设置 |
+| --- | --- | --- | --- |
+| P1lr | `configs/experiments/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42.yaml` | `learning_rate=[1e-4,5e-5,3e-5,1e-5]` | `ToT-only`, `epochs=40`, `patience=12`, `seed=42` |
+
+服务器运行与汇总命令：
+
+```bash
+tmux new -s p1lr_ps3_totgmmk2
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1/dataset
+LOG=outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_tmux.log
+
+{
+  echo "[P1lr] start $(date)"
+  $PY scripts/run_grid.py --config configs/experiments/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42.yaml --data-root "$DATA" --continue-on-error
+  $PY scripts/summarize.py --group p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42 --out outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_runs.csv
+  echo "[P1lr] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+分析时除 `Val/Test Macro-F1` 外，还要检查每个 run 的 `training_log.csv`：`val_macro_f1 < 0.8` 的 collapse epoch 数、best epoch 后是否持续塌陷、final 与 best 的 gap，以及 `Sr -> Co60` 混淆是否减少。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。

@@ -207,6 +207,6 @@ Linux 服务器命令默认使用：
 - A6b 已完成，Alpha-ToT 的 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
 - A7 已完成，最终 Alpha 端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
 - Particle/source 分类旧 C1/C2 已废弃为历史诊断，不进入 P 系列主结果。
-- P1a `ps3_totgmmk2_v1 ToT-only seed42` 已完成，`Val/Test Macro-F1` 约 `0.977/0.978`，证明新提纯数据集上 ToT 单模态已很强；但 validation 多次塌陷后恢复，后续 P1/P2 仍需关注训练稳定性，再决定是否展开 RToA、input concat、dual concat、GMU。
+- P1a `ps3_totgmmk2_v1 ToT-only seed42` 已完成，`Val/Test Macro-F1` 约 `0.977/0.978`，证明新提纯数据集上 ToT 单模态已很强；但 validation 多次塌陷后恢复。当前 P1lr 先只调试学习率 `[1e-4, 5e-5, 3e-5, 1e-5]`，稳定后再决定是否展开 RToA、input concat、dual concat、GMU。
 
 新增代码时，应优先服务 Particle/source 分类的类别不均衡、模态融合和结果整理，而不是继续扩大已经收束的 A4/A5/A6/B2 搜索空间。

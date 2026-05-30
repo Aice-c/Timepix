@@ -2527,6 +2527,70 @@ Per-class test：
 - 因此 P1a 可作为“数据集提纯有效、ToT 单模态强”的诊断结果，但最终训练方案仍需要处理验证震荡问题，不能只凭单 seed best checkpoint 直接收口。
 - summary 中 `git_dirty=True`，原因是服务器仍有旧的未跟踪脚本 `run_c1_particle.sh`；本次训练代码来自 commit `e562922`。
 
+### P1lr：Particle/source ToT-only 学习率稳定性诊断
+
+状态：已撰写配置，等待服务器运行。
+
+目的：
+
+- P1a 证明新提纯数据集上 `ToT-only` 已经很强，但训练过程中 validation 多次塌陷后恢复。
+- P1lr 只改变 `learning_rate`，检查较小学习率是否能缓解 validation collapse。
+- 该阶段不加入 class weight / sampler，不展开 `ToA`、input concat、dual concat 或 GMU，避免把训练稳定性问题和模态贡献问题混在一起。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Config | `configs/experiments/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42.yaml` |
+| Experiment group | `p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42` |
+| Dataset | `ps3_totgmmk2_v1` |
+| Input | `ToT` |
+| Model | `resnet18_no_maxpool` |
+| Loss | `cross_entropy + onehot` |
+| Primary metric | `val_macro_f1` |
+| Epochs / patience | `40 / 12` |
+| Seed | `42` |
+| Split path | `outputs/splits/ps3_totgmmk2_v1_ToT_seed42_0.8_0.1_0.1.json` |
+
+学习率搜索：
+
+```text
+learning_rate = [1e-4, 5e-5, 3e-5, 1e-5]
+```
+
+服务器运行命令：
+
+```bash
+tmux new -s p1lr_ps3_totgmmk2
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1/dataset
+LOG=outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_tmux.log
+
+{
+  echo "[P1lr] start $(date)"
+  $PY scripts/run_grid.py --config configs/experiments/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42.yaml --data-root "$DATA" --continue-on-error
+  $PY scripts/summarize.py --group p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42 --out outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_runs.csv
+  echo "[P1lr] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+汇总与诊断要求：
+
+- 汇总文件：`outputs/p1lr_ps3_totgmmk2_v1_tot_lr_stability_seed42_runs.csv`。
+- 除 `Val/Test Acc`、`Balanced Acc`、`Macro-F1`、`Weighted-F1` 外，必须检查每个 run 的 `training_log.csv`。
+- 重点记录：
+  - `val_macro_f1 < 0.8` 的 collapse epoch 数；
+  - best epoch 后是否持续塌陷；
+  - final `val_macro_f1` 与 best `val_macro_f1` 的差距；
+  - confusion matrix 中 `Sr -> Co60` 是否减少。
+
+预期决策：
+
+- 若 `5e-5` 或 `3e-5` 明显减少 collapse，同时 `Val/Test Macro-F1` 接近或超过 P1a，则作为后续 P1 模态对比默认学习率。
+- 若所有学习率仍明显塌陷，则下一步转向检查 AMP、BatchNorm、batch size 或 split/样本分布，而不是直接扩大模态网格。
+
 ## 流程决策：Subagent 工作流程固化
 
 状态：已新增流程文档。
