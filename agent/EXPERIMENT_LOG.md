@@ -2419,7 +2419,7 @@ C2 主结果：
 
 ### P 系列：Particle/source 新数据集实验命名与 P1a ToT-only 诊断
 
-状态：已确定命名规范，已撰写 P1a 配置，等待服务器运行。
+状态：P1a 已完成 seed42 诊断，结果已拉回本地。
 
 背景：
 
@@ -2483,6 +2483,49 @@ LOG=outputs/p1_ps3_totgmmk2_v1_modality_seed42_tmux.log
   echo "[P1a] done $(date)"
 } 2>&1 | tee "$LOG"
 ```
+
+结果文件：
+
+- `outputs/p1_ps3_totgmmk2_v1_modality_seed42_runs.csv`
+- `outputs/experiments/p1_ps3_totgmmk2_v1_modality_seed42/20260530_165629_p1a_ps3_totgmmk2_v1_tot_seed42/`
+
+P1a seed42 结果：
+
+| 指标 | 数值 |
+| --- | ---: |
+| Best / stopped epoch | `6 / 14` |
+| Early stopped | yes |
+| Val Acc | 97.13% |
+| Val Balanced Acc | 97.44% |
+| Val Macro-F1 | 0.977 |
+| Test Acc | 97.21% |
+| Test Balanced Acc | 97.51% |
+| Test Macro-F1 | 0.978 |
+| Test Weighted-F1 | 0.972 |
+
+Test confusion matrix：
+
+| True \ Pred | `Am` | `Co60` | `Sr` |
+| --- | ---: | ---: | ---: |
+| `Am` | 362 | 0 | 0 |
+| `Co60` | 0 | 1367 | 0 |
+| `Sr` | 0 | 77 | 952 |
+
+Per-class test：
+
+| Class | Precision | Recall | F1 |
+| --- | ---: | ---: | ---: |
+| `Am` | 1.000 | 1.000 | 1.000 |
+| `Co60` | 0.947 | 1.000 | 0.973 |
+| `Sr` | 1.000 | 0.925 | 0.961 |
+
+阶段判断：
+
+- 新提纯数据集上，`ToT-only` 已经具备很强 source-label 判别力，和旧 C1 中 `ToT` 几乎完全漏掉 `Sr` 的现象不同。
+- 当前错误几乎全部来自 `Sr -> Co60`，没有出现 `Am` 错误，也没有 `Co60 -> Sr`。
+- 训练曲线仍然不干净：epoch 1/2 很高，epoch 3-5 验证集塌陷，epoch 6 恢复并成为 best，epoch 7 以后再次塌陷，最终 early stop 于 epoch 14。
+- 因此 P1a 可作为“数据集提纯有效、ToT 单模态强”的诊断结果，但最终训练方案仍需要处理验证震荡问题，不能只凭单 seed best checkpoint 直接收口。
+- summary 中 `git_dirty=True`，原因是服务器仍有旧的未跟踪脚本 `run_c1_particle.sh`；本次训练代码来自 commit `e562922`。
 
 ## 流程决策：Subagent 工作流程固化
 

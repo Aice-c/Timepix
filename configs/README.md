@@ -109,6 +109,8 @@ LOG=outputs/p1_ps3_totgmmk2_v1_modality_seed42_tmux.log
 } 2>&1 | tee "$LOG"
 ```
 
+P1a seed42 已完成。`ToT-only` 在 `ps3_totgmmk2_v1` 上取得 `Val Macro-F1=0.977`、`Test Macro-F1=0.978`，主要错误为 `Sr -> Co60`。该结果说明新提纯数据集上 ToT 单模态已经很强，但训练过程中 validation 多次塌陷后恢复，后续 P1/P2 仍需要关注训练稳定性。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
