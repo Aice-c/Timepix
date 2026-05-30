@@ -2417,6 +2417,73 @@ C2 主结果：
 - 保留 C2e 作为“GMU 可被 class weighting 部分救回”的重要诊断。
 - C3 若推进，应聚焦少数组强候选，例如 input concat、dual concat、GMU，而不是再次跑全五组。
 
+### P 系列：Particle/source 新数据集实验命名与 P1a ToT-only 诊断
+
+状态：已确定命名规范，已撰写 P1a 配置，等待服务器运行。
+
+背景：
+
+- 用户已经提纯出新版数据集 `particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1`。
+- Particle/source 任务后续可能继续出现多版数据集，例如加入 proton、仅使用 `ToT` 模态的数据集。
+- 旧 `C1/C2` 使用早期 `Particle_Source_3` 数据集，且结果与新提纯数据集不可直接比较，因此全部降级为 deprecated diagnostic，不进入 P 系列主结果。
+
+命名决策：
+
+- 新 particle/source 实验统一使用 `P` 系列。
+- 数据集版本使用短 ID 单独编码，不再藏在实验编号中。
+- 当前数据集短 ID：`ps3_totgmmk2_v1`。
+- 配置、group、split 和输出名都必须包含该 dataset id，避免多版 particle 数据集混用。
+
+当前数据集配置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset id | `ps3_totgmmk2_v1` |
+| Dataset config | `configs/datasets/particle_ps3_totgmmk2_v1.yaml` |
+| 本地路径 | `E:\TimepixData\particle\datasets\particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1\dataset` |
+| 服务器路径 | `/root/autodl-tmp/particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1/dataset` |
+| Label type | `categorical_folder` |
+| Modalities | paired `ToT` / `ToA` |
+
+P1a 目的：
+
+- 先只跑 `ToT-only`，诊断新提纯数据集上 ToT 单模态的基本 source-label 可分性。
+- 不复用旧 C1/C2 的 group、split 或结果目录。
+- 本轮不加 class weight / sampler，只用 `CE one-hot`，观察数据本身和 ToT 模态表现。
+
+P1a 固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Config | `configs/experiments/p1a_ps3_totgmmk2_v1_tot_seed42.yaml` |
+| Experiment group | `p1_ps3_totgmmk2_v1_modality_seed42` |
+| Input | `ToT` |
+| Model | `resnet18_no_maxpool` |
+| Loss | `cross_entropy + onehot` |
+| Primary metric | `val_macro_f1` |
+| Learning rate | `1e-4` |
+| Epochs / patience | `30 / 8` |
+| Seed | `42` |
+| Split path | `outputs/splits/ps3_totgmmk2_v1_ToT_seed42_0.8_0.1_0.1.json` |
+
+服务器运行命令：
+
+```bash
+tmux new -s p1a_ps3_totgmmk2
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1/dataset
+LOG=outputs/p1_ps3_totgmmk2_v1_modality_seed42_tmux.log
+
+{
+  echo "[P1a] start $(date)"
+  $PY scripts/train.py --config configs/experiments/p1a_ps3_totgmmk2_v1_tot_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group p1_ps3_totgmmk2_v1_modality_seed42 --out outputs/p1_ps3_totgmmk2_v1_modality_seed42_runs.csv
+  echo "[P1a] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
 ## 流程决策：Subagent 工作流程固化
 
 状态：已新增流程文档。

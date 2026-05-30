@@ -1,0 +1,77 @@
+experiment_name: p1_particle_ps3_totgmmk2_v1_base
+experiment_group: p1_ps3_totgmmk2_v1_modality_seed42
+
+dataset:
+  config: ../datasets/particle_ps3_totgmmk2_v1.yaml
+  modalities: [ToT]
+
+task:
+  type: classification
+  primary_metric: val_macro_f1
+
+model:
+  name: resnet18_no_maxpool
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: none
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+  gate:
+    init_bias_to_tot: 2.0
+
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+
+handcrafted_features:
+  enabled: false
+  standardize: true
+  features: {}
+
+normalization:
+  ToT:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+  ToA:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+
+data:
+  crop_size: 0
+  dtype: float32
+  toa_transform: none
+  add_hit_mask: false
+
+augmentation:
+  rotation_90: false
+
+training:
+  epochs: 30
+  batch_size: 64
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: cosine
+  eta_min: 0.0000001
+  early_stopping_patience: 8
+  seed: 42
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true
+  mixed_precision_dtype: float16
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+  reuse_split: true
+  path: outputs/splits/ps3_totgmmk2_v1_ToT_seed42_0.8_0.1_0.1.json

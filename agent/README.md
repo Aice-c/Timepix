@@ -41,7 +41,7 @@
 - Alpha A5 已完成，说明低维手工物理标量具备解释性和一定 MAE/F1 辅助价值，但没有稳定提升 test accuracy。
 - Alpha A6/A7 已完成：Alpha 有序损失未进入最终模型；最终端到端多模态主模型保持 `dual_stream_gmu_aux + CE one-hot + no handcrafted`。
 - Proton B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前推荐的 Proton_C_7 有序角度损失。
-- Particle/source 分类线已完成 C1/C2 single-seed screening。当前 `Particle_Source_3` 使用 `categorical_folder` 自动提取 `Am`、`Co60`、`Sr` 等类别名，并保留未来切换到 `Alpha`、`Beta`、`Gamma` 的兼容性。C1 显示 `RToA` 对 source 分类很关键，C1d `dual_stream_concat_aux` 按 `val_macro_f1` 最好；C2 的 balanced CE 能把 GMU 从塌缩中救回，但整体未超过 C1c/C1d，下一步若推进 C3，应尝试更温和的类别权重而不是 weighted sampler。
+- Particle/source 分类线切换到 P 系列。旧 C1/C2 因数据集版本混杂全部降级为 deprecated diagnostic；当前新主线数据集短名为 `ps3_totgmmk2_v1`，对应 `particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1`。P1 先运行 `P1a ToT-only` 诊断，确认新提纯数据集上的 ToT 单模态可分性。
 
 ## 文档维护原则
 

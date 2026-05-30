@@ -1,0 +1,7 @@
+name: ps3_totgmmk2_v1
+particle: mixed_source
+root: E:/TimepixData/particle/datasets/particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1/dataset
+available_modalities: [ToT, ToA]
+default_modalities: [ToT, ToA]
+label_type: categorical_folder
+sample_shape: [100, 100]

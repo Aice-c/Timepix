@@ -32,7 +32,7 @@ legacy `Program/` 保留为历史参考，不再作为新实验入口。新的 A
 - `configs/datasets/alpha_50.yaml` 只作为历史/对照入口。
 - Proton/C 训练使用 `configs/datasets/proton_c_7.yaml`。
 - `configs/datasets/proton_c.yaml` 是兼容入口，训练配置不应优先使用它。
-- Particle/source 分类使用 `configs/datasets/particle_source_3.yaml`；类别名从数据集顶层文件夹自动提取，后续可从 `Am`/`Co60`/`Sr` 平滑切换到 `Alpha`/`Beta`/`Gamma` 等新类别名。
+- Particle/source 分类新主线使用 P 系列命名。当前数据集配置为 `configs/datasets/particle_ps3_totgmmk2_v1.yaml`，短名 `ps3_totgmmk2_v1`；旧 `Particle_Source_3` / C1/C2 仅作为 deprecated diagnostic。
 
 更完整的配置与命令索引见 `configs/README.md`。
 
@@ -175,7 +175,7 @@ A5a 特征筛选入口：
 Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
 Proton_C   -> E:\C1Analysis\Proton_C
 Proton_C_7 -> E:\C1Analysis\Proton_C_7
-Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
+ps3_totgmmk2_v1 -> E:\TimepixData\particle\datasets\particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1\dataset
 ```
 
 训练脚本的 `--data-root` 指向具体数据集目录，例如：
@@ -206,7 +206,7 @@ Linux 服务器命令默认使用：
 - B3 已完成，`CE+ExpectedMAE lambda=0.05` 是当前 Proton_C_7 推荐损失。
 - A6b 已完成，Alpha-ToT 的 `CE+EMD lambda=0.02` 不稳定且弱于 A2 CE baseline，Alpha 后续保持 CE one-hot。
 - A7 已完成，最终 Alpha 端到端多模态主模型保持 `dual_stream_gmu_aux + ToT/relative_minmax ToA + CE one-hot + no handcrafted`。
-- Particle/source 分类 C1 single-seed screening 已完成：C1d dual-stream concat 按 `val_macro_f1` 最强，C1c input concat 是轻量备选，C1b `RToA` 单模态显著优于 C1a `ToT`，C1e GMU 本轮异常。
-- Particle/source C2 weighted-CE 稳定性复跑已完成：balanced CE 能把 GMU 从 C1 的塌缩中救回，C2e 是 C2 内部最强；但 balanced 权重对 `Co60` 惩罚过强，整体未超过 C1c/C1d。后续 C3 若推进，应优先尝试更温和的类别权重或 focal-style 方案，不要直接叠加 weighted sampler。
+- Particle/source 分类旧 C1/C2 已废弃为历史诊断，不进入 P 系列主结果。
+- P 系列当前先跑 `P1a ps3_totgmmk2_v1 ToT-only seed42`，只诊断新提纯数据集的 ToT 单模态可分性；后续再决定是否展开 RToA、input concat、dual concat、GMU。
 
 新增代码时，应优先服务 Particle/source 分类的类别不均衡、模态融合和结果整理，而不是继续扩大已经收束的 A4/A5/A6/B2 搜索空间。
