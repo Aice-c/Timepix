@@ -207,6 +207,52 @@ LOG=outputs/${GROUP}_tmux.log
 } 2>&1 | tee "$LOG"
 ```
 
+P1b 运行后在 `lr=3e-5` 下仍出现验证集准确率崩塌和明显震荡，实验已人工终止。该批次不生成正式 summary，不进入结果表；服务器中旧 group 下的 partial checkpoint 仅作为中断痕迹保留。后续使用全新 group `p1c_ptype_stage1_full_am_co_sr_p_v1_modality_lr1e5_seed42`，避免和半截 run 混合。
+
+#### P1c four-class particle type/source modality diagnostic, lr=1e-5
+
+P1c 是 P1b 的低学习率重跑。唯一训练策略变化是：
+
+```yaml
+training:
+  learning_rate: 0.00001
+```
+
+其余设置保持 P1b 一致：`particle_type_stage1_full_am_co_sr_p_v1`、`categorical_folder`、balanced CE、`val_macro_f1`、`epochs=40`、`patience=12`、`seed=42`、shared `ToT-ToA` split。实验目的不是改变数据或模型定义，而是诊断 `lr=1e-5` 是否能缓解新四分类数据集上的验证集崩塌。
+
+P1c 实验矩阵：
+
+| 编号 | 配置文件 | 输入 | 模型 | 定位 |
+| --- | --- | --- | --- | --- |
+| P1c-a | `configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_tot_seed42.yaml` | `ToT` | `resnet18_no_maxpool` | ToT 单模态低学习率诊断 |
+| P1c-b | `configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_rtoa_seed42.yaml` | `RToA` | `resnet18_no_maxpool` | ToA 相对时间单模态低学习率诊断 |
+| P1c-c | `configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_input_concat_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` | 输入层 concat 低学习率诊断 |
+| P1c-d | `configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_dual_concat_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` | 双分支特征 concat 低学习率诊断 |
+| P1c-e | `configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_gmu_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` | 双分支 GMU 低学习率诊断 |
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p1c_ptype_stage1_lr1e5
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_p_v1
+GROUP=p1c_ptype_stage1_full_am_co_sr_p_v1_modality_lr1e5_seed42
+LOG=outputs/${GROUP}_tmux.log
+
+{
+  echo "[P1c] start $(date)"
+  $PY scripts/train.py --config configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_tot_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_rtoa_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_input_concat_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_dual_concat_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1c_ptype_stage1_full_am_co_sr_p_v1_gmu_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  echo "[P1c] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
 本地结果拉取命令：
 
 ```powershell
