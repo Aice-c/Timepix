@@ -1,0 +1,16 @@
+base: p2a_ptype_stage1_gmm02_p_v3_base.yaml
+
+experiment_name: p2a_ptype_stage1_gmm02_p_v3_input_concat
+
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: resnet18_no_maxpool
+  fusion_mode: none
+
+grid:
+  training.seed: [42, 43, 44]

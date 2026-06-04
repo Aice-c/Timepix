@@ -352,6 +352,94 @@ rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-level INFO
 ```
 
+P1d seed42 已完成，结果已拉回本地。主结果如下：
+
+| Learning rate | Val Macro-F1 | Post-best drop | Collapse `<0.85` | Last10 median | Test Macro-F1 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| `1e-5` | **0.9576** | 0.3586 | 5 | 0.9479 | 0.9549 |
+| `5e-6` | 0.9567 | 0.3488 | 3 | 0.9441 | 0.9554 |
+| `3e-6` | 0.9568 | 0.0513 | 2 | 0.9502 | **0.9556** |
+| `1e-6` | 0.9553 | **0.0016** | 1 | **0.9538** | 0.9523 |
+
+阶段判断：`1e-5` / `5e-6` best 指标略高或接近，但 best 后仍有严重 collapse；`1e-6` 最稳但收敛很晚且指标略低。`3e-6` 在 best Val Macro-F1 和稳定性之间最平衡，建议作为后续 P 系列 GMU 多 seed 默认学习率。
+
+#### P2a new particle type/source dataset, five-model 3-seed comparison
+
+P2a 使用新的四分类 particle/source 数据集 `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3`。该数据集不同于 P1b/P1c/P1d 的 `particle_type_stage1_full_am_co_sr_p_v1`，因此单独编号为 P2a，不与旧数据集结果混合汇总。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset config | `configs/datasets/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3.yaml` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Label type | `categorical_folder`，类别名从文件夹自动提取 |
+| Loss | `cross_entropy + class_weight=balanced` |
+| Primary metric | `val_macro_f1` |
+| Learning rate | `3e-6` |
+| Epochs / patience | `50 / 15` |
+| Seeds | `42, 43, 44` |
+| Group | `p2a_ptype_stage1_gmm02_p_v3_modality_lr3e6_3seed` |
+
+P2a 实验矩阵：
+
+| 编号 | 配置文件 | 输入 | 模型 |
+| --- | --- | --- | --- |
+| P2a-a | `configs/experiments/p2a_ptype_stage1_gmm02_p_v3_tot_3seed.yaml` | `ToT` | `resnet18_no_maxpool` |
+| P2a-b | `configs/experiments/p2a_ptype_stage1_gmm02_p_v3_rtoa_3seed.yaml` | `RToA` | `resnet18_no_maxpool` |
+| P2a-c | `configs/experiments/p2a_ptype_stage1_gmm02_p_v3_input_concat_3seed.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` |
+| P2a-d | `configs/experiments/p2a_ptype_stage1_gmm02_p_v3_dual_concat_3seed.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` |
+| P2a-e | `configs/experiments/p2a_ptype_stage1_gmm02_p_v3_gmu_3seed.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` |
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p2a_ptype_stage1_gmm02_p_v3_3seed
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3
+GROUP=p2a_ptype_stage1_gmm02_p_v3_modality_lr3e6_3seed
+LOG=outputs/${GROUP}_tmux.log
+CONFIGS=(
+  configs/experiments/p2a_ptype_stage1_gmm02_p_v3_tot_3seed.yaml
+  configs/experiments/p2a_ptype_stage1_gmm02_p_v3_rtoa_3seed.yaml
+  configs/experiments/p2a_ptype_stage1_gmm02_p_v3_input_concat_3seed.yaml
+  configs/experiments/p2a_ptype_stage1_gmm02_p_v3_dual_concat_3seed.yaml
+  configs/experiments/p2a_ptype_stage1_gmm02_p_v3_gmu_3seed.yaml
+)
+
+{
+  echo "[P2a] start $(date)"
+  test -d "$DATA"
+  find "$DATA" -maxdepth 2 -type d | sort | head -40
+  for cfg in "${CONFIGS[@]}"; do
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --dry-run
+  done
+  for cfg in "${CONFIGS[@]}"; do
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --skip-existing --continue-on-error
+  done
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  $PY scripts/aggregate_seeds.py --summary outputs/${GROUP}_runs.csv --out outputs/${GROUP}_mean_std.csv
+  echo "[P2a] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl35610_pull.log `
+  --log-level INFO
+```
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
