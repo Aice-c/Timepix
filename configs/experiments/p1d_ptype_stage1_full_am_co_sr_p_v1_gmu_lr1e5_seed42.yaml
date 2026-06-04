@@ -1,0 +1,6 @@
+base: p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr_stability_base.yaml
+
+experiment_name: p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr1e5_seed42
+
+training:
+  learning_rate: 0.00001

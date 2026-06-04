@@ -268,6 +268,90 @@ rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-level INFO
 ```
 
+P1c seed42 已完成，结果已拉回本地。按 `val_macro_f1` 排序：
+
+| 排名 | 模型/输入 | Val Acc | Val Macro-F1 | Test Acc | Test Macro-F1 | Best/Stop |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | `dual_stream_concat_aux` | 96.11% | **0.9573** | **95.96%** | **0.9553** | 12/24 |
+| 2 | `dual_stream_gmu_aux` | 95.90% | 0.9552 | 95.73% | 0.9532 | 9/21 |
+| 3 | `ToT` | 95.70% | 0.9522 | 95.85% | 0.9541 | 10/22 |
+| 4 | input concat `[ToT,RToA]` | 95.67% | 0.9522 | 95.53% | 0.9506 | 19/31 |
+| 5 | `RToA` | 94.68% | 0.9374 | 94.65% | 0.9373 | 32/40 |
+
+阶段判断：`lr=1e-5` 相比被终止的 P1b `lr=3e-5` 明显缓解 validation collapse，但 dual concat 和 GMU 在 epoch 20 附近仍有低谷。`dual_stream_concat_aux` 是当前 single-seed validation-selected 最强候选；`dual_stream_gmu_aux` 是接近的目标门控架构候选。后续若进入正式认证，优先只对这两组做 3 seed，不再扩大 RToA-only 或 input concat 网格。
+
+#### P1d GMU learning-rate stability scan
+
+P1d 只针对 `dual_stream_gmu_aux` 做学习率稳定性诊断。P1c 显示 `lr=1e-5` 已明显缓解 P1b 的严重崩塌，但 GMU 在 epoch 20 附近仍出现明显 validation 低谷；因此 P1d 不再扩大模型网格，只检查更小学习率是否能让 GMU 曲线更平滑。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `particle_type_stage1_full_am_co_sr_p_v1` |
+| Input | `ToT + relative_minmax ToA` |
+| Model | `dual_stream_gmu_aux` |
+| Loss | `cross_entropy + class_weight=balanced` |
+| Primary metric | `val_macro_f1` |
+| Epochs / patience | `60 / 20` |
+| Seed | `42` |
+| Group | `p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr_stability_seed42` |
+
+P1d 实验矩阵：
+
+| 编号 | 配置文件 | learning rate | 目的 |
+| --- | --- | ---: | --- |
+| P1d-a | `configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr1e5_seed42.yaml` | `1e-5` | P1c GMU 设置复核，预算拉长 |
+| P1d-b | `configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr5e6_seed42.yaml` | `5e-6` | 检查轻微降 lr 是否减少低谷 |
+| P1d-c | `configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr3e6_seed42.yaml` | `3e-6` | P1lr 风格保守候选 |
+| P1d-d | `configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr1e6_seed42.yaml` | `1e-6` | 极低 lr 欠拟合/稳定性下界 |
+
+选择规则：
+
+```text
+1. 先排除有严重 collapse 的 lr。
+2. 在稳定 lr 中选择 best Val Macro-F1 最高者。
+3. 若 best Val Macro-F1 差距 < 0.005，优先选择 post-best drop 更小、collapse epochs 更少者。
+4. 若稳定性和指标接近，选择较大的 lr，避免训练过慢或欠拟合。
+```
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p1d_gmu_lr_stability
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_p_v1
+GROUP=p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr_stability_seed42
+LOG=outputs/${GROUP}_tmux.log
+
+{
+  echo "[P1d] start $(date)"
+  $PY scripts/train.py --config configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr1e5_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr5e6_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr3e6_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1d_ptype_stage1_full_am_co_sr_p_v1_gmu_lr1e6_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  echo "[P1d] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl35610_pull.log `
+  --log-level INFO
+```
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
