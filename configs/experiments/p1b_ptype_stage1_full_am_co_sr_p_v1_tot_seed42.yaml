@@ -1,0 +1,13 @@
+base: p1b_ptype_stage1_full_am_co_sr_p_v1_base.yaml
+
+experiment_name: p1b_ptype_stage1_full_am_co_sr_p_v1_tot_seed42
+experiment_group: p1b_ptype_stage1_full_am_co_sr_p_v1_modality_seed42
+
+dataset:
+  modalities: [ToT]
+
+data:
+  toa_transform: none
+
+model:
+  name: resnet18_no_maxpool

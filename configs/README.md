@@ -40,6 +40,7 @@ Alpha_100  -> D:\Project\Timepix\Data\Alpha_100
 Proton_C   -> E:\C1Analysis\Proton_C
 Proton_C_7 -> E:\C1Analysis\Proton_C_7
 Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_toa_v1\dataset
+ptype_stage1_full_am_co_sr_p_v1 -> E:\TimepixData\particle\datasets\particle_type_stage1_full_am_co_sr_p_v1
 ```
 
 训练/评估脚本的 `--data-root` 指向具体数据集目录；数据分析脚本的 `--data-root` 指向包含数据集文件夹的父目录。
@@ -55,6 +56,7 @@ Particle_Source_3 -> E:\TimepixData\particle\particle_source_label_cleaned_tot_t
 | `configs/datasets/proton_c.yaml` | 兼容入口，指向 `Proton_C_7`；新训练配置不再使用旧名。 |
 | `configs/datasets/particle_source_3.yaml` | 当前 Timepix3 放射源/粒子类别识别数据集，支持 `ToT` 与 `ToA`，类别名从文件夹自动提取。 |
 | `configs/datasets/particle_ps3_totgmmk2_v1.yaml` | Particle/source 新 P 系列主线数据集，来自 `particle_source_label_cleaned_tot_toa_tot_gmm_k2_selected_v1`，支持 paired `ToT`/`ToA`，类别名从文件夹自动提取。 |
+| `configs/datasets/particle_type_stage1_full_am_co_sr_p_v1.yaml` | Particle type/source 四分类数据集，来自 `particle_type_stage1_full_am_co_sr_p_v1`，当前类别为 `Am`、`Co`、`P`、`Sr`，类别名仍从文件夹自动提取。 |
 
 论文数据分析默认使用全量 `Proton_C`，训练默认使用 `Proton_C_7`，二者不能混淆。
 
@@ -146,6 +148,78 @@ training:
   learning_rate: 0.00003
   epochs: 40
   early_stopping_patience: 12
+```
+
+#### P1b four-class particle type/source modality diagnostic
+
+P1b 是新四分类数据集 `particle_type_stage1_full_am_co_sr_p_v1` 的单 seed 模态/融合完整诊断。它不复用旧 `ps3_totgmmk2_v1` 的 split 或结果口径；旧 P1a/P1lr 只提供学习率稳定性经验。服务器目录已确认四个类别均有 paired `ToT` 和 `ToA`：
+
+```text
+Am: ToT=3683, ToA=3683
+Co: ToT=36182, ToA=36182
+P : ToT=25163, ToA=25163
+Sr: ToT=12854, ToA=12854
+```
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `ptype_stage1_full_am_co_sr_p_v1` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_p_v1` |
+| Task | `categorical_folder` classification |
+| Primary metric | `val_macro_f1` |
+| Loss | `cross_entropy + onehot + class_weight=balanced` |
+| Backbone/stem | `resnet18_no_maxpool`, `conv1=2/1/0`, `dropout=0.1` |
+| Training | `lr=3e-5`, `epochs=40`, `patience=12`, `seed=42` |
+| Split | `outputs/splits/ptype_stage1_full_am_co_sr_p_v1_ToT-ToA_seed42_0.8_0.1_0.1.json` |
+
+P1b 实验矩阵：
+
+| 编号 | 配置文件 | 输入 | 模型 | 定位 |
+| --- | --- | --- | --- | --- |
+| P1b-a | `configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_tot_seed42.yaml` | `ToT` | `resnet18_no_maxpool` | ToT 单模态诊断 |
+| P1b-b | `configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_rtoa_seed42.yaml` | `RToA` | `resnet18_no_maxpool` | ToA 相对时间单模态诊断 |
+| P1b-c | `configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_input_concat_seed42.yaml` | `[ToT, RToA]` | `resnet18_no_maxpool` | 输入层 concat |
+| P1b-d | `configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_dual_concat_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_concat_aux` | 双分支特征 concat |
+| P1b-e | `configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_gmu_seed42.yaml` | `ToT branch + RToA branch` | `dual_stream_gmu_aux` | 双分支 GMU，目标模型诊断 |
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p1b_ptype_stage1
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_p_v1
+GROUP=p1b_ptype_stage1_full_am_co_sr_p_v1_modality_seed42
+LOG=outputs/${GROUP}_tmux.log
+
+{
+  echo "[P1b] start $(date)"
+  $PY scripts/train.py --config configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_tot_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_rtoa_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_input_concat_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_dual_concat_seed42.yaml --data-root "$DATA"
+  $PY scripts/train.py --config configs/experiments/p1b_ptype_stage1_full_am_co_sr_p_v1_gmu_seed42.yaml --data-root "$DATA"
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  echo "[P1b] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl35610_pull.log `
+  --log-level INFO
 ```
 
 ### 3.3 Deprecated C-series Particle/source diagnostics
