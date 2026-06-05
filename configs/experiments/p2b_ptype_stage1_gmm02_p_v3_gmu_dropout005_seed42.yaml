@@ -1,0 +1,6 @@
+base: p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_base.yaml
+
+experiment_name: p2b_ptype_stage1_gmm02_p_v3_gmu_dropout005
+
+model:
+  dropout: 0.05

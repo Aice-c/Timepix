@@ -474,6 +474,102 @@ P2a 三 seed 主结果：
 - `[ToT, RToA] input concat` 稳定但上限低于双分支，继续支持双分支结构优先。
 - 若推进 P2b，建议聚焦 `dual_stream_gmu_aux` 与 `dual_stream_concat_aux`，并重点分析 `Sr<->Co` 混淆。
 
+#### P2b GMU hyperparameter screening
+
+P2b 只针对 P2a 中的目标模型 `dual_stream_gmu_aux` 做小范围超参数筛选。P2a 已证明 GMU 与 dual concat 是最强双模态候选；本轮不再扩大输入模态或学习率网格，只检查 GMU 自身的 gate bias、auxiliary loss 和 dropout。P2a GMU 作为 baseline 复用，不重跑。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Input | `ToT + relative_minmax ToA` |
+| Model | `dual_stream_gmu_aux` |
+| Loss | `cross_entropy`, `label_encoding=onehot`, `class_weight=balanced` |
+| Primary metric | `val_macro_f1` |
+| LR / Epoch / Patience | `3e-6` / `50` / `15` |
+| Batch / WD / Scheduler | `64` / `1e-4` / `cosine`, `eta_min=1e-7` |
+| Seed | `42` screening only |
+| Baseline | P2a GMU: `bias=2.0`, `aux_tot=0.3`, `aux_toa=0.1`, `dropout=0.1` |
+
+P2b 实验矩阵：
+
+| 编号 | Config | 变量 | 设置 |
+| --- | --- | --- | --- |
+| P2b-0 | reuse P2a GMU | baseline | 不重跑 |
+| P2b-1a | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_bias1_seed42.yaml` | gate bias | `init_bias_to_tot=1.0` |
+| P2b-1b | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_bias3_seed42.yaml` | gate bias | `init_bias_to_tot=3.0` |
+| P2b-2a | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_none_seed42.yaml` | aux loss | disabled |
+| P2b-2b | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_light_seed42.yaml` | aux loss | `weight_tot=0.1`, `weight_toa=0.05` |
+| P2b-2c | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_balanced_seed42.yaml` | aux loss | `weight_tot=0.3`, `weight_toa=0.3` |
+| P2b-2d | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_totstrong_seed42.yaml` | aux loss | `weight_tot=0.5`, `weight_toa=0.1` |
+| P2b-3a | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_dropout005_seed42.yaml` | dropout | `0.05` |
+| P2b-3b | `configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_dropout02_seed42.yaml` | dropout | `0.2` |
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3
+GROUP=p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42
+LOG=outputs/${GROUP}_tmux.log
+CONFIGS=(
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_bias1_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_bias3_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_none_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_light_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_balanced_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_aux_totstrong_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_dropout005_seed42.yaml
+  configs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_dropout02_seed42.yaml
+)
+
+{
+  echo "[P2b] start $(date)"
+  git rev-parse --short HEAD
+  test -d "$DATA"
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P2b] dry-run $cfg"
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --dry-run
+  done
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P2b] run $cfg $(date)"
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --skip-existing --continue-on-error
+  done
+  echo "[P2b] summarize $(date)"
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  $PY scripts/aggregate_seeds.py --summary outputs/${GROUP}_runs.csv --out outputs/${GROUP}_mean_std.csv
+  echo "[P2b] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl35610_pull.log `
+  --log-level INFO
+```
+
+P2b 选择规则：
+
+- 先按 `Val Macro-F1` 与 P2a GMU baseline 对比。
+- 若差距 `<0.001`，看 `Val Balanced Acc`。
+- 再看 `Sr` F1/recall 与 `Sr<->Co` 混淆。
+- 最后看稳定性：best 后最大 drop、best 后最低 `val_macro_f1`、collapse `<0.90` 次数。
+- 若没有设置明显优于 P2a GMU，则不进入 P2c，沿用 P2a GMU；若有明显胜出设置，再做 P2c three-seed certification。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
