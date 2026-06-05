@@ -440,6 +440,40 @@ rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
   --log-level INFO
 ```
 
+P2a 执行备注与结果：
+
+- 首次启动时服务器数据仍为 `dataset/<class>/<modality>` 形式，导致 `DATA` 指向总目录时无法找到 `ToT`/`ToA`。该错误未进入有效训练，只生成 0-row summary。
+- 用户修正数据集布局后，主控验证 `ToT`、`ToA`、`ToT+ToA` 均可配对出 `75113` 个样本，类别数量为 `Am=3683`、`Co=36182`、`P=25163`、`Sr=10085`。
+- 正式重启后 `15/15` 个 run 成功完成，`runs.csv` 为 `15` 行，`mean_std.csv` 为 `5` 行。
+
+P2a 三 seed 主结果：
+
+| Model | Val Macro-F1 | Val Acc | Val Bal Acc | Test Macro-F1 | Test Acc | Test Bal Acc |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `dual_stream_gmu_aux` | **0.9880±0.0005** | **99.01±0.04%** | **0.9845±0.0010** | 0.9825±0.0004 | 98.56±0.04% | **0.9774±0.0004** |
+| `dual_stream_concat_aux` | **0.9880±0.0006** | **99.01±0.05%** | 0.9842±0.0015 | **0.9828±0.0007** | **98.60±0.05%** | 0.9770±0.0019 |
+| `ToT only` | 0.9870±0.0003 | 98.93±0.03% | 0.9839±0.0011 | 0.9818±0.0015 | 98.54±0.10% | 0.9762±0.0022 |
+| `[ToT, RToA] input concat` | 0.9802±0.0002 | 98.41±0.02% | 0.9784±0.0001 | 0.9788±0.0024 | 98.31±0.19% | 0.9743±0.0024 |
+| `RToA only` | 0.9690±0.0009 | 97.77±0.04% | 0.9641±0.0007 | 0.9633±0.0013 | 97.36±0.04% | 0.9565±0.0019 |
+
+稳定性摘要：
+
+| Model | Best-after drop mean/max | Best-after min Val Macro-F1 | Collapse `<0.90` |
+| --- | ---: | ---: | ---: |
+| `dual_stream_gmu_aux` | 0.0303 / 0.0515 | 0.9363 | 0 |
+| `dual_stream_concat_aux` | 0.0268 / 0.0336 | 0.9539 | 0 |
+| `[ToT, RToA] input concat` | 0.0124 / 0.0150 | 0.9650 | 0 |
+| `ToT only` | 0.1233 / 0.1861 | 0.8013 | 13 |
+| `RToA only` | 0.0170 / 0.0227 | 0.9466 | 0 |
+
+阶段判断：
+
+- `dual_stream_gmu_aux` 与 `dual_stream_concat_aux` 是 P2a 最强双模态候选；二者 `Val Macro-F1` 几乎并列。
+- `ToT only` 指标接近，但 validation collapse 明显，不宜只看 best 指标。
+- `RToA only` 明显弱于 ToT 和双模态，说明 RToA 单独不是主模型。
+- `[ToT, RToA] input concat` 稳定但上限低于双分支，继续支持双分支结构优先。
+- 若推进 P2b，建议聚焦 `dual_stream_gmu_aux` 与 `dual_stream_concat_aux`，并重点分析 `Sr<->Co` 混淆。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
