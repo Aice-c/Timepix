@@ -570,6 +570,55 @@ P2b 选择规则：
 - 最后看稳定性：best 后最大 drop、best 后最低 `val_macro_f1`、collapse `<0.90` 次数。
 - 若没有设置明显优于 P2a GMU，则不进入 P2c，沿用 P2a GMU；若有明显胜出设置，再做 P2c three-seed certification。
 
+P2b 执行备注与结果：
+
+- 服务器 `35610` 已完成 8/8 个 run，tmux session `p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42` 正常退出。
+- 结果文件：
+
+```text
+outputs/p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42_runs.csv
+outputs/p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42_mean_std.csv
+outputs/experiments/p2b_ptype_stage1_gmm02_p_v3_gmu_hparam_seed42/
+```
+
+- `runs.csv` 为 8 行，8 个 run 均有 `metrics.json`、`predictions.csv`、`confusion_matrix.csv`、`training_log.csv`。
+- 未发现 `Traceback`、`RuntimeError`、CUDA OOM、路径错误、磁盘不足或 summarize failed。
+- 注意：`mean_std.csv` 只有 3 行，因为多个 P2b 设置共享 `dropout=0.1` 后被聚合到同一行；P2b 八个设置的正式比较以 `runs.csv + metrics/log` 为准。
+
+P2b seed42 主表，括号为相对 P2a GMU seed42 的变化：
+
+| 设置 | Val F1 | Val Acc | Val Bal Acc | Test F1 | Test Acc | Test Bal Acc |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `aux_totstrong` | 0.9878 (+0.0001) | 0.9901 (+0.0003) | 0.9843 (+0.0003) | 0.9821 (-0.0001) | 0.9855 (+0.0001) | 0.9765 (-0.0005) |
+| `aux_none` | 0.9878 (+0.0001) | 0.9899 (+0.0000) | **0.9851 (+0.0011)** | 0.9808 (-0.0014) | 0.9846 (-0.0008) | 0.9754 (-0.0016) |
+| `dropout005` | 0.9876 (-0.0001) | 0.9897 (-0.0001) | 0.9845 (+0.0005) | 0.9822 (+0.0000) | 0.9854 (+0.0000) | 0.9774 (+0.0004) |
+| `bias3` | 0.9875 (-0.0002) | 0.9899 (+0.0000) | 0.9840 (-0.0000) | 0.9824 (+0.0002) | 0.9859 (+0.0005) | 0.9772 (+0.0002) |
+| `bias1` | 0.9873 (-0.0005) | 0.9897 (-0.0001) | 0.9815 (-0.0025) | 0.9832 (+0.0010) | 0.9866 (+0.0012) | 0.9751 (-0.0020) |
+| `dropout02` | 0.9871 (-0.0006) | 0.9893 (-0.0005) | 0.9841 (+0.0001) | 0.9827 (+0.0005) | 0.9858 (+0.0004) | 0.9780 (+0.0009) |
+| `aux_light` | 0.9871 (-0.0006) | 0.9893 (-0.0005) | 0.9839 (-0.0001) | 0.9825 (+0.0004) | 0.9856 (+0.0003) | 0.9779 (+0.0009) |
+| `aux_balanced` | 0.9868 (-0.0010) | 0.9893 (-0.0005) | 0.9814 (-0.0026) | 0.9832 (+0.0010) | 0.9866 (+0.0012) | 0.9753 (-0.0018) |
+
+重点类别与稳定性：
+
+| 设置 | Val `Sr` F1/R | Val `Sr->Co` / `Co->Sr` | post-best drop | `Val F1 <0.90` |
+| --- | ---: | ---: | ---: | ---: |
+| `aux_totstrong` | **0.9630 / 0.9415** | 59 / 14 | 0.0480 | 0 |
+| `aux_none` | 0.9617 / **0.9464** | **54** / 22 | **0.0150** | 0 |
+| `dropout005` | 0.9611 / 0.9435 | 57 / 20 | 0.0396 | 0 |
+| `bias3` | 0.9619 / 0.9405 | 60 / 15 | 0.0179 | 1 |
+| `bias1` | 0.9611 / 0.9306 | 70 / **6** | 0.0285 | 0 |
+| `dropout02` | 0.9596 / 0.9425 | 58 / 22 | 0.0262 | 0 |
+| `aux_light` | 0.9596 / 0.9415 | 59 / 21 | 0.0736 | 0 |
+| `aux_balanced` | 0.9595 / 0.9276 | 73 / **6** | 0.0292 | 0 |
+
+阶段判断：
+
+- P2b 没有出现明显超过 P2a GMU three-seed mean 的设置；所有提升都属于 seed42 单 run 上的极小差异。
+- `aux_none` 在 `Val Balanced Acc`、`Sr` recall、`Sr->Co` 混淆和训练稳定性上最干净，值得作为候选观察；但其 test 指标低于 P2a GMU seed42，且 test 不用于模型选择。
+- `aux_totstrong` 的 `Val F1`、`Val Acc` 和 `Sr` F1 最高，但 best 后下探到 `0.9398` 再恢复，稳定性弱于 `aux_none`。
+- `dropout005` 接近 baseline，可作为低优先级备选；`aux_light`、`aux_balanced`、`bias1`、`dropout02`、`bias3` 不显示足够 validation 优势。
+- 当前更保守的结论是：P2b 支持继续沿用 P2a GMU 默认设置；如必须做 P2c，则只建议在 `P2a GMU default` 与 `aux_none` / `aux_totstrong` 之间做很小范围 three-seed certification。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
