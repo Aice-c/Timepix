@@ -760,6 +760,80 @@ P2c 三 seed 主表：
 - 稳定性仍是风险点：ToT-strong seed43 有一次 post-best 深下探到 `0.6035`；base seed42 也有类似深下探到 `0.5894`，说明 validation collapse 不是 ToT-strong 独有，但 ToT-strong 的 `<0.90` 次数为 2，base 为 1。
 - 当前可采用的保守结论：ToT-strong 是 P2c validation 侧略优的 GMU auxiliary 设置，但优势幅度很小，且未解决训练过程中的偶发 validation collapse。若最终模型重视 Sr 类和 validation 均值，可采用 ToT-strong；若更强调训练过程稳定性和最少改动，可继续沿用 base。
 
+#### P3a recurrent-removed dataset, P2a plus GMU ToT-strong three-seed comparison
+
+P3a 使用进一步提纯的数据集 `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v4_p2c_recurrent_removed`。该数据集从 P2c 诊断中移除了反复出现的 hard recurrent samples，因此不再与 P2a/P2c 的 v3 结果混合汇总。P3a 的目的不是重新调参，而是在新数据集上复刻 P2a 的五模型模态/融合对比，并额外加入 P2c 中略优的 GMU ToT-strong auxiliary 变体。
+
+固定设置：
+
+| Item | Value |
+| --- | --- |
+| Dataset config | `configs/datasets/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v4_p2c_recurrent_removed.yaml` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v4_p2c_recurrent_removed` |
+| Label type | `categorical_folder`，类别名从文件夹自动读取 |
+| Primary metric | `val_macro_f1` |
+| Loss | balanced `cross_entropy` + one-hot |
+| Training | `lr=3e-6`, `epochs=50`, `patience=15`, `batch_size=64` |
+| Split | `outputs/splits/ptype_stage1_gmm02_p_v4rm_ToT-ToA_seed42_0.8_0.1_0.1.json` |
+| Group | `p3a_ptype_stage1_gmm02_p_v4rm_p2a_plus_totstrong_3seed` |
+
+实验矩阵：
+
+| 编号 | 配置文件 | 输入/模型 | 目的 |
+| --- | --- | --- | --- |
+| P3a-a | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_tot_3seed.yaml` | `ToT`, `resnet18_no_maxpool` | ToT 单模态基线 |
+| P3a-b | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_rtoa_3seed.yaml` | `RToA`, `resnet18_no_maxpool` | 相对 ToA 单模态 |
+| P3a-c | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_input_concat_3seed.yaml` | `[ToT, RToA]`, input concat | 输入层拼接 |
+| P3a-d | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_dual_concat_3seed.yaml` | dual-stream concat auxiliary | 双分支拼接对照 |
+| P3a-e | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_gmu_3seed.yaml` | GMU base auxiliary | P2a 默认 GMU |
+| P3a-f | `configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_gmu_aux_totstrong_3seed.yaml` | GMU ToT-strong auxiliary | P2c 略优 GMU 变体 |
+
+服务器完整训练与汇总命令：
+
+```bash
+tmux new -s p3a_ptype_stage1_gmm02_p_v4rm_3seed
+```
+
+```bash
+cd /root/Timepix
+source /etc/network_turbo || true
+git pull --ff-only
+
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v4_p2c_recurrent_removed
+GROUP=p3a_ptype_stage1_gmm02_p_v4rm_p2a_plus_totstrong_3seed
+CONFIGS=(
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_tot_3seed.yaml
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_rtoa_3seed.yaml
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_input_concat_3seed.yaml
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_dual_concat_3seed.yaml
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_gmu_3seed.yaml
+  configs/experiments/p3a_ptype_stage1_gmm02_p_v4rm_gmu_aux_totstrong_3seed.yaml
+)
+
+{
+  echo "[P3a] start $(date)"
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P3a] dry-run $cfg"
+    "$PY" scripts/run_grid.py --config "$cfg" --data-root "$DATA" --dry-run || exit 1
+  done
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P3a] run $cfg $(date)"
+    "$PY" scripts/run_grid.py --config "$cfg" --data-root "$DATA" --skip-existing --continue-on-error || exit 1
+  done
+  echo "[P3a] summarize $(date)"
+  "$PY" scripts/summarize.py --group "$GROUP" --out "outputs/${GROUP}_runs.csv" || exit 1
+  "$PY" scripts/aggregate_seeds.py --summary "outputs/${GROUP}_runs.csv" --out "outputs/${GROUP}_mean_std.csv" || exit 1
+  echo "[P3a] done $(date)"
+} 2>&1 | tee "outputs/${GROUP}.log"
+```
+
+本地拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs D:\Project\Timepix\outputs --update --progress
+```
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。

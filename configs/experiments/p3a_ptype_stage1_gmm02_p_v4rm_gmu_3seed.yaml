@@ -1,0 +1,15 @@
+base: p3a_ptype_stage1_gmm02_p_v4rm_base.yaml
+
+experiment_name: p3a_ptype_stage1_gmm02_p_v4rm_gmu
+
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: dual_stream_gmu_aux
+
+grid:
+  training.seed: [42, 43, 44]

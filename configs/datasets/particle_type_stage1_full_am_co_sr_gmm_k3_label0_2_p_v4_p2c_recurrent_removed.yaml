@@ -1,0 +1,7 @@
+name: ptype_stage1_gmm02_p_v4rm
+particle: mixed_particle_type
+root: E:/TimepixData/particle/datasets/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v4_p2c_recurrent_removed
+available_modalities: [ToT, ToA]
+default_modalities: [ToT, ToA]
+label_type: categorical_folder
+sample_shape: [100, 100]
