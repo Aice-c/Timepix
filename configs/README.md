@@ -619,6 +619,87 @@ P2b seed42 主表，括号为相对 P2a GMU seed42 的变化：
 - `dropout005` 接近 baseline，可作为低优先级备选；`aux_light`、`aux_balanced`、`bias1`、`dropout02`、`bias3` 不显示足够 validation 优势。
 - 当前更保守的结论是：P2b 支持继续沿用 P2a GMU 默认设置；如必须做 P2c，则只建议在 `P2a GMU default` 与 `aux_none` / `aux_totstrong` 之间做很小范围 three-seed certification。
 
+#### P2c GMU base vs ToT-strong auxiliary three-seed comparison
+
+P2c 只比较 `dual_stream_gmu_aux` 的默认 auxiliary loss 和 P2b 中 `Val Macro-F1` / `Val Acc` 最靠前的 ToT-strong 变体。该实验用于确认 ToT-strong 是否能在 three-seed 下稳定优于 base；不再扩展 gate bias、dropout 或学习率。
+
+固定设置：
+
+| 项目 | 设置 |
+| --- | --- |
+| Dataset | `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Input | `ToT + relative_minmax ToA` |
+| Model | `dual_stream_gmu_aux` |
+| Loss | `cross_entropy`, `label_encoding=onehot`, `class_weight=balanced` |
+| Primary metric | `val_macro_f1` |
+| LR / Epoch / Patience | `3e-6` / `50` / `15` |
+| Batch / WD / Scheduler | `64` / `1e-4` / `cosine`, `eta_min=1e-7` |
+| Seeds | `42, 43, 44` |
+
+P2c 实验矩阵：
+
+| 编号 | Config | `aux_tot` | `aux_toa` | 目的 |
+| --- | --- | ---: | ---: | --- |
+| P2c-1 | `configs/experiments/p2c_ptype_stage1_gmm02_p_v3_gmu_base_3seed.yaml` | 0.3 | 0.1 | GMU base 复跑，用于同 group 直接对照 |
+| P2c-2 | `configs/experiments/p2c_ptype_stage1_gmm02_p_v3_gmu_aux_totstrong_3seed.yaml` | 0.5 | 0.1 | ToT-strong auxiliary 认证 |
+
+服务器训练与汇总命令：
+
+```bash
+tmux new -s p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_3seed
+cd /root/Timepix
+source /etc/network_turbo
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3
+GROUP=p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_3seed
+LOG=outputs/${GROUP}_tmux.log
+CONFIGS=(
+  configs/experiments/p2c_ptype_stage1_gmm02_p_v3_gmu_base_3seed.yaml
+  configs/experiments/p2c_ptype_stage1_gmm02_p_v3_gmu_aux_totstrong_3seed.yaml
+)
+
+{
+  echo "[P2c] start $(date)"
+  git rev-parse --short HEAD
+  test -d "$DATA"
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P2c] dry-run $cfg"
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --dry-run
+  done
+  for cfg in "${CONFIGS[@]}"; do
+    echo "[P2c] run $cfg $(date)"
+    $PY scripts/run_grid.py --config "$cfg" --data-root "$DATA" --skip-existing --continue-on-error
+  done
+  echo "[P2c] summarize $(date)"
+  $PY scripts/summarize.py --group "$GROUP" --out outputs/${GROUP}_runs.csv
+  $PY scripts/aggregate_seeds.py --summary outputs/${GROUP}_runs.csv --out outputs/${GROUP}_mean_std.csv
+  echo "[P2c] done $(date)"
+} 2>&1 | tee "$LOG"
+```
+
+本地结果拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs/ D:/Project/Timepix/outputs/ `
+  --progress `
+  --transfers 8 `
+  --checkers 16 `
+  --create-empty-src-dirs `
+  --exclude "**/best_model.pth" `
+  --exclude "**/last_checkpoint.pth" `
+  --exclude "**/*.pt" `
+  --log-file D:/Project/Timepix/outputs/rclone_autodl35610_pull.log `
+  --log-level INFO
+```
+
+P2c 判断规则：
+
+- 只按 validation 侧选择，primary 为 `Val Macro-F1`。
+- 若 `Val Macro-F1` 差距 `<0.001`，依次比较 `Val Balanced Acc`、`Sr` F1/recall、`Sr->Co` 混淆和训练稳定性。
+- test 只作为泛化报告，不用于反选最终设置。
+- 若 ToT-strong 未稳定优于 base，则 P 系列 GMU 保持 P2a/P2c base 设置。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。

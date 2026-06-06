@@ -1,0 +1,9 @@
+base: p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_base.yaml
+
+experiment_name: p2c_ptype_stage1_gmm02_p_v3_gmu_aux_totstrong
+
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.5
+    weight_toa: 0.1
