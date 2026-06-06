@@ -700,6 +700,66 @@ P2c 判断规则：
 - test 只作为泛化报告，不用于反选最终设置。
 - 若 ToT-strong 未稳定优于 base，则 P 系列 GMU 保持 P2a/P2c base 设置。
 
+P2c 执行备注与结果：
+
+- 服务器 `35610` 已完成 6/6 个 run，tmux session 正常退出，GPU 已释放。
+- 结果文件：
+
+```text
+outputs/p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_3seed_runs.csv
+outputs/p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_3seed_mean_std.csv
+outputs/experiments/p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_3seed/
+```
+
+- `runs.csv` 为 6 行，6 个 run 均有 `metrics.json`、`predictions.csv`、`confusion_matrix.csv`、`training_log.csv`。
+- 未发现 `Traceback`、`RuntimeError`、CUDA OOM、路径错误、磁盘不足或 summarize failed。
+- 注意：`mean_std.csv` 只有 1 行并显示 `n_runs=6`，把 base 与 ToT-strong 合并了；P2c 正式结果按 `experiment_name` 手动分组计算。
+
+P2c 三 seed 主表：
+
+| Variant | Val Macro-F1 | Val Acc | Val Balanced Acc | Test Macro-F1 | Test Acc | Test Balanced Acc |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `base` | 0.9875±0.0003 | 0.9897±0.0004 | 0.9841±0.0009 | 0.9826±0.0009 | 0.9858±0.0007 | 0.9771±0.0007 |
+| `ToT-strong` | **0.9881±0.0008** | **0.9902±0.0006** | **0.9850±0.0006** | **0.9831±0.0003** | **0.9862±0.0003** | **0.9778±0.0003** |
+| Δ `ToT-strong - base` | +0.0006 | +0.0005 | +0.0009 | +0.0005 | +0.0004 | +0.0007 |
+
+逐 seed 结果：
+
+| Variant | Seed | Best/Stop | Val F1 | Val Acc | Val Bal | Test F1 | Test Acc | Test Bal |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `base` | 42 | 9/24 | 0.9875 | 0.9896 | 0.9841 | 0.9817 | 0.9851 | 0.9768 |
+| `base` | 43 | 23/38 | 0.9873 | 0.9895 | 0.9833 | 0.9834 | 0.9864 | 0.9779 |
+| `base` | 44 | 18/33 | 0.9879 | 0.9901 | 0.9850 | 0.9827 | 0.9859 | 0.9766 |
+| `ToT-strong` | 42 | 21/36 | 0.9872 | 0.9896 | 0.9844 | 0.9830 | 0.9864 | 0.9778 |
+| `ToT-strong` | 43 | 18/33 | **0.9887** | **0.9907** | 0.9853 | **0.9835** | 0.9864 | **0.9781** |
+| `ToT-strong` | 44 | 20/35 | 0.9884 | 0.9904 | **0.9854** | 0.9828 | 0.9859 | 0.9775 |
+
+类别与混淆：
+
+| Variant | Val `Sr` F1/R | Test `Sr` F1/R | Val `Sr->Co` / `Co->Sr` | Test `Sr->Co` / `Co->Sr` |
+| --- | ---: | ---: | ---: | ---: |
+| `base` | 0.9612±0.0017 / 0.9415±0.0040 | 0.9456±0.0021 / 0.9151±0.0038 | 177 / 53 | 257 / 62 |
+| `ToT-strong` | **0.9631±0.0018 / 0.9451±0.0015** | **0.9475±0.0016 / 0.9177±0.0020** | **166 / 53** | **249 / 59** |
+| Δ `ToT-strong - base` | +0.0019 / +0.0036 | +0.0019 / +0.0026 | -11 / 0 | -8 / -3 |
+
+训练稳定性：
+
+| Variant | Seed | Best F1(epoch) | Post-best min(epoch) | Post-best drop | Global min(epoch) | `Val F1 <0.90` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `base` | 42 | 0.9875 (9) | 0.5894 (13) | 0.3981 | 0.5894 (13) | 1 |
+| `base` | 43 | 0.9873 (23) | 0.9677 (29) | 0.0195 | 0.9171 (13) | 0 |
+| `base` | 44 | 0.9879 (18) | 0.9581 (25) | 0.0298 | 0.9435 (1) | 0 |
+| `ToT-strong` | 42 | 0.9872 (21) | 0.9577 (34) | 0.0295 | 0.8510 (17) | 1 |
+| `ToT-strong` | 43 | 0.9887 (18) | 0.6035 (26) | 0.3853 | 0.6035 (26) | 1 |
+| `ToT-strong` | 44 | 0.9884 (20) | 0.9681 (35) | 0.0203 | 0.9434 (1) | 0 |
+
+阶段判断：
+
+- 按 primary `Val Macro-F1`，ToT-strong 比 base 高 `+0.0006`，差距小于 `0.001`，属于很小但方向一致的优势。
+- 按 tie-break，ToT-strong 在 `Val Balanced Acc`、`Sr` F1/recall、`Sr->Co` 混淆上也均有小幅优势。
+- 稳定性仍是风险点：ToT-strong seed43 有一次 post-best 深下探到 `0.6035`；base seed42 也有类似深下探到 `0.5894`，说明 validation collapse 不是 ToT-strong 独有，但 ToT-strong 的 `<0.90` 次数为 2，base 为 1。
+- 当前可采用的保守结论：ToT-strong 是 P2c validation 侧略优的 GMU auxiliary 设置，但优势幅度很小，且未解决训练过程中的偶发 validation collapse。若最终模型重视 Sr 类和 validation 均值，可采用 ToT-strong；若更强调训练过程稳定性和最少改动，可继续沿用 base。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
