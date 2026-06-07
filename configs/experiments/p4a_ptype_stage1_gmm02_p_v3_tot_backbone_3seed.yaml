@@ -1,0 +1,33 @@
+base: p2a_ptype_stage1_gmm02_p_v3_base.yaml
+
+experiment_name: p4a_ptype_stage1_gmm02_p_v3_tot_backbone
+experiment_group: p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed
+
+dataset:
+  modalities: [ToT]
+
+data:
+  toa_transform: none
+  add_hit_mask: false
+
+model:
+  fusion_mode: none
+  pretrained: false
+  image_size: 100
+  patch_size: 10
+
+handcrafted_features:
+  enabled: false
+
+grid:
+  model.name:
+    - resnet18_no_maxpool
+    - resnet18_maxpool
+    - resnet18_original
+    - densenet121
+    - efficientnet_b0
+    - convnext_tiny
+  training.seed:
+    - 42
+    - 43
+    - 44

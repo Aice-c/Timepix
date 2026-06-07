@@ -834,6 +834,112 @@ CONFIGS=(
 rclone copy autodl35610:/root/Timepix/outputs D:\Project\Timepix\outputs --update --progress
 ```
 
+执行备注与结果：
+
+- 服务器 `35610` 已完成 P3a 全部 `18` 个 run，训练日志显示 `[P3a] done`，未发现训练错误。
+- 结果已拉回本地：
+
+```text
+D:\Project\Timepix\outputs\p3a_ptype_stage1_gmm02_p_v4rm_p2a_plus_totstrong_3seed_runs.csv
+D:\Project\Timepix\outputs\p3a_ptype_stage1_gmm02_p_v4rm_p2a_plus_totstrong_3seed_mean_std.csv
+```
+
+- 注意：`mean_std.csv` 将 `gmu` 和 `gmu_aux_totstrong` 合并为同一行 `n_runs=6`。正式报告需按 `runs.csv` 的 `experiment_name` 手动拆分 6 组。
+
+P3a 三 seed 主表，按 `Val Macro-F1` 排序：
+
+| Config | Val Macro-F1 | Test Macro-F1 | Val Acc | Test Acc | Test Balanced Acc |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dual_concat` | 0.988748 ± 0.000354 | 0.987531 ± 0.000717 | 0.990721 ± 0.000277 | 0.989840 ± 0.000504 | 0.983064 ± 0.000807 |
+| `gmu_aux_totstrong` | 0.987896 ± 0.000500 | 0.987626 ± 0.000808 | 0.990099 ± 0.000407 | 0.989884 ± 0.000580 | 0.982634 ± 0.001382 |
+| `gmu` | 0.987847 ± 0.000637 | 0.987530 ± 0.000453 | 0.989966 ± 0.000538 | 0.989751 ± 0.000461 | 0.983889 ± 0.000446 |
+| `tot` | 0.986740 ± 0.000574 | 0.985413 ± 0.000605 | 0.989212 ± 0.000480 | 0.988198 ± 0.000504 | 0.980236 ± 0.000488 |
+| `input_concat` | 0.981970 ± 0.000675 | 0.980614 ± 0.001098 | 0.985793 ± 0.000308 | 0.984604 ± 0.000981 | 0.976200 ± 0.001035 |
+| `rtoa` | 0.969458 ± 0.000675 | 0.967341 ± 0.001762 | 0.978423 ± 0.000352 | 0.976618 ± 0.000629 | 0.961055 ± 0.000896 |
+
+P3a 判断：
+
+- 按预设主指标 `Val Macro-F1`，当前首选为 `dual_stream_concat_aux`。
+- `gmu` 与 `gmu_aux_totstrong` 与 `dual_concat` 非常接近，但 validation 主指标未超过 `dual_concat`；`gmu_aux_totstrong` 不应仅凭 test 略高被反选为主模型。
+- `RToA` 单模态明显弱于 `ToT`；input-level concat 也弱于 `ToT`，说明 ToA/RToA 不适合简单输入层拼接。
+- 双分支结构稳定优于 `ToT`，主要剩余错误集中在 `Sr` / `Co` 混淆。
+- 决策：P3a 的 v4 recurrent-removed 数据集路线废弃，不进入后续主线。后续回到 `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3`。
+
+#### P4a v3 ToT-only backbone architecture comparison
+
+P4a 回到 P2 主数据集 `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3`，只比较 ToT-only CNN backbone。该阶段不混入 ToA/RToA、input concat、dual concat 或 GMU，避免扩展为 `backbone × modality/fusion` 大网格。
+
+注意：当前 registry 中 `model.name: resnet18` 等价于 `resnet18_no_maxpool`，真正标准 ResNet18 stem/maxpool 变体是 `resnet18_original`。
+
+固定设置：
+
+| Item | Value |
+| --- | --- |
+| Dataset | `particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Server data root | `/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3` |
+| Input | `ToT only` |
+| Primary metric | `val_macro_f1` |
+| Loss | balanced `cross_entropy` + one-hot |
+| Training | `lr=3e-6`, `epochs=50`, `patience=15`, `batch_size=64` |
+| Split | `outputs/splits/ptype_stage1_gmm02_p_v3_ToT-ToA_seed42_0.8_0.1_0.1.json` |
+| Group | `p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed` |
+
+实验矩阵：
+
+| 编号 | `model.name` | 定位 |
+| --- | --- | --- |
+| P4a-1 | `resnet18_no_maxpool` | P2 ToT project baseline |
+| P4a-2 | `resnet18_maxpool` | 2/1/0 stem + maxpool 对照 |
+| P4a-3 | `resnet18_original` | standard ResNet18 stem/maxpool |
+| P4a-4 | `densenet121` | DenseNet CNN backbone |
+| P4a-5 | `efficientnet_b0` | EfficientNet lightweight CNN |
+| P4a-6 | `convnext_tiny` | modern ConvNeXt CNN |
+
+配置文件：
+
+```text
+configs/experiments/p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed.yaml
+```
+
+服务器完整训练与汇总命令：
+
+```bash
+tmux new -s p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed
+```
+
+```bash
+cd /root/Timepix
+source /etc/network_turbo || true
+git pull --ff-only
+
+PY=/root/miniconda3/bin/python
+DATA=/root/autodl-tmp/particle_type_stage1_full_am_co_sr_gmm_k3_label0_2_p_v3
+GROUP=p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed
+CFG=configs/experiments/p4a_ptype_stage1_gmm02_p_v3_tot_backbone_3seed.yaml
+
+{
+  echo "[P4a] start $(date)"
+  "$PY" scripts/run_grid.py --config "$CFG" --data-root "$DATA" --dry-run || exit 1
+  "$PY" scripts/run_grid.py --config "$CFG" --data-root "$DATA" --skip-existing --continue-on-error || exit 1
+  echo "[P4a] summarize $(date)"
+  "$PY" scripts/summarize.py --group "$GROUP" --out "outputs/${GROUP}_runs.csv" || exit 1
+  "$PY" scripts/aggregate_seeds.py --summary "outputs/${GROUP}_runs.csv" --out "outputs/${GROUP}_mean_std.csv" || exit 1
+  echo "[P4a] done $(date)"
+} 2>&1 | tee "outputs/${GROUP}.log"
+```
+
+本地拉取命令：
+
+```powershell
+rclone copy autodl35610:/root/Timepix/outputs D:\Project\Timepix\outputs --update --progress
+```
+
+P4a 判断规则：
+
+- 模型选择只看 validation：primary 为 `Val Macro-F1`，tie-break 看 `Val Balanced Acc` 和 `Val Acc`。
+- test 只用于最终报告。
+- 重点检查 `Sr` / `Co` 混淆是否相对 P2a ToT baseline 减少。
+
 ### 3.3 Deprecated C-series Particle/source diagnostics
 
 C1/C2 是早期 `Particle_Source_3` 数据集上的诊断实验。由于后续 particle 数据集经过多轮清洗和 GMM 选择，C1/C2 不再作为 P 系列主线结论，只保留其对 ToA/RToA 重要性和类别不均衡风险的诊断价值。
