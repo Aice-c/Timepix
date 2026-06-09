@@ -1,0 +1,25 @@
+base: p2a_ptype_stage1_gmm02_p_v3_base.yaml
+
+experiment_name: p6a_ptype_stage1_gmm02_p_v3_cosr_refiner_dual_concat
+experiment_group: p6a_ptype_stage1_gmm02_p_v3_cosr_refiner_seed42
+
+dataset:
+  class_names: [Co, Sr]
+  modalities: [ToT, ToA]
+
+task:
+  type: classification
+  primary_metric: val_macro_f1
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: dual_stream_concat_aux
+
+split:
+  reuse_split: true
+  path: outputs/splits/ptype_stage1_gmm02_p_v3_Co-Sr_ToT-ToA_seed42_0.8_0.1_0.1.json
+
+training:
+  seed: 42
