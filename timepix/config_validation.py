@@ -70,6 +70,9 @@ SECTION_KEYS = {
         "expected_mae_weight",
         "gaussian_sigma",
         "normalize_by_angle_range",
+        "pair_aux",
+        "pair_weight",
+        "pair_classes",
     },
     "training": {
         "epochs",
@@ -115,7 +118,7 @@ SUPPORTED_MODELS = {
     "warm_started_expert_gate",
 }
 SUPPORTED_TASKS = {"classification", "regression"}
-SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd", "ce_expected_mae", "ce_emd"}
+SUPPORTED_CLASSIFICATION_LOSSES = {"cross_entropy", "emd", "ce_expected_mae", "ce_emd", "ce_pair_aux"}
 SUPPORTED_REGRESSION_LOSSES = {"mse", "smooth_l1"}
 SUPPORTED_LABEL_ENCODINGS = {"onehot", "gaussian"}
 SUPPORTED_SCHEDULERS = {"none", "cosine"}
@@ -281,6 +284,28 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
                     _check_float(item, f"loss.{key}[{idx}]", errors, min_value=0.0)
             elif value is not None and value is not False:
                 errors.append(f"loss.{key} must be 'balanced', 'none', or a list of non-negative numbers")
+    if loss_name == "ce_pair_aux":
+        pair_cfg = _require_mapping(loss_cfg.get("pair_aux", {}), "loss.pair_aux", errors) or {}
+        pair_classes = pair_cfg.get("classes", loss_cfg.get("pair_classes"))
+        if not isinstance(pair_classes, list) or len(pair_classes) != 2 or not all(
+            isinstance(item, str) and item for item in pair_classes
+        ):
+            errors.append("loss.pair_aux.classes must be a list of exactly two non-empty class names")
+        pair_weight = pair_cfg.get("weight", loss_cfg.get("pair_weight", 0.1))
+        _check_float(pair_weight, "loss.pair_aux.weight", errors, min_value=0.0)
+        pair_class_weight = pair_cfg.get("class_weight", pair_cfg.get("class_weights"))
+        if isinstance(pair_class_weight, str):
+            if pair_class_weight not in {"balanced", "none"}:
+                errors.append(
+                    "loss.pair_aux.class_weight must be 'balanced', 'none', or a list of two non-negative numbers"
+                )
+        elif isinstance(pair_class_weight, list):
+            if len(pair_class_weight) != 2:
+                errors.append("loss.pair_aux.class_weight list must contain two weights")
+            for idx, item in enumerate(pair_class_weight):
+                _check_float(item, f"loss.pair_aux.class_weight[{idx}]", errors, min_value=0.0)
+        elif pair_class_weight is not None and pair_class_weight is not False:
+            errors.append("loss.pair_aux.class_weight must be 'balanced', 'none', or a list of two non-negative numbers")
 
     training_cfg = _require_mapping(cfg.get("training", {}), "training", errors) or {}
     for key in ("epochs", "batch_size"):

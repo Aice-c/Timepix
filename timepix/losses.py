@@ -153,6 +153,44 @@ class CEWithEMDLoss(nn.Module):
         return self.ce(logits, targets) + self.emd_weight * self.emd(logits, targets)
 
 
+class CEPairAuxLoss(nn.Module):
+    def __init__(
+        self,
+        num_classes: int,
+        angle_values: list[float],
+        pair_indices: tuple[int, int],
+        pair_weight: float,
+        label_encoding: str = "onehot",
+        gaussian_sigma: float = 2.0,
+        class_weights: list[float] | torch.Tensor | None = None,
+        pair_class_weights: list[float] | torch.Tensor | None = None,
+    ) -> None:
+        super().__init__()
+        self.ce = SoftTargetCrossEntropyLoss(
+            num_classes=num_classes,
+            angle_values=angle_values,
+            label_encoding=label_encoding,
+            gaussian_sigma=gaussian_sigma,
+            class_weights=class_weights,
+        )
+        self.pair_weight = float(pair_weight)
+        self.register_buffer("pair_indices", torch.tensor(pair_indices, dtype=torch.long))
+        weights = torch.as_tensor(pair_class_weights, dtype=torch.float32) if pair_class_weights is not None else None
+        self.register_buffer("pair_class_weights", weights)
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        main_loss = self.ce(logits, targets)
+        target_ids = targets.argmax(dim=1).long() if targets.dim() == 2 else targets.long()
+        first, second = self.pair_indices[0], self.pair_indices[1]
+        mask = (target_ids == first) | (target_ids == second)
+        if not bool(mask.any()):
+            return main_loss
+        pair_logits = logits[mask][:, self.pair_indices]
+        pair_targets = (target_ids[mask] == second).long()
+        pair_loss = F.cross_entropy(pair_logits, pair_targets, weight=self.pair_class_weights)
+        return main_loss + self.pair_weight * pair_loss
+
+
 def _angle_values(label_map: dict[int, str]) -> list[float]:
     try:
         return [float(label_map[i]) for i in range(len(label_map))]
@@ -187,6 +225,49 @@ def _resolve_class_weights(
             raise ValueError("loss.class_weight values must be non-negative")
         return weights
     raise ValueError("loss.class_weight must be 'balanced', 'none', or a list of weights")
+
+
+def _resolve_pair_indices(loss_cfg: dict, label_map: dict[int, str]) -> tuple[int, int]:
+    pair_cfg = loss_cfg.get("pair_aux", {})
+    classes = pair_cfg.get("classes", loss_cfg.get("pair_classes"))
+    if classes is None:
+        raise ValueError("loss.name='ce_pair_aux' requires loss.pair_aux.classes")
+    if len(classes) != 2:
+        raise ValueError("loss.pair_aux.classes must contain exactly two class names")
+    inverse = {str(name): int(idx) for idx, name in label_map.items()}
+    try:
+        return int(inverse[str(classes[0])]), int(inverse[str(classes[1])])
+    except KeyError as exc:
+        raise ValueError(f"Pair class {exc.args[0]!r} is not present in label_map={label_map}") from exc
+
+
+def _resolve_pair_class_weights(
+    loss_cfg: dict,
+    class_counts: list[int] | None,
+    pair_indices: tuple[int, int],
+) -> list[float] | None:
+    pair_cfg = loss_cfg.get("pair_aux", {})
+    weight_cfg = pair_cfg.get("class_weight", pair_cfg.get("class_weights"))
+    if weight_cfg in (None, False, "none"):
+        return None
+    if isinstance(weight_cfg, str):
+        if weight_cfg != "balanced":
+            raise ValueError("loss.pair_aux.class_weight must be 'balanced', 'none', or a list of two weights")
+        if class_counts is None:
+            raise ValueError("loss.pair_aux.class_weight='balanced' requires train split class counts")
+        pair_counts = [int(class_counts[idx]) for idx in pair_indices]
+        if any(count <= 0 for count in pair_counts):
+            raise ValueError("loss.pair_aux.class_weight='balanced' requires both pair classes in train split")
+        total = float(sum(pair_counts))
+        return [total / (2.0 * float(count)) for count in pair_counts]
+    if isinstance(weight_cfg, (list, tuple)):
+        if len(weight_cfg) != 2:
+            raise ValueError("loss.pair_aux.class_weight list must contain two weights")
+        weights = [float(value) for value in weight_cfg]
+        if any(value < 0 for value in weights):
+            raise ValueError("loss.pair_aux.class_weight values must be non-negative")
+        return weights
+    raise ValueError("loss.pair_aux.class_weight must be 'balanced', 'none', or a list of two weights")
 
 
 def build_loss(
@@ -243,6 +324,18 @@ def build_loss(
             gaussian_sigma=gaussian_sigma,
             angle_weighted=bool(loss_cfg.get("emd_angle_weighted", True)),
             normalize_by_angle_range=bool(loss_cfg.get("normalize_by_angle_range", True)),
+        )
+    if name == "ce_pair_aux":
+        pair_indices = _resolve_pair_indices(loss_cfg, label_map)
+        return CEPairAuxLoss(
+            num_classes=num_classes,
+            angle_values=angle_values,
+            pair_indices=pair_indices,
+            pair_weight=float(loss_cfg.get("pair_aux", {}).get("weight", loss_cfg.get("pair_weight", 0.1))),
+            label_encoding=label_encoding,
+            gaussian_sigma=gaussian_sigma,
+            class_weights=class_weights,
+            pair_class_weights=_resolve_pair_class_weights(loss_cfg, class_counts, pair_indices),
         )
     if name == "emd":
         return EarthMoverDistanceLoss(

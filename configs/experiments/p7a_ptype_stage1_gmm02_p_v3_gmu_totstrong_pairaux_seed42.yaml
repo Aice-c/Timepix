@@ -1,0 +1,25 @@
+base: p2c_ptype_stage1_gmm02_p_v3_gmu_base_vs_totstrong_base.yaml
+
+experiment_name: p7a_ptype_stage1_gmm02_p_v3_gmu_totstrong_pairaux
+experiment_group: p7a_ptype_stage1_gmm02_p_v3_pair_aux_seed42
+
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.5
+    weight_toa: 0.1
+
+loss:
+  name: ce_pair_aux
+  label_encoding: onehot
+  class_weight: balanced
+  pair_aux:
+    classes: [Co, Sr]
+    weight: 0.2
+    class_weight: balanced
+
+training:
+  seed: 42
+
+grid:
+  training.seed: [42]
