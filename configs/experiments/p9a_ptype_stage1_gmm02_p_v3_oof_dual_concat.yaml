@@ -1,0 +1,23 @@
+base: p2a_ptype_stage1_gmm02_p_v3_base.yaml
+
+experiment_name: p9a_ptype_stage1_gmm02_p_v3_oof_dual_concat
+experiment_group: p9a_ptype_stage1_gmm02_p_v3_oof5_seed42
+
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: dual_stream_concat_aux
+  fusion_mode: none
+
+grid:
+  training.seed: [42]
+  split.path:
+    - outputs/splits/ptype_stage1_gmm02_p_v3_oof5_seed42_fold0.json
+    - outputs/splits/ptype_stage1_gmm02_p_v3_oof5_seed42_fold1.json
+    - outputs/splits/ptype_stage1_gmm02_p_v3_oof5_seed42_fold2.json
+    - outputs/splits/ptype_stage1_gmm02_p_v3_oof5_seed42_fold3.json
+    - outputs/splits/ptype_stage1_gmm02_p_v3_oof5_seed42_fold4.json
