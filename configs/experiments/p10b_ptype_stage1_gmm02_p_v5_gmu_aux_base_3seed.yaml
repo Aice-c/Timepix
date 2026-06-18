@@ -1,0 +1,13 @@
+base: p10_ptype_stage1_gmm02_p_v5_gmu_hparam_base.yaml
+
+experiment_name: p10b_ptype_stage1_gmm02_p_v5_gmu_aux_base
+experiment_group: p10b_ptype_stage1_gmm02_p_v5_gmu_auxbase_dropout005_3seed
+
+model:
+  aux_loss:
+    enabled: true
+    weight_tot: 0.3
+    weight_toa: 0.1
+
+grid:
+  training.seed: [42, 43, 44]

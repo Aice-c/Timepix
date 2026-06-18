@@ -1,0 +1,10 @@
+base: p10_ptype_stage1_gmm02_p_v5_gmu_hparam_base.yaml
+
+experiment_name: p10b_ptype_stage1_gmm02_p_v5_gmu_dropout005
+experiment_group: p10b_ptype_stage1_gmm02_p_v5_gmu_auxbase_dropout005_3seed
+
+model:
+  dropout: 0.05
+
+grid:
+  training.seed: [42, 43, 44]
