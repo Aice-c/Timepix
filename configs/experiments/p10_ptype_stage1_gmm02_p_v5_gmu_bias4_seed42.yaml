@@ -1,0 +1,7 @@
+base: p10_ptype_stage1_gmm02_p_v5_gmu_hparam_base.yaml
+
+experiment_name: p10_ptype_stage1_gmm02_p_v5_gmu_bias4
+
+model:
+  gate:
+    init_bias_to_tot: 4.0

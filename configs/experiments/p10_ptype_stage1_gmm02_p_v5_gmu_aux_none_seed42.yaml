@@ -1,0 +1,9 @@
+base: p10_ptype_stage1_gmm02_p_v5_gmu_hparam_base.yaml
+
+experiment_name: p10_ptype_stage1_gmm02_p_v5_gmu_aux_none
+
+model:
+  aux_loss:
+    enabled: false
+    weight_tot: 0.0
+    weight_toa: 0.0
