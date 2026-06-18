@@ -1,0 +1,13 @@
+base: p9d_ptype_stage1_gmm02_p_v5_cosr_removed_base.yaml
+
+experiment_name: p9d_ptype_stage1_gmm02_p_v5_cosr_removed_tot
+
+dataset:
+  modalities: [ToT]
+
+model:
+  name: resnet18_no_maxpool
+  fusion_mode: none
+
+grid:
+  training.seed: [42, 43, 44]

@@ -1,0 +1,19 @@
+base: p9d_ptype_stage1_gmm02_p_v5_cosr_removed_base.yaml
+
+experiment_name: p9d_ptype_stage1_gmm02_p_v5_cosr_removed_gmu_totstrong
+
+dataset:
+  modalities: [ToT, ToA]
+
+data:
+  toa_transform: relative_minmax
+
+model:
+  name: dual_stream_gmu_aux
+  aux_loss:
+    enabled: true
+    weight_tot: 0.5
+    weight_toa: 0.1
+
+grid:
+  training.seed: [42, 43, 44]
