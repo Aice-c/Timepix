@@ -1,6 +1,6 @@
 # 碳离子角度最小对照：T7 / V6
 
-日期：2026-09-09。当前阶段：39951服务器验收通过，用户已授权正式训练；T7-ToT待启动，Mask仍需主控检查放行，V6两组串行排队。部署验收见`CARBON_SERVER_39951.md`。
+日期：2026-09-09。当前阶段：T7-ToT与V6-Base已完成并回传核验；V6-HiRes已exit0，等待完成核验与分析；T7-Mask已由主控放行，即将单独运行。部署验收见`CARBON_SERVER_39951.md`。
 
 ## 实验范围
 
@@ -9,11 +9,11 @@
 | 标识 | 角度 | 输入 | 网络 | 执行状态 |
 | --- | --- | --- | --- | --- |
 | T7-ToT | 10/20/30/45/50/60/70 | 正式ToT表示 | ResNet18 no-maxpool | best3/stop11，回传与一致性核验完成；验证有剧烈波动 |
-| T7-Mask | 同T7-ToT | 原保存矩阵x>0的0/1掩膜 | 同T7-ToT | 主控已放行，等待V6两组结束、GPU空闲 |
-| V6-Base | 80/82/84/86/88/90 | 正式ToT表示 | ResNet18 no-maxpool | 正在训练 |
-| V6-HiRes | 同V6-Base | 同V6-Base | 只取消layer3/4首块主支和shortcut stride2 | batch128显存预检通过，Base运行成功后串行启动 |
+| T7-Mask | 同T7-ToT | 原保存矩阵x>0的0/1掩膜 | 同T7-ToT | 主控已放行；V6队列已结束，待实验员核验空闲后启动 |
+| V6-Base | 80/82/84/86/88/90 | 正式ToT表示 | ResNet18 no-maxpool | best12/stop20，完成并回传核验；训练未充分拟合 |
+| V6-HiRes | 同V6-Base | 同V6-Base | 只取消layer3/4首块主支和shortcut stride2 | epoch9结束、exit0，待分析员复核最佳结果 |
 
-执行顺序更新：T7-ToT完成后，T7分析与V6两组训练并行进行；Mask仍需单独放行，不能与V6争抢同一GPU。该调整仅改变执行顺序，不改变任何配对协议或训练预算。
+执行顺序更新：T7-ToT完成后，T7分析与V6两组训练并行进行；Mask已经单独放行，但不能与V6争抢同一GPU。该调整仅改变执行顺序，不改变任何配对协议或训练预算。
 
 正式启动批次沿用上述四个配置，不新增实验变体。实验员须在启动前确认同名tmux会话、训练进程和日志均不存在，日志不覆盖；用显式`/root/miniconda3/bin/python -u`执行。完整命令中的训练pipeline使用`set -o pipefail`，退出后立即记录`rc=$?`到相应`.exitcode`文件。只有退出码0且metrics/checkpoint/validation预测齐全才标记完成。T7-ToT完成后暂停队列，等待主控放行Mask；不要自动运行所有四组。
 
