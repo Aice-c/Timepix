@@ -1,5 +1,9 @@
 # Timepix 配置与命令索引
 
+## 碳离子T7/V6（2026-09-09，未训练）
+
+配置为`carbon_t7_tot_seed42.yaml`、`carbon_t7_mask_seed42.yaml`、`carbon_v6_base_seed42.yaml`、`carbon_v6_hires_seed42.yaml`；公共配置`carbon_controls_common.yaml`。指定`CARBON_DATA_ROOT`读取同版本事件；复用本地生成的`outputs/carbon_angle_controls_20260909/{T7,V6}_frame_split.json`，不得在服务器重划分。完整训练、预检、汇总命令见`agent/CARBON_CONTROLS_RUNBOOK.md`。本轮test禁评估，Mask需在T7-ToT学习状态复核后批准，HiRes先做GPU显存预检。
+
 本文档是 `configs/` 目录的当前权威使用说明，重点记录配置层级、路径规则、正式训练命令与汇总命令。旧版长文档已归档为 `configs/README.old.md`；旧文档保留历史命令细节和阶段性结果，但不再作为当前实验状态判断依据。
 
 实验目的、关键结果和设计决策的权威记录见：

@@ -57,6 +57,7 @@ def build_model(
     if name in {"resnet18", "resnet18_no_maxpool"}:
         return ResNet18Timepix(
             **common,
+            preserve_late_resolution=bool(model_cfg.get("preserve_late_resolution", False)),
             feature_dim=int(model_cfg.get("feature_dim", 256)),
             hidden_dim=int(model_cfg.get("hidden_dim", 512)),
             kernel_size=conv1_kernel_size,

@@ -1,0 +1,6 @@
+base: carbon_v6_base_seed42.yaml
+experiment_name: carbon_v6_hires_seed42
+model:
+  preserve_late_resolution: true
+evaluation:
+  experiment_id: V6-HiRes

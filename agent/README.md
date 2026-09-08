@@ -1,5 +1,7 @@
 # Timepix 项目文档入口
 
+> 2026-09-09：本部署分支包含碳离子T7/V6原帧隔离最小对照。本地适配完成，服务器配置中，未训练。参见`agent/CARBON_CONTROLS_RUNBOOK.md`及日志最新补充；旧`Proton_C*`名称仅路径兼容。
+
 本文档是后续研究、代码维护和论文写作的入口索引。当前训练主线已经从 legacy `Program/` 迁移到 `timepix/`、`configs/`、`scripts/` 组成的新实验系统；所有新的实验配置、命令和结论应以新系统文档为准。
 
 > 归档说明：旧版 `agent/README.md` 因编码损坏已归档为 `agent/README.old.md`。归档文件仅用于追溯，不作为当前状态依据。

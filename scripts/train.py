@@ -60,6 +60,10 @@ def main() -> int:
     print(f"Experiment finished: {metadata['experiment_dir']}")
     metrics = metadata["metrics"]
     print(f"Best epoch: {metrics['best_epoch']}")
+    if not metrics.get("test_evaluated", True):
+        print(f"Validation metrics: {metrics['validation']}")
+        print("Test evaluation disabled by protocol; no test predictions produced.")
+        return 0
     if metadata["task"] == "classification":
         print(f"Val accuracy: {metrics['validation'].get('accuracy', 0):.4f}")
         print(f"Test accuracy: {metrics['test'].get('accuracy', 0):.4f}")

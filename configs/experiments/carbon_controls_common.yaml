@@ -1,0 +1,75 @@
+# Shared protocol only; run one of the four concrete child configs.
+experiment_group: carbon_angle_controls_20260909
+dataset:
+  name: Carbon_T7
+  particle: carbon_ion
+  root: ${CARBON_DATA_ROOT:-Data/Proton_C}
+  available_modalities: [ToT]
+  default_modalities: [ToT]
+  modalities: [ToT]
+  label_type: angle_folder
+  class_names: ['10', '20', '30', '45', '50', '60', '70']
+  sample_shape: [50, 50]
+task:
+  type: classification
+  max_angle: 90.0
+  primary_metric: val_mae_argmax
+  tie_break_metrics: [val_macro_f1]
+model:
+  name: resnet18_no_maxpool
+  pretrained: false
+  conv1_kernel_size: 2
+  conv1_stride: 1
+  conv1_padding: 0
+  feature_dim: 256
+  hidden_dim: 512
+  dropout: 0.1
+  fusion_mode: none
+  preserve_late_resolution: false
+loss:
+  name: cross_entropy
+  label_encoding: onehot
+training:
+  require_cuda: true
+  epochs: 25
+  batch_size: 128
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  scheduler: cosine
+  eta_min: 0.0000001
+  early_stopping_patience: 8
+  seed: 42
+  num_workers: 4
+  pin_memory: true
+  progress_bar: true
+  mixed_precision: true
+  mixed_precision_dtype: float16
+  save_last_checkpoint: true
+split:
+  path: outputs/carbon_angle_controls_20260909/T7_frame_split.json
+  require_frame_groups: true
+  reuse_split: true
+  seed: 42
+  train: 0.8
+  val: 0.1
+  test: 0.1
+data:
+  crop_size: 0
+  dtype: float32
+  input_representation: signal
+  add_hit_mask: false
+normalization:
+  ToT:
+    enabled: true
+    log1p: false
+    ignore_zero: true
+augmentation:
+  rotation_90: true
+handcrafted_features:
+  enabled: false
+evaluation:
+  run_test: false
+  save_validation_predictions: true
+  task_id: T7
+output:
+  root: outputs/experiments

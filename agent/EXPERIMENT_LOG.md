@@ -1,5 +1,13 @@
 # Timepix 实验日志与决策索引
 
+## 2026-09-09 碳离子T7/V6部署准备
+
+本轮新背景：111 MeV/u碳离子、100 μm Si、Timepix、ToT单模态，90°垂直。历史`Proton_C*`路径保留。C1/C2为容量分目录，不当独立批次。新T7（10/20/30/45/50/60/70）ToT与Mask-only对照，V6（80/82/84/86/88/90）Base与HiRes对照，每组单seed42，尚未训练。
+
+原帧键包含角度和完整ZIP成员路径，同原帧component后缀归为一组、跨角度同名前缀不合并。T7共102938事件/3690帧，V6共191426事件/1617帧，已生成固定分组划分，跨split原帧均为0。CE、lr3e-4、batch128、25epoch、patience8，Val argmax MAE→Macro-F1→早epoch选模，本轮不评估test。旧B1/B3是历史事件级划分参考，不作新协议初始化。
+
+新服务器`connect.westb.seetacloud.com:39951`正在配置；仅环境与部署验证，不启动实验。部署分支`deploy/carbon-controls-39951`从远端main隔离创建，只纳入本轮代码，不带入本机其他未推送提交或数据处理改动。完整命令与边界见`agent/CARBON_CONTROLS_RUNBOOK.md`。
+
 本文档是 Timepix 极角识别项目的实验决策主日志。它根据旧版日志 `agent/EXPERIMENT_LOG.old.md`、当前配置目录 `configs/experiments/`、训练脚本和已同步实验结论重新整理，目标是让后续论文写作和 5.5 Pro 交接不再依赖零散对话记录。
 
 本文档记录实验目的、固定配置、实验矩阵、配置文件、运行命令、关键结果和阶段决策。详细数值表、逐 run CSV、混淆矩阵和图表以 `outputs/` 中的原始结果为准；本文档只保存论文分析所需的权威摘要和决策链路。

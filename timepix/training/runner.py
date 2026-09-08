@@ -27,6 +27,7 @@ from timepix.models import build_model
 from timepix.training.logger import CsvLogger, write_json, write_yaml
 from timepix.training.metrics import classification_metrics, regression_metrics
 from timepix.training.trainer import evaluate, train_one_epoch
+from timepix.training.selection import selection_key
 from timepix.utils.paths import make_experiment_dir, slugify
 from timepix.utils.seed import set_seed
 
@@ -475,6 +476,8 @@ def run_experiment(
 ) -> dict:
     run_started_at = time.perf_counter()
     training_cfg = cfg.get("training", {})
+    if training_cfg.get("require_cuda", False) and not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required by this training protocol; CPU fallback is disabled")
     task_cfg = cfg.get("task", {})
     model_cfg = cfg.get("model", {})
     task = task_cfg.get("type", "classification")
@@ -667,7 +670,12 @@ def run_experiment(
             }
         )
 
-        is_better = score > best_score
+        if task_cfg.get("tie_break_metrics"):
+            current_selection_key = selection_key(val_metrics, task, task_cfg)
+            is_better = (not best_val_metrics or
+                         current_selection_key > selection_key(best_val_metrics, task, task_cfg))
+        else:
+            is_better = score > best_score
         if is_better:
             best_score = score
             best_epoch = epoch
@@ -730,19 +738,24 @@ def run_experiment(
         _atomic_torch_save(best_state, best_model_path)
         model.load_state_dict(best_state)
 
-    test_started_at = time.perf_counter()
-    test_payload = evaluate(
-        model,
-        loaders["test"],
-        criterion,
-        device,
-        task,
-        autocast_factory=autocast_factory,
-        aux_loss_cfg=aux_loss_cfg,
-    )
-    test_seconds = time.perf_counter() - test_started_at
-    test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle, label_type, class_names)
-    _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle, label_type, class_names)
+    evaluation_cfg = cfg.get("evaluation", {})
+    if evaluation_cfg.get("save_validation_predictions", False):
+        from timepix.training.validation_export import export_validation
+        val_payload = evaluate(model, loaders["val"], criterion, device, task,
+                               autocast_factory=autocast_factory, aux_loss_cfg=aux_loss_cfg)
+        export_validation(exp_dir, val_payload, loaders, data_info, cfg)
+    test_payload, test_metrics = {}, {}
+    test_seconds = 0.0
+    run_test = bool(evaluation_cfg.get("run_test", True))
+    if run_test:
+        test_started_at = time.perf_counter()
+        test_payload = evaluate(
+            model, loaders["test"], criterion, device, task,
+            autocast_factory=autocast_factory, aux_loss_cfg=aux_loss_cfg,
+        )
+        test_seconds = time.perf_counter() - test_started_at
+        test_metrics = _metrics_from_payload(test_payload, task, angle_values, max_angle, label_type, class_names)
+        _save_predictions(exp_dir / "predictions.csv", test_payload, task, angle_values, max_angle, label_type, class_names)
     total_seconds = time.perf_counter() - run_started_at
 
     metrics = {
@@ -756,6 +769,8 @@ def run_experiment(
         "total_seconds": total_seconds,
         "validation": best_val_metrics,
         "test": test_metrics,
+        "test_evaluated": run_test,
+        "training_batches_completed": stopped_epoch * len(loaders["train"]),
     }
     if best_val_diagnostics:
         metrics["validation_diagnostics"] = best_val_diagnostics

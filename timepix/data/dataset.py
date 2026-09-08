@@ -160,6 +160,7 @@ class TimepixDataset(Dataset):
         toa_transform: str | None = None,
         add_hit_mask: bool = False,
         label_type: str = "angle_folder",
+        input_representation: str = "signal",
     ) -> None:
         self.records = records
         self.label_map = dict(label_map)
@@ -175,6 +176,11 @@ class TimepixDataset(Dataset):
         self.data_dtype = data_dtype
         self.toa_transform = normalize_toa_transform(toa_transform)
         self.add_hit_mask = bool(add_hit_mask)
+        if input_representation not in {"signal", "hit_mask"}:
+            raise ValueError("input_representation must be signal or hit_mask")
+        if input_representation == "hit_mask" and (modalities != ["ToT"] or add_hit_mask):
+            raise ValueError("hit_mask representation requires ToT only and add_hit_mask=false")
+        self.input_representation = input_representation
         self.label_type = _normalize_label_type(label_type)
         self._expanded: list[tuple[SampleRecord, int]] = []
         for record in self.records:
@@ -201,10 +207,12 @@ class TimepixDataset(Dataset):
 
         channels = []
         for modality in self.modalities:
-            array = apply_modality_transform(modality, cropped_arrays[modality], self.toa_transform)
+            array = ((cropped_arrays[modality] > 0).astype(np.float32)
+                     if self.input_representation == "hit_mask"
+                     else apply_modality_transform(modality, cropped_arrays[modality], self.toa_transform))
             tensor = torch.as_tensor(array, dtype=torch.float32).unsqueeze(0)
             tensor = self.augmentor.apply(tensor, rotation)
-            if self.normalizer is not None:
+            if self.normalizer is not None and self.input_representation != "hit_mask":
                 tensor = self.normalizer.apply(tensor, modality)
             channels.append(tensor)
         if self.add_hit_mask:

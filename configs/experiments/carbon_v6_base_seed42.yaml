@@ -1,0 +1,10 @@
+base: carbon_controls_common.yaml
+experiment_name: carbon_v6_base_seed42
+dataset:
+  name: Carbon_V6
+  class_names: ['80', '82', '84', '86', '88', '90']
+split:
+  path: outputs/carbon_angle_controls_20260909/V6_frame_split.json
+evaluation:
+  task_id: V6
+  experiment_id: V6-Base

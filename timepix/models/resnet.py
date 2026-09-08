@@ -20,6 +20,7 @@ class ResNet18Backbone(nn.Module):
         stride: int = 1,
         padding: int = 0,
         pretrained: bool = False,
+        preserve_late_resolution: bool = False,
     ) -> None:
         super().__init__()
         weights = ResNet18_Weights.DEFAULT if pretrained else None
@@ -33,6 +34,11 @@ class ResNet18Backbone(nn.Module):
             bias=False,
         )
         self.model.maxpool = nn.Identity()
+        if preserve_late_resolution:
+            for layer in (self.model.layer3, self.model.layer4):
+                layer[0].conv1.stride = (1, 1)
+                layer[0].downsample[0].stride = (1, 1)
+                layer[0].stride = 1
         self.model.fc = nn.Linear(self.model.fc.in_features, feature_dim)
         self.feature_dim = feature_dim
 
@@ -55,10 +61,12 @@ class ResNet18Timepix(nn.Module):
         stride: int = 1,
         padding: int = 0,
         pretrained: bool = False,
+        preserve_late_resolution: bool = False,
     ) -> None:
         super().__init__()
         self.task = task
-        self.backbone = ResNet18Backbone(input_channels, feature_dim, kernel_size, stride, padding, pretrained)
+        self.backbone = ResNet18Backbone(input_channels, feature_dim, kernel_size, stride, padding, pretrained,
+                                         preserve_late_resolution)
         self.fusion = FeatureFusion(feature_dim, handcrafted_dim, fusion_mode)
         out_dim = 1 if task == "regression" else num_classes
         self.head = nn.Sequential(

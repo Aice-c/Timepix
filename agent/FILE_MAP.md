@@ -1,5 +1,16 @@
 # File Map
 
+## Carbon Controls Deployment (2026-09-09)
+
+- `agent/CARBON_SERVER_39951.md`: isolated deployment, environment and data verification.
+- `scripts/package_carbon_dataset.py`, `tests/test_carbon_transfer.py`: exact manifest-selected event ZIP and extracted SHA256 verification.
+
+- `agent/CARBON_CONTROLS_RUNBOOK.md`: protocol and complete commands; `CARBON_MINIMAL_PLAN.md`: local verification checklist.
+- `configs/experiments/carbon_*.yaml`: common protocol and four single-seed cells.
+- `scripts/prepare_carbon_controls.py`, `check_carbon_controls.py`, `summarize_carbon_controls.py`, `package_carbon_controls.py`: immutable preparation, forward/memory preflight, validation-only summaries and protocol ZIP.
+- `timepix/data/frame_groups.py`: angle-qualified source-frame isolation; `timepix/training/selection.py`, `validation_export.py`: selection and provenance exports.
+- `tests/test_carbon_protocol.py`: CPU-only regression tests with no real optimizer steps.
+
 ## Repository Root
 
 | Path | Role | Notes |

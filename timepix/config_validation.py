@@ -21,6 +21,7 @@ TOP_LEVEL_KEYS = {
     "handcrafted_features",
     "output",
     "grid",
+    "evaluation",
     "_config_path",
     "_config_dir",
 }
@@ -38,7 +39,7 @@ SECTION_KEYS = {
         "modalities",
         "config_path",
     },
-    "task": {"type", "primary_metric", "max_angle"},
+    "task": {"type", "primary_metric", "max_angle", "tie_break_metrics"},
     "model": {
         "name",
         "pretrained",
@@ -58,6 +59,7 @@ SECTION_KEYS = {
         "gate",
         "film",
         "expert_gate",
+        "preserve_late_resolution",
     },
     "loss": {
         "name",
@@ -91,9 +93,11 @@ SECTION_KEYS = {
         "resume_from",
         "mixed_precision",
         "mixed_precision_dtype",
+        "require_cuda",
     },
-    "split": {"train", "val", "test", "reuse_split", "path", "seed"},
-    "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask"},
+    "split": {"train", "val", "test", "reuse_split", "path", "seed", "require_frame_groups"},
+    "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask", "input_representation"},
+    "evaluation": {"run_test", "save_validation_predictions", "task_id", "experiment_id"},
     "augmentation": {"rotation_90"},
     "handcrafted_features": {"enabled", "standardize", "features", "source_modalities"},
     "output": {"root"},
@@ -218,6 +222,25 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
 
     model_cfg = _require_mapping(cfg.get("model", {}), "model", errors) or {}
     model_name = model_cfg.get("name", "resnet18")
+    if "preserve_late_resolution" in model_cfg:
+        _check_bool(model_cfg["preserve_late_resolution"], "model.preserve_late_resolution", errors)
+        if model_cfg["preserve_late_resolution"] and model_name not in {"resnet18", "resnet18_no_maxpool"}:
+            errors.append("preserve_late_resolution only supports resnet18_no_maxpool")
+    representation = cfg.get("data", {}).get("input_representation", "signal")
+    if representation not in {"signal", "hit_mask"}:
+        errors.append("data.input_representation must be signal or hit_mask")
+    if representation == "hit_mask" and (modalities != ["ToT"] or cfg.get("data", {}).get("add_hit_mask", False)):
+        errors.append("hit_mask requires ToT only, add_hit_mask=false")
+    for key in ("run_test", "save_validation_predictions"):
+        if key in cfg.get("evaluation", {}):
+            _check_bool(cfg["evaluation"][key], f"evaluation.{key}", errors)
+    if "require_cuda" in cfg.get("training", {}):
+        _check_bool(cfg["training"]["require_cuda"], "training.require_cuda", errors)
+    ties = task_cfg.get("tie_break_metrics", [])
+    if not isinstance(ties, list) or not all(isinstance(x, str) and x.startswith("val_") for x in ties):
+        errors.append("task.tie_break_metrics must be a list of validation metric names")
+    if cfg.get("split", {}).get("require_frame_groups", False) and not cfg.get("split", {}).get("reuse_split", True):
+        errors.append("Frame-group protocol requires reuse_split=true")
     if model_name not in SUPPORTED_MODELS:
         errors.append(f"model.name must be one of {sorted(SUPPORTED_MODELS)}, got {model_name!r}")
     if "pretrained" in model_cfg:

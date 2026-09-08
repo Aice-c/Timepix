@@ -1,0 +1,9 @@
+base: carbon_controls_common.yaml
+experiment_name: carbon_t7_mask_seed42
+data:
+  input_representation: hit_mask
+normalization:
+  ToT:
+    enabled: false
+evaluation:
+  experiment_id: T7-Mask

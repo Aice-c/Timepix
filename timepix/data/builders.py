@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+from dataclasses import asdict
 from typing import Any
 
 from torch.utils.data import DataLoader
@@ -13,6 +15,7 @@ from .dataset import TimepixDataset, collect_samples
 from .features import HandcraftedFeatureExtractor, compute_feature_scaler, parse_feature_config
 from .normalization import compute_normalizer
 from .splits import load_split_manifest, save_split_manifest, stratified_split
+from .frame_groups import validate_group_manifest
 from .transforms import normalize_toa_transform
 
 
@@ -92,6 +95,15 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     split_path = split_cfg.get("path")
     split_path = resolve_project_path(split_path) if split_path else _default_split_path(cfg, modalities)
 
+    if split_cfg.get("require_frame_groups", False):
+        if not reuse_split or not split_path.is_file():
+            raise ValueError("Required frame-group manifest missing; generate it before training")
+        frame_manifest = json.loads(split_path.read_text(encoding="utf-8"))
+        validate_group_manifest(frame_manifest, [r.key for r in records])
+        if frame_manifest.get("class_names", class_names) != class_names:
+            raise ValueError("Frame-group manifest class order does not match config")
+        if frame_manifest["split_seed"] != split_seed:
+            raise ValueError("Frame-group manifest seed does not match config")
     if reuse_split and split_path.exists():
         train_idx, val_idx, test_idx = load_split_manifest(split_path, records)
     else:
@@ -114,10 +126,11 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     data_dtype = data_cfg.get("dtype", "float32")
     toa_transform = normalize_toa_transform(data_cfg.get("toa_transform", "none"))
     add_hit_mask = bool(data_cfg.get("add_hit_mask", False))
+    input_representation = data_cfg.get("input_representation", "signal")
     normalizer = compute_normalizer(
         train_records,
         modalities,
-        cfg.get("normalization", {}),
+        {} if input_representation == "hit_mask" else cfg.get("normalization", {}),
         crop_size=crop_size,
         data_dtype=data_dtype,
         toa_transform=toa_transform,
@@ -147,6 +160,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
         label_type=label_type,
+        input_representation=input_representation,
     )
     val_dataset = TimepixDataset(
         val_records,
@@ -164,6 +178,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
         label_type=label_type,
+        input_representation=input_representation,
     )
     test_dataset = TimepixDataset(
         test_records,
@@ -181,6 +196,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         toa_transform=toa_transform,
         add_hit_mask=add_hit_mask,
         label_type=label_type,
+        input_representation=input_representation,
     )
 
     training_cfg = cfg.get("training", {})
@@ -229,6 +245,8 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "toa_transform": toa_transform,
         "add_hit_mask": add_hit_mask,
         "input_channels": len(modalities) + int(add_hit_mask),
+        "input_representation": input_representation,
+        "normalizer_stats": {k: asdict(v) for k, v in normalizer.stats.items()} if normalizer else {},
         "eval_mode": bool(eval_mode),
     }
     return loaders, info

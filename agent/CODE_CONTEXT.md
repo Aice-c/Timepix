@@ -1,5 +1,9 @@
 # 代码工程上下文
 
+## 碳离子最小对照新增接口（2026-09-09）
+
+`split.require_frame_groups`禁止缺manifest时退回事件随机划分；`data.input_representation=hit_mask`生成单通道0/1而非追加通道；`model.preserve_late_resolution`只取消ResNet18 no-maxpool的layer3/4首块主支与shortcut下采样。`task.tie_break_metrics`支持MAE/F1字典序选模；`evaluation.run_test=false`禁test，`save_validation_predictions=true`保存原帧限定的验证预测。`training.require_cuda`防止CPU误训练。旧配置默认行为不变。具体入口与测试见`agent/CARBON_CONTROLS_RUNBOOK.md`。
+
 本文档说明当前 Timepix 新实验系统的工程结构、运行链路和主要扩展点。它面向后续代码修改者，重点回答“实验配置如何进入训练流程”和“各模块负责什么”。旧版 `agent/CODE_CONTEXT.md` 因编码损坏已归档为 `agent/CODE_CONTEXT.old.md`。
 
 ## 1. 当前主链路
