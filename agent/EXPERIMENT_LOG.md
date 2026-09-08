@@ -6,7 +6,9 @@
 
 原帧键包含角度和完整ZIP成员路径，同原帧component后缀归为一组、跨角度同名前缀不合并。T7共102938事件/3690帧，V6共191426事件/1617帧，已生成固定分组划分，跨split原帧均为0。CE、lr3e-4、batch128、25epoch、patience8，Val argmax MAE→Macro-F1→早epoch选模，本轮不评估test。旧B1/B3是历史事件级划分参考，不作新协议初始化。
 
-新服务器`connect.westb.seetacloud.com:39951`正在配置；仅环境与部署验证，不启动实验。部署分支`deploy/carbon-controls-39951`从远端main隔离创建，只纳入本轮代码，不带入本机其他未推送提交或数据处理改动。完整命令与边界见`agent/CARBON_CONTROLS_RUNBOOK.md`。
+新服务器`connect.westb.seetacloud.com:39951`环境、代码、数据与GPU预检已通过，训练未启动。部署分支`deploy/carbon-controls-39951`从远端main隔离创建，只纳入本轮代码，不带入本机其他未推送提交或数据处理改动。完整命令与边界见`agent/CARBON_CONTROLS_RUNBOOK.md`。
+
+部署验收：RTX4090 24GB，复用torch2.8.0+cu128，补tmux及缺失依赖，pip check通过；服务器25项测试通过。294364事件逐文件SHA与本地一致，固定T7/V6 split校验通过。batch128合成前后向的HiRes峰值约1.90GiB（不含Adam状态），维持原batch。GitHub直连异常通过学术加速解决。数据盘余量约43G，未训练、无残留GPU任务。配置子代理Mill负责执行，主控核对回传证据；详情与哈希见`agent/CARBON_SERVER_39951.md`。后续仍遵守T7-Mask条件启动与验证集选模，不因部署完成自动启动训练。
 
 本文档是 Timepix 极角识别项目的实验决策主日志。它根据旧版日志 `agent/EXPERIMENT_LOG.old.md`、当前配置目录 `configs/experiments/`、训练脚本和已同步实验结论重新整理，目标是让后续论文写作和 5.5 Pro 交接不再依赖零散对话记录。
 

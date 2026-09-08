@@ -7,7 +7,7 @@
 - SSH：`ssh -p 39951 root@connect.westb.seetacloud.com`，使用本机已有密钥。
 - 主控在本地隔离工作区`D:/Project/.deploy-worktrees/Timepix-carbon-39951`编辑并推送分支`deploy/carbon-controls-39951`。基线`origin/main`为`0cac19a`；不带入原main的两个论文提交，不提交无关工作区改动。
 - Mill仅按主控命令配置环境、克隆已推送代码并校验数据，异常反馈，不自行修改代码或实验配置。
-- 仓库计划放`/root/autodl-tmp/Timepix`，`/root/Timepix`只作兼容入口；输出随仓库落数据盘，不占系统盘。
+- 仓库已放`/root/autodl-tmp/Timepix`，`/root/Timepix`为指向它的软链接；输出随仓库落数据盘，不占系统盘。
 
 ## 初检与环境决策
 
@@ -40,6 +40,15 @@ python scripts/check_carbon_controls.py --data-root /root/autodl-tmp/Proton_C --
 
 ## 状态
 
-- 本地隔离测试：25 passed。
-- 服务器环境安装、仓库同步、数据完整性与显存预检：进行中，后续以验收记录更新。
+- 本地隔离测试：25 passed。代码提交`6ee007f39319fbb90ae997541dd343a3d9e13a5f`，已用`git ls-remote`确认远端同一SHA。远端main未改变。
+- 环境补齐完成：tmux3.2a、SciPy1.16.1、scikit-learn1.7.1、pytest8.4.2；pytest依赖使pluggy1.0.0升至1.6.0。`pip check`通过，CUDA小张量计算通过，torch/torchvision/numpy保持原版本。
+- 本地事件包：294364事件，未压缩6643575746字节，ZIP168081490字节，逐成员哈希通过；SHA256=`b61199dcdf3c11f2de77a5b721e901e9deb09b10272c508e7c393fc9b5b2b74c`。
+- 协议包：4785812字节，SHA256=`e63df001d50d1fc4d5c7e6c22f3146786c20e18172bdc252e739c5689ca2636c`。包内文件SHA与manifest内部SHA属于不同层次，分别核验。
+- 首次Git clone出现HTTP/2 framing错误，HTTP/1.1直连重试超时；主控批准在同一shell中`source /etc/network_turbo`后，HTTP/1.1浅克隆成功。未改全局Git配置，未绕过TLS。
+- 服务器仓库SHA与指定提交一致，工作区干净；服务器25项测试通过，`train.py --help`通过。
+- 事件包、协议包和两份split JSON文件级SHA核验通过；解压后的294364事件全部逐文件SHA一致，事件范围完全匹配。未重新筛选、改写矩阵或划分。
+- GPU预检通过：四组均实际batch128、AMP合成前后向、optimizer_steps=0。峰值allocated为T7-ToT 871473664字节、T7-Mask 871703040字节、V6-Base 871698944字节、V6-HiRes 2039223296字节；HiRes约1.90GiB，不含优化器状态。本轮无需改batch。
+- Base尺寸50→49→49→25→13→7→1，HiRes为50→49→49→25→25→25→1。V6两模型参数量均11433350。
+- 数据盘解压后约7.2G已用、43G可用；最终检查无训练进程，GPU显存回落至1MiB。
+- 日志已回传`D:/Project/Timepix/outputs/carbon_server_setup_20260909/`。预检JSON已回传原协议目录，文件SHA256=`1feec4dca1fd81a3f5f830d2e25f63c2f8ddbc7d0787421282969c882edd84ff`，与服务器一致。
 - 训练：未启动。
