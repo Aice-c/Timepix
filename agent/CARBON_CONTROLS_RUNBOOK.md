@@ -8,9 +8,9 @@
 
 | 标识 | 角度 | 输入 | 网络 | 执行状态 |
 | --- | --- | --- | --- | --- |
-| T7-ToT | 10/20/30/45/50/60/70 | 正式ToT表示 | ResNet18 no-maxpool | 训练完成best3/stop11，验证有剧烈波动，结果复核中 |
-| T7-Mask | 同T7-ToT | 原保存矩阵x>0的0/1掩膜 | 同T7-ToT | 配置已完成；T7-ToT学习正常后再批准启动 |
-| V6-Base | 80/82/84/86/88/90 | 正式ToT表示 | ResNet18 no-maxpool | 主控已放行，等待实验员启动 |
+| T7-ToT | 10/20/30/45/50/60/70 | 正式ToT表示 | ResNet18 no-maxpool | best3/stop11，回传与一致性核验完成；验证有剧烈波动 |
+| T7-Mask | 同T7-ToT | 原保存矩阵x>0的0/1掩膜 | 同T7-ToT | 主控已放行，等待V6两组结束、GPU空闲 |
+| V6-Base | 80/82/84/86/88/90 | 正式ToT表示 | ResNet18 no-maxpool | 正在训练 |
 | V6-HiRes | 同V6-Base | 同V6-Base | 只取消layer3/4首块主支和shortcut stride2 | batch128显存预检通过，Base运行成功后串行启动 |
 
 执行顺序更新：T7-ToT完成后，T7分析与V6两组训练并行进行；Mask仍需单独放行，不能与V6争抢同一GPU。该调整仅改变执行顺序，不改变任何配对协议或训练预算。
