@@ -10,6 +10,8 @@
 - `scripts/prepare_carbon_controls.py`, `check_carbon_controls.py`, `summarize_carbon_controls.py`, `package_carbon_controls.py`: immutable preparation, forward/memory preflight, validation-only summaries and protocol ZIP.
 - `timepix/data/frame_groups.py`: angle-qualified source-frame isolation; `timepix/training/selection.py`, `validation_export.py`: selection and provenance exports.
 - `tests/test_carbon_protocol.py`: CPU-only regression tests with no real optimizer steps.
+- `outputs/carbon_angle_controls_20260909/analysis_t7_tot_initial/`, `analysis_t7_pair_initial/`, `analysis_v6_base_initial/`, `analysis_v6_pair_initial/`: local-only result/transfer/metric/checkpoint audits and full epoch curves; generated artifacts are not Git inputs.
+- `outputs/carbon_angle_controls_20260909/final_review/`: new final report and all-four validation summary; preserves the original preparation report. Checkpoints remain in the four exact experiment run directories, excluded from lightweight upload packages.
 
 ## Repository Root
 
