@@ -150,6 +150,7 @@ def train_one_epoch(
     autocast_factory=None,
     grad_scaler=None,
     aux_loss_cfg: dict | None = None,
+    step_observer=None,
 ):
     model.train()
     total_loss = 0.0
@@ -195,11 +196,17 @@ def train_one_epoch(
         _record_diagnostics(output, labels, diagnostics_list)
         if use_scaler:
             grad_scaler.scale(loss).backward()
+            if step_observer is not None:
+                step_observer.before_step(model, grad_scaler)
             grad_scaler.step(optimizer)
             grad_scaler.update()
         else:
             loss.backward()
+            if step_observer is not None:
+                step_observer.before_step(model, None)
             optimizer.step()
+        if step_observer is not None:
+            step_observer.after_step()
 
         batch_size = labels.shape[0]
         total_loss += float(loss.item()) * batch_size

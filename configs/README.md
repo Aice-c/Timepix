@@ -1,8 +1,21 @@
 # Timepix 配置与命令索引
 
+## 碳离子T7稳定性（2026-09-16，本地适配，待诊断后训练）
+
+唯一新配置`carbon_t7_stability_lr1e4_seed42.yaml`：普通卷积lr1e-4、seed42；用户取消同期3e-4复现，并明确恢复**Val Acc→Val MAE→Val Macro-F1→更早epoch**。旧R42和CDC/APDC保持历史MAE口径，不改公共配置。先只读旧checkpoint诊断，经主控审核再训练；详细命令见`agent/CARBON_STABILITY_RUNBOOK.md`。
+
+```bash
+cd /root/autodl-tmp/Timepix
+/root/miniconda3/bin/python scripts/diagnose_carbon_stability.py --data-root /root/autodl-tmp/Proton_C
+# 主控审核诊断后执行唯一训练，入口自动汇总：
+/root/miniconda3/bin/python scripts/run_carbon_stability.py --data-root /root/autodl-tmp/Proton_C --diagnostic-approved
+# 仅重建汇总，不训练：
+/root/miniconda3/bin/python scripts/summarize_carbon_stability.py
+```
+
 ## 碳离子T7差分参数化（2026-09-16，六项训练/完整回传/复核已完成）
 
-`carbon_t7_cdc_layer1.yaml`/`carbon_t7_apdc_layer1.yaml`两模板派生六个`*_theta07_seed{42,43,44}.yaml`。仅四个layer1卷积改变，复用旧T7划分和标准化metadata、旧CE训练协议；R42不重训、test不推理。新服务器55870已克隆，训练尚未启动。部署、唯一tmux队列、完整回传命令见`agent/CARBON_DIFFERENCE_RUNBOOK.md`。
+`carbon_t7_cdc_layer1.yaml`/`carbon_t7_apdc_layer1.yaml`两模板派生六个`*_theta07_seed{42,43,44}.yaml`。仅四个layer1卷积改变，复用旧T7划分和标准化metadata、旧CE训练协议；R42不重训、test不推理。服务器55870六项训练、完整回传与独立复核已完成，历史选模为MAE优先。部署、唯一tmux队列、完整回传命令见`agent/CARBON_DIFFERENCE_RUNBOOK.md`。
 
 ```bash
 cd /root/autodl-tmp/Timepix

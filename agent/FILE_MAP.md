@@ -1,5 +1,15 @@
 # File Map
 
+## Carbon Stability (2026-09-16)
+
+- `agent/CARBON_STABILITY_RUNBOOK.md`: approved one-run scope, explicit Acc-first rule change, full diagnostic/train/summary/return commands.
+- `configs/experiments/carbon_t7_stability_lr1e4_seed42.yaml`: only new training cell; no concurrent 3e-4 repeat; old shared config unchanged.
+- `timepix/training/stability.py`: observational optimizer/gradient trace and copied-model BN probe; opt-in hooks in runner/trainer.
+- `timepix/config_validation.py`: validates optional `training.stability_diagnostics.enabled` boolean; old configs unchanged.
+- `scripts/diagnose_carbon_stability.py`, `run_carbon_stability.py`, `summarize_carbon_stability.py`: staged diagnostic/controller review/train workflow and Astra rule-change handoff.
+- `tests/test_stability_diagnostics.py`: small CPU behavior tests; no local detector-data training.
+- `outputs/carbon_stability_20260916/` and `outputs/experiments/carbon_stability_20260916/`: new artifacts only, not committed; old R42/CDC/APDC unchanged.
+
 ## Carbon Difference Controls (2026-09-16)
 
 - `agent/CARBON_DIFFERENCE_PLAN.md`, `CARBON_DIFFERENCE_RUNBOOK.md`: frozen six-run scope, complete deployment/training/summary/return commands.

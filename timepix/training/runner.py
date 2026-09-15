@@ -11,6 +11,7 @@ import platform
 import subprocess
 import sys
 import time
+from contextlib import nullcontext
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
@@ -644,19 +645,19 @@ def run_experiment(
         stopped_epoch = epoch
         lr = optimizer.param_groups[0]["lr"]
         print(f"\nEpoch {epoch}/{epochs} | lr={lr:.6g}")
-        train_payload = train_one_epoch(
-            model,
-            loaders["train"],
-            criterion,
-            optimizer,
-            device,
-            task,
-            progress_bar=show_progress,
-            desc=f"train {epoch}/{epochs}",
-            autocast_factory=autocast_factory,
-            grad_scaler=grad_scaler,
-            aux_loss_cfg=aux_loss_cfg,
-        )
+        audit_enabled = bool(training_cfg.get('stability_diagnostics', {}).get('enabled', False))
+        audit_context = nullcontext(None)
+        if audit_enabled:
+            from .stability import StepAudit
+            audit_context = StepAudit(optimizer, exp_dir / 'stability/steps.jsonl', epoch)
+        with audit_context as observer:
+            observer_kwargs = {'step_observer': observer} if observer is not None else {}
+            train_payload = train_one_epoch(
+                model, loaders["train"], criterion, optimizer, device, task,
+                progress_bar=show_progress, desc=f"train {epoch}/{epochs}",
+                autocast_factory=autocast_factory, grad_scaler=grad_scaler,
+                aux_loss_cfg=aux_loss_cfg, **observer_kwargs,
+            )
         val_payload = evaluate(
             model,
             loaders["val"],
@@ -673,6 +674,12 @@ def run_experiment(
 
         train_metrics = _metrics_from_payload(train_payload, task, angle_values, max_angle, label_type, class_names)
         val_metrics = _metrics_from_payload(val_payload, task, angle_values, max_angle, label_type, class_names)
+        if audit_enabled:
+            from .stability import batchnorm_snapshot
+            _atomic_torch_save(_clone_state_dict(model), exp_dir / f'stability/epoch_{epoch:03d}.pth')
+            write_json(exp_dir / f'stability/epoch_{epoch:03d}.json', dict(
+                epoch=epoch, lr=lr, validation=val_metrics, batchnorm=batchnorm_snapshot(model),
+                selection_rule=task_cfg, test_evaluated=False))
         score = _primary_score(val_metrics, task, primary_metric)
         epoch_seconds = time.perf_counter() - epoch_started_at
 

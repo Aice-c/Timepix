@@ -96,6 +96,7 @@ SECTION_KEYS = {
         "mixed_precision_dtype",
         "require_cuda",
         "preserve_rng_state",
+        "stability_diagnostics",
     },
     "split": {"train", "val", "test", "reuse_split", "path", "seed", "require_frame_groups"},
     "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask", "input_representation", "normalizer_metadata"},
@@ -335,6 +336,12 @@ def validate_experiment_config(cfg: Mapping[str, Any]) -> None:
             errors.append("loss.pair_aux.class_weight must be 'balanced', 'none', or a list of two non-negative numbers")
 
     training_cfg = _require_mapping(cfg.get("training", {}), "training", errors) or {}
+    if "stability_diagnostics" in training_cfg:
+        diagnostics = _require_mapping(training_cfg["stability_diagnostics"], "training.stability_diagnostics", errors)
+        if diagnostics is not None:
+            _check_unknown_keys(diagnostics, {"enabled"}, "training.stability_diagnostics", errors)
+            if "enabled" in diagnostics:
+                _check_bool(diagnostics["enabled"], "training.stability_diagnostics.enabled", errors)
     for key in ("epochs", "batch_size"):
         if key in training_cfg:
             _check_positive_int(training_cfg[key], f"training.{key}", errors)

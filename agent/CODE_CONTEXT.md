@@ -1,5 +1,9 @@
 # 代码工程上下文
 
+## T7稳定性观测（2026-09-16）
+
+`training.stability_diagnostics.enabled`默认关闭；启用时`trainer`接收可选StepAudit，读取scaled梯度并还原L2范数，借optimizer post-step hook记录真实更新，不unscale/clipping或修改梯度。runner保存逐epoch模型state_dict、BN摘要及验证指标。旧配置不改变更新逻辑。`scripts/diagnose_carbon_stability.py`用旧R42副本比较FP32/AMP与train-only BN统计重估，未训练且test不迭代；`run_carbon_stability.py`在主控诊断批准后只运行一个lr1e-4 seed42，锁防重复，半成品不自动恢复。新配置覆盖选模为Acc→MAE→F1，旧carbon公共配置仍MAE优先。详情见`CARBON_STABILITY_RUNBOOK.md`。
+
 ## 碳离子差分队列新增接口（2026-09-16）
 
 `timepix/models/difference.py`实现CDC和混合APDC的可微有效核，registry新增两个layer1模型名。先构建完整原ResNet，再替换四个forward并保留原始Parameter对象及state_dict键，不额外抽取随机数。`data.normalizer_metadata`从旧run读取全局统计并验证数据/预处理/manifest哈希，不匹配拒绝启动，不回退重拟合。`training.preserve_rng_state=true`仅在新协议启用checkpoint随机状态及累计fit恢复；旧配置不启用。验证预测追加run_id/training_seed/frame_key别名，不删原字段。
