@@ -1,5 +1,9 @@
 # 实验组功能说明
 
+## 当前碳离子新阶段（2026-09-16）
+
+`carbon_difference_controls_20260915`：T7的CDC/混合APDC三训练seed顺序对照，当前本地适配完成、未训练。旧`carbon_angle_controls_20260909`四格已完成，只引用T7-ToT seed42作历史基线。新旧输出独立。新组目的、六项配置及完整命令见`CARBON_DIFFERENCE_RUNBOOK.md`，状态决策见`EXPERIMENT_LOG.md`，不自动开展V6或新搜索。
+
 新自动化实验系统支持 `experiment_group`，用于把不同研究问题的实验分开保存和汇总。
 
 ## 为什么需要实验组

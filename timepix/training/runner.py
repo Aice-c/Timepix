@@ -449,6 +449,7 @@ def _save_last_checkpoint(
     experiment_dir: Path,
     cfg: dict,
     data_root_override: str | None,
+    fit_seconds: float = 0.0,
 ) -> None:
     checkpoint = {
         "epoch": epoch,
@@ -465,6 +466,10 @@ def _save_last_checkpoint(
         "config": cfg,
         "data_root_override": data_root_override,
     }
+    if cfg.get('training', {}).get('preserve_rng_state', False):
+        from .random_state import capture_rng_state
+        checkpoint['rng_state'] = capture_rng_state()
+        checkpoint['fit_seconds'] = fit_seconds
     _atomic_torch_save(checkpoint, path)
 
 
@@ -528,6 +533,20 @@ def run_experiment(
     ).to(device)
     model_initialization_info = _initialize_model_from_config(model, cfg, seed=seed, output_root=output_root)
     param_count = _count_parameters(model)
+    reproducibility_info = None
+    if training_cfg.get('preserve_rng_state', False):
+        import hashlib
+        digest = hashlib.sha256()
+        for key, value in model.state_dict().items():
+            digest.update(key.encode())
+            digest.update(value.detach().cpu().contiguous().numpy().tobytes())
+        reproducibility_info = dict(initial_raw_state_sha256=digest.hexdigest(),
+            cpu_rng_after_initialization_sha256=hashlib.sha256(torch.get_rng_state().numpy().tobytes()).hexdigest(),
+            sampler='existing DataLoader RandomSampler using seeded global Torch RNG',
+            workers='PyTorch default worker initialization from DataLoader base seed',
+            cudnn_deterministic=torch.backends.cudnn.deterministic,
+            cudnn_benchmark=torch.backends.cudnn.benchmark,
+            deterministic_algorithms=torch.are_deterministic_algorithms_enabled())
 
     criterion = build_loss(
         cfg,
@@ -610,8 +629,17 @@ def run_experiment(
 
     stopped_epoch = start_epoch - 1
     early_stopped = False
+    previous_fit_seconds = 0.0
+    if resume_checkpoint is not None and training_cfg.get('preserve_rng_state', False):
+        from .random_state import restore_rng_state
+        if 'rng_state' not in resume_checkpoint:
+            raise ValueError('This run requires a checkpoint with RNG state; refusing approximate resume')
+        restore_rng_state(resume_checkpoint['rng_state'])
+        previous_fit_seconds = float(resume_checkpoint.get('fit_seconds', 0.0))
+        if patience > 0 and patience_counter >= patience:
+            early_stopped = True
     fit_started_at = time.perf_counter()
-    for epoch in range(start_epoch, epochs + 1):
+    for epoch in range(start_epoch, start_epoch if early_stopped else epochs + 1):
         epoch_started_at = time.perf_counter()
         stopped_epoch = epoch
         lr = optimizer.param_groups[0]["lr"]
@@ -726,6 +754,7 @@ def run_experiment(
                 experiment_dir=exp_dir,
                 cfg=cfg,
                 data_root_override=str(data_info["data_root"]) if data_root_override is not None else None,
+                fit_seconds=previous_fit_seconds + time.perf_counter() - fit_started_at,
             )
 
         if patience > 0 and patience_counter >= patience:
@@ -733,7 +762,7 @@ def run_experiment(
             early_stopped = True
             break
 
-    fit_seconds = time.perf_counter() - fit_started_at
+    fit_seconds = previous_fit_seconds + time.perf_counter() - fit_started_at
     if best_state is not None:
         _atomic_torch_save(best_state, best_model_path)
         model.load_state_dict(best_state)
@@ -792,6 +821,7 @@ def run_experiment(
         "task": task,
         "model": cfg.get("model", {}),
         "model_initialization": model_initialization_info,
+        "reproducibility": reproducibility_info,
         "loss": cfg.get("loss", {}),
         "training": training_cfg,
         "mixed_precision": mixed_precision_info,

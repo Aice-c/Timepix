@@ -1,0 +1,8 @@
+base: carbon_controls_common.yaml
+experiment_group: carbon_difference_controls_20260915
+model:
+  difference_theta: 0.7
+training:
+  preserve_rng_state: true
+data:
+  normalizer_metadata: outputs/experiments/carbon_angle_controls_20260909/20260909_014839_carbon_t7_tot_seed42/metadata.json

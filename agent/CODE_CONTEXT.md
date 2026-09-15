@@ -1,5 +1,11 @@
 # 代码工程上下文
 
+## 碳离子差分队列新增接口（2026-09-16）
+
+`timepix/models/difference.py`实现CDC和混合APDC的可微有效核，registry新增两个layer1模型名。先构建完整原ResNet，再替换四个forward并保留原始Parameter对象及state_dict键，不额外抽取随机数。`data.normalizer_metadata`从旧run读取全局统计并验证数据/预处理/manifest哈希，不匹配拒绝启动，不回退重拟合。`training.preserve_rng_state=true`仅在新协议启用checkpoint随机状态及累计fit恢复；旧配置不启用。验证预测追加run_id/training_seed/frame_key别名，不删原字段。
+
+`run_carbon_difference_queue.py`运行独立进程、锁保护、精确匹配复用/恢复，无训练墙钟限额；`summarize_carbon_difference.py`逐验证预测计算，先逐seed再汇总，R42不伪造标准差。命令/边界见`CARBON_DIFFERENCE_RUNBOOK.md`。本节新代码不改变旧T7/V6已生成结果。
+
 ## 碳离子最小对照新增接口（2026-09-09）
 
 `split.require_frame_groups`禁止缺manifest时退回事件随机划分；`data.input_representation=hit_mask`生成单通道0/1而非追加通道；`model.preserve_late_resolution`只取消ResNet18 no-maxpool的layer3/4首块主支与shortcut下采样。`task.tie_break_metrics`支持MAE/F1字典序选模；`evaluation.run_test=false`禁test，`save_validation_predictions=true`保存原帧限定的验证预测。`training.require_cuda`防止CPU误训练。旧配置默认行为不变。具体入口与测试见`agent/CARBON_CONTROLS_RUNBOOK.md`。

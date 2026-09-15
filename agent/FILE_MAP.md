@@ -1,5 +1,14 @@
 # File Map
 
+## Carbon Difference Controls (2026-09-16)
+
+- `agent/CARBON_DIFFERENCE_PLAN.md`, `CARBON_DIFFERENCE_RUNBOOK.md`: frozen six-run scope, complete deployment/training/summary/return commands.
+- `configs/experiments/carbon_difference_common.yaml`, `carbon_t7_{cdc,apdc}_layer1.yaml`, six `*_theta07_seed{42,43,44}.yaml`: old protocol inheritance and new concrete cells.
+- `timepix/models/difference.py`: raw-parameter-preserving CDC / mixed APDC; `training/random_state.py`: opt-in safe RNG snapshots.
+- `scripts/run_carbon_difference_queue.py`, `check_carbon_difference.py`, `summarize_carbon_difference.py`: sequential resumable queue, two new-model batch checks, validation-only seed aggregation and light package.
+- `tests/test_difference_convolution.py`, `test_difference_protocol.py`, `test_difference_queue.py`: targeted tests only; no full old-protocol regression.
+- `outputs/carbon_difference_controls_20260915/`: generated manifest/resolved configs/summaries/package; checkpoints remain under the same group in `outputs/experiments/`, not committed.
+
 ## Carbon Controls Deployment (2026-09-09)
 
 - `agent/CARBON_SERVER_39951.md`: isolated deployment, environment and data verification.

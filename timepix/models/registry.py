@@ -11,6 +11,7 @@ from .dual_stream import (
     WarmStartedExpertGateTimepix,
 )
 from .handcrafted import HandcraftedMLPTimepix
+from .difference import replace_layer1
 from .resnet import ResNet18Timepix
 from .resnet18_original import ResNet18OriginalTimepix
 from .resnet_maxpool import ResNet18MaxPoolTimepix
@@ -54,8 +55,11 @@ def build_model(
     conv1_stride = int(model_cfg.get("conv1_stride", model_cfg.get("stride", 1)))
     conv1_padding = int(model_cfg.get("conv1_padding", model_cfg.get("padding", 0)))
 
-    if name in {"resnet18", "resnet18_no_maxpool"}:
-        return ResNet18Timepix(
+    difference_models = {"resnet18_no_maxpool_cdc_layer1": "cdc", "resnet18_no_maxpool_apdc_layer1": "apdc"}
+    if name in {"resnet18", "resnet18_no_maxpool"} or name in difference_models:
+        if name in difference_models and model_cfg.get("preserve_late_resolution", False):
+            raise ValueError("Difference controls do not combine with HiRes")
+        model = ResNet18Timepix(
             **common,
             preserve_late_resolution=bool(model_cfg.get("preserve_late_resolution", False)),
             feature_dim=int(model_cfg.get("feature_dim", 256)),
@@ -65,6 +69,9 @@ def build_model(
             padding=conv1_padding,
             pretrained=bool(model_cfg.get("pretrained", False)),
         )
+        if name in difference_models:
+            replace_layer1(model, difference_models[name], float(model_cfg.get("difference_theta", 0.7)))
+        return model
     if name in {"resnet18_maxpool", "resnet18_with_maxpool"}:
         return ResNet18MaxPoolTimepix(
             **common,

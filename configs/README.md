@@ -1,5 +1,16 @@
 # Timepix 配置与命令索引
 
+## 碳离子T7差分参数化（2026-09-16，本地适配完成）
+
+`carbon_t7_cdc_layer1.yaml`/`carbon_t7_apdc_layer1.yaml`两模板派生六个`*_theta07_seed{42,43,44}.yaml`。仅四个layer1卷积改变，复用旧T7划分和标准化metadata、旧CE训练协议；R42不重训、test不推理。新服务器55870已克隆，训练尚未启动。部署、唯一tmux队列、完整回传命令见`agent/CARBON_DIFFERENCE_RUNBOOK.md`。
+
+```bash
+cd /root/autodl-tmp/Timepix
+/root/miniconda3/bin/python scripts/run_carbon_difference_queue.py --data-root /root/autodl-tmp/Proton_C
+# 上述入口依次训练六项并自动汇总；只重建汇总时使用：
+/root/miniconda3/bin/python scripts/summarize_carbon_difference.py --output outputs/carbon_difference_controls_20260915
+```
+
 ## 碳离子T7/V6（2026-09-09，四组训练已完成）
 
 配置为`carbon_t7_tot_seed42.yaml`、`carbon_t7_mask_seed42.yaml`、`carbon_v6_base_seed42.yaml`、`carbon_v6_hires_seed42.yaml`；公共配置`carbon_controls_common.yaml`。指定`CARBON_DATA_ROOT`读取同版本事件；复用本地生成的`outputs/carbon_angle_controls_20260909/{T7,V6}_frame_split.json`，不得在服务器重划分。完整训练、预检、汇总命令见`agent/CARBON_CONTROLS_RUNBOOK.md`。本轮test禁评估，Mask需在T7-ToT学习状态复核后批准，HiRes先做GPU显存预检。

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+import hashlib
+import json
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -36,6 +39,39 @@ class Normalizer:
         if stats.log1p:
             x = torch.log1p(torch.clamp(x, min=0.0))
         return (x - stats.mean) / max(stats.std, self.eps)
+
+
+def load_frozen_normalizer(metadata_path, modalities, normalization_config, split_path, dataset_cfg, data_cfg):
+    """Reuse audited training statistics; a provenance mismatch never triggers a refit."""
+    metadata_path, split_path = Path(metadata_path), Path(split_path)
+    raw = metadata_path.read_bytes()
+    metadata = json.loads(raw)
+    info = metadata['data_info']
+    with split_path.open('rb') as stream:
+        split_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
+    if split_hash != metadata.get('split_manifest_hash'):
+        raise ValueError('Frozen normalizer split hash mismatch')
+    if info['class_names'] != dataset_cfg.get('class_names') or info['modalities'] != modalities:
+        raise ValueError('Frozen normalizer classes/modalities mismatch')
+    if metadata['dataset']['name'] != dataset_cfg['name']:
+        raise ValueError('Frozen normalizer dataset identity mismatch')
+    for name, default in [('crop_size', 0), ('dtype', 'float32'), ('input_representation', 'signal'),
+                          ('toa_transform', 'none'), ('add_hit_mask', False)]:
+        if metadata.get('data', {}).get(name, default) != data_cfg.get(name, default):
+            raise ValueError(f'Frozen normalizer preprocessing mismatch: {name}')
+    stats = {}
+    for modality in modalities:
+        config = normalization_config.get(modality, {})
+        if not config.get('enabled', False):
+            raise ValueError('Frozen normalizer requires enabled original modalities')
+        values = ModalityStats(**info['normalizer_stats'][modality])
+        if any(getattr(values, key) != bool(config.get(key, False)) for key in ('log1p', 'ignore_zero')):
+            raise ValueError('Frozen normalizer transform/statistic mask mismatch')
+        if not math.isfinite(values.mean) or not math.isfinite(values.std) or values.std <= 0:
+            raise ValueError('Invalid frozen normalizer mean/std')
+        stats[modality] = values
+    return Normalizer(stats), dict(metadata_path=str(metadata_path),
+        metadata_sha256=hashlib.sha256(raw).hexdigest(), split_sha256=split_hash, refitted=False)
 
 
 def center_crop_array(array: np.ndarray, crop_size: int) -> np.ndarray:

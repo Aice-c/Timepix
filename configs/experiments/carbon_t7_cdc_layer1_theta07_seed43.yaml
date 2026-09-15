@@ -1,0 +1,6 @@
+base: carbon_t7_cdc_layer1.yaml
+experiment_name: carbon_t7_cdc_layer1_theta07_seed43
+training:
+  seed: 43
+evaluation:
+  experiment_id: A43

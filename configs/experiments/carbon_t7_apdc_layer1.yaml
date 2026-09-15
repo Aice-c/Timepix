@@ -1,0 +1,3 @@
+base: carbon_difference_common.yaml
+model:
+  name: resnet18_no_maxpool_apdc_layer1

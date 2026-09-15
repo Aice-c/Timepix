@@ -60,6 +60,7 @@ SECTION_KEYS = {
         "film",
         "expert_gate",
         "preserve_late_resolution",
+        "difference_theta",
     },
     "loss": {
         "name",
@@ -94,9 +95,10 @@ SECTION_KEYS = {
         "mixed_precision",
         "mixed_precision_dtype",
         "require_cuda",
+        "preserve_rng_state",
     },
     "split": {"train", "val", "test", "reuse_split", "path", "seed", "require_frame_groups"},
-    "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask", "input_representation"},
+    "data": {"crop_size", "dtype", "toa_transform", "add_hit_mask", "input_representation", "normalizer_metadata"},
     "evaluation": {"run_test", "save_validation_predictions", "task_id", "experiment_id"},
     "augmentation": {"rotation_90"},
     "handcrafted_features": {"enabled", "standardize", "features", "source_modalities"},
@@ -106,6 +108,8 @@ SECTION_KEYS = {
 SUPPORTED_MODELS = {
     "resnet18",
     "resnet18_no_maxpool",
+    "resnet18_no_maxpool_cdc_layer1",
+    "resnet18_no_maxpool_apdc_layer1",
     "resnet18_maxpool",
     "resnet18_with_maxpool",
     "resnet18_original",

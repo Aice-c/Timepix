@@ -1,0 +1,6 @@
+base: carbon_t7_cdc_layer1.yaml
+experiment_name: carbon_t7_cdc_layer1_theta07_seed44
+training:
+  seed: 44
+evaluation:
+  experiment_id: A44

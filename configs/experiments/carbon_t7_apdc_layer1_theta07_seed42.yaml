@@ -1,0 +1,6 @@
+base: carbon_t7_apdc_layer1.yaml
+experiment_name: carbon_t7_apdc_layer1_theta07_seed42
+training:
+  seed: 42
+evaluation:
+  experiment_id: B42

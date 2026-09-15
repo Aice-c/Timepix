@@ -43,7 +43,7 @@ def export_validation(out, payload, loaders, data_info, cfg):
         raise ValueError('Validation provenance missing in split manifest')
     evaluation = cfg.get('evaluation', {})
     probability_fields = [f'prob_{a:g}' for a in angles]
-    fields = ['task_id', 'experiment_id', 'seed', 'sample_key', 'frame_group_key',
+    fields = ['run_id', 'training_seed', 'frame_key', 'task_id', 'experiment_id', 'seed', 'sample_key', 'frame_group_key',
               'raw_frame_member', 'true_angle', 'pred_angle', 'abs_error'] + probability_fields
     with (out / 'validation_predictions.csv').open('w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader()
@@ -51,6 +51,7 @@ def export_validation(out, payload, loaders, data_info, cfg):
             source = source_rows[record.key]
             pred_angle = float(angles[prob.argmax()])
             row = dict(task_id=evaluation.get('task_id', ''), experiment_id=evaluation.get('experiment_id', ''),
+                       run_id=out.name, training_seed=cfg.get('training', {}).get('seed', 42), frame_key=source['frame_group_key'],
                        seed=cfg.get('training', {}).get('seed', 42), sample_key=record.key,
                        frame_group_key=source['frame_group_key'], raw_frame_member=source.get('raw_frame_member', ''),
                        true_angle=float(angles[label]), pred_angle=pred_angle,

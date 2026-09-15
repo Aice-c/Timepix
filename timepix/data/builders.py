@@ -13,7 +13,7 @@ from timepix.config import PROJECT_ROOT, resolve_project_path
 
 from .dataset import TimepixDataset, collect_samples
 from .features import HandcraftedFeatureExtractor, compute_feature_scaler, parse_feature_config
-from .normalization import compute_normalizer
+from .normalization import compute_normalizer, load_frozen_normalizer
 from .splits import load_split_manifest, save_split_manifest, stratified_split
 from .frame_groups import validate_group_manifest
 from .transforms import normalize_toa_transform
@@ -127,14 +127,17 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
     toa_transform = normalize_toa_transform(data_cfg.get("toa_transform", "none"))
     add_hit_mask = bool(data_cfg.get("add_hit_mask", False))
     input_representation = data_cfg.get("input_representation", "signal")
-    normalizer = compute_normalizer(
-        train_records,
-        modalities,
-        {} if input_representation == "hit_mask" else cfg.get("normalization", {}),
-        crop_size=crop_size,
-        data_dtype=data_dtype,
-        toa_transform=toa_transform,
-    )
+    normalizer_provenance = None
+    if data_cfg.get("normalizer_metadata"):
+        normalizer, normalizer_provenance = load_frozen_normalizer(
+            resolve_project_path(data_cfg['normalizer_metadata']), modalities,
+            cfg.get('normalization', {}), split_path, dataset_cfg, data_cfg)
+    else:
+        normalizer = compute_normalizer(
+            train_records, modalities,
+            {} if input_representation == "hit_mask" else cfg.get("normalization", {}),
+            crop_size=crop_size, data_dtype=data_dtype, toa_transform=toa_transform,
+        )
 
     feature_scaler = None
     if feature_extractor.dim > 0 and handcrafted_cfg.get("standardize", True):
@@ -247,6 +250,7 @@ def build_dataloaders(cfg: dict[str, Any], data_root_override: str | None = None
         "input_channels": len(modalities) + int(add_hit_mask),
         "input_representation": input_representation,
         "normalizer_stats": {k: asdict(v) for k, v in normalizer.stats.items()} if normalizer else {},
+        "normalizer_provenance": normalizer_provenance,
         "eval_mode": bool(eval_mode),
     }
     return loaders, info
