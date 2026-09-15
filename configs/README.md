@@ -1,6 +1,6 @@
 # Timepix 配置与命令索引
 
-## 碳离子T7差分参数化（2026-09-16，本地适配完成）
+## 碳离子T7差分参数化（2026-09-16，六项训练/完整回传/复核已完成）
 
 `carbon_t7_cdc_layer1.yaml`/`carbon_t7_apdc_layer1.yaml`两模板派生六个`*_theta07_seed{42,43,44}.yaml`。仅四个layer1卷积改变，复用旧T7划分和标准化metadata、旧CE训练协议；R42不重训、test不推理。新服务器55870已克隆，训练尚未启动。部署、唯一tmux队列、完整回传命令见`agent/CARBON_DIFFERENCE_RUNBOOK.md`。
 

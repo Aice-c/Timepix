@@ -6,6 +6,8 @@
 
 `run_carbon_difference_queue.py`运行独立进程、锁保护、精确匹配复用/恢复，无训练墙钟限额；`summarize_carbon_difference.py`逐验证预测计算，先逐seed再汇总，R42不伪造标准差。命令/边界见`CARBON_DIFFERENCE_RUNBOOK.md`。本节新代码不改变旧T7/V6已生成结果。
 
+运行验收：提交`47dc2e0`的六项训练已全部exit0并完整回传（12个checkpoint），独立复算未发现正式汇总数值差异。分析只写新组`analysis_review/`，主控结论写`final_review/experiment_report.md`；不覆盖旧结果或回传原件。后续文档更新不代表改变了实际训练提交。
+
 ## 碳离子最小对照新增接口（2026-09-09）
 
 `split.require_frame_groups`禁止缺manifest时退回事件随机划分；`data.input_representation=hit_mask`生成单通道0/1而非追加通道；`model.preserve_late_resolution`只取消ResNet18 no-maxpool的layer3/4首块主支与shortcut下采样。`task.tie_break_metrics`支持MAE/F1字典序选模；`evaluation.run_test=false`禁test，`save_validation_predictions=true`保存原帧限定的验证预测。`training.require_cuda`防止CPU误训练。旧配置默认行为不变。具体入口与测试见`agent/CARBON_CONTROLS_RUNBOOK.md`。

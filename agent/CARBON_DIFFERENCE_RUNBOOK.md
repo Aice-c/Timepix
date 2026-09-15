@@ -2,9 +2,13 @@
 
 ## 状态与范围（2026-09-16）
 
-附件2026-09-15三seed版已批准。当前本地代码、两模板、六配置和定向测试已适配；尚未开始本轮训练。旧T7/V6结果不覆盖。新分支`codex/carbon-difference-55870`从隔离工作区`b56ad5a`建立，不夹带主工作区论文或数据处理改动。
+附件2026-09-15三seed版已批准。代码提交`47dc2e0`已部署，15项新改动测试及两模型GPU单批检查通过；六项于2026-09-16 02:18:56至05:28:40+08顺序完成，各run及队列退出码均为0。Rawls已完整回传并独立复核：115文件/1,448,620,831bytes/12个checkpoint的大小及SHA均匹配，290检查通过，1919数值对照无实质差异。主控完成结果审核，旧T7/V6及服务器回传原件不覆盖。新分支`codex/carbon-difference-55870`从隔离工作区`b56ad5a`建立，不夹带主工作区论文或数据处理改动。
 
-新克隆服务器：`ssh -p 55870 root@connect.westb.seetacloud.com`。实验员Gibbs唯一执行/监控，Pascal仅做本地只读代码审查；主控负责修正、Git和最终结果口径。训练完成后再安排分析员回传与复算。本轮不设运行时限，不因一项成绩好坏取消后续项，不自动启动V6。
+新克隆服务器：`ssh -p 55870 root@connect.westb.seetacloud.com`。实验员Gibbs唯一执行/监控，Pascal仅做本地只读代码审查，Rawls在训练结束后负责回传与复算；主控负责修正、Git和最终结果口径。本轮不设运行时限，不因一项成绩好坏取消后续项，不自动启动V6。
+
+训练验收：A42/B42/A43/B43/A44/B44的best/stop依次为24/25、17/25、21/25、24/25、20/25、23/25。B42在第25轮恰好满足patience8，正常早停；六项均只执行一次，无中断恢复或重跑，test均未评估。实验员未发现OOM、异常堆栈或非有限日志值；05:29:46检查无训练/队列/tmux残留，GPU 1MiB/0%，数据盘约40.60GiB。
+
+关机约定：用户要求完整完成后通过Computer Use关闭55870实例。浏览器接口连接失败，桌面接口又因无法可靠确认浏览器URL被安全检查停止，未执行关机。用户随后明确选择：完整回传核验后另开新对话尝试关机；本轮不绕过该限制、不调用其他关机方式。
 
 只读预检：Ubuntu22.04.5、RTX4090、驱动595.71.05、Python3.12.3、torch2.8.0+cu128、torchvision0.23.0+cu128、NumPy2.3.2、PyYAML6.0.2、SciPy1.16.1、sklearn1.7.1、pytest8.4.2、tmux3.2a。CUDA可用、GPU空闲、数据盘约41.95GiB。原T7 split与R42 metadata文件SHA逐一匹配本地旧核验值。缺optuna/pandas，但本轮入口不依赖二者，主控决定不安装无关包。非交互PATH未含Python，故命令全部使用绝对路径并显式传数据根。新端口ED25519指纹`SHA256:liZ36vNCsNcNdXeWs4f+g5ZIhPM/ZihP834vxs8Ulqc`，首次accept-new登记，无冲突。
 
@@ -51,7 +55,7 @@ ssh -p 55870 root@connect.westb.seetacloud.com
 cd /root/autodl-tmp/Timepix
 source /etc/network_turbo >/dev/null
 git -c http.version=HTTP/1.1 fetch origin codex/carbon-difference-55870
-git switch --track origin/codex/carbon-difference-55870
+git switch -c codex/carbon-difference-55870 FETCH_HEAD
 git status --short
 git rev-parse HEAD
 
@@ -73,6 +77,8 @@ cd /root/autodl-tmp/Timepix
 
 监督：读取queue_manifest、各ID.console.log、training_log、GPU与磁盘。不得在同一队列仍活跃时另启动实验员或手动train。进程级锁阻止重复执行。普通run错误记录后继续下一项；共同GPU/数据不可用或余量小于2GiB则报告阻碍，不擅自清理。外部中断恢复使用相同队列命令：跳过精确匹配且完整完成项，兼容checkpoint恢复原run的模型/优化器/scheduler/RNG/patience与累计轮数；无checkpoint半成品、重复目录或配置冲突必须主控审核，不自动删除从头训练。
 
+本次部署记录：旧克隆的`remote.origin.fetch`仅映射旧分支。指定fetch已成功取得`47dc2e0c4066a5d8d74858baf5e17f7f062a5025`，但`--track origin/新分支`因没有对应引用而失败。主控改为从已核验完整提交建立新本地分支，不修改全局fetch配置，不重新训练或改变协议。上述命令用FETCH_HEAD兼容此类窄克隆；分支已存在时不得再次照抄创建命令，先核对当前HEAD。
+
 ## 回传和分析
 
 本地仅`rclone copy`，不mirror删除。先确认远端退出、无训练残留，再按新组增量拉取两目录，完整包含best/last checkpoint；不重复拉原始数据或旧模型。
@@ -86,4 +92,4 @@ rclone copy autodl37655:/root/autodl-tmp/Timepix/outputs/carbon_difference_contr
 
 输出逐run六指标、七类Recall/F1与混淆、原验证预测及源帧键；按方法先逐run后mean±sample std(ddof1)，每个seed一票，n<2 std空。配对主比较B_s−A_s，报告均差/差值std/改善seed数；R42仅单seed历史参考，不伪造三条基线。高角度统计保留全部七类预测，不把子集重定义成四分类；平均混淆先逐run按真实类别归一化后求均值。不作bootstrap/显著性检验或集成。
 
-轻量包`carbon_difference_review.zip`不含数据或checkpoint，模型在独立run目录保留。最终是否有潜力须等六项及分析完成；theta不是信息贡献率，差分参数化不增加测量信息，不等于已证明簇内部物理梯度机制，也不外推V6。
+原轻量包`carbon_difference_review.zip`不含数据或checkpoint，模型在独立run目录保留。新增主控报告`final_review/experiment_report.md`与`carbon_difference_final_review.zip`包含独立复核和最终结论，不覆盖服务器原包。CDC三seed MAE0.572978±0.008116°，APDC0.582451±0.012409°；B−A配对+0.009473±0.018942°、B改善1/3。CDC均值略优，不宣称显著胜负；与R42只作历史单seed对照，并保留R42早停/曲线异常及APDC短暂验证尖峰。theta不是信息贡献率，差分参数化不增加测量信息，不等于已证明簇内部物理梯度机制，也不外推V6。本轮到此收口，后续须另行决策。

@@ -2,7 +2,7 @@
 
 ## 当前碳离子新阶段（2026-09-16）
 
-`carbon_difference_controls_20260915`：T7的CDC/混合APDC三训练seed顺序对照，当前本地适配完成、未训练。旧`carbon_angle_controls_20260909`四格已完成，只引用T7-ToT seed42作历史基线。新旧输出独立。新组目的、六项配置及完整命令见`CARBON_DIFFERENCE_RUNBOOK.md`，状态决策见`EXPERIMENT_LOG.md`，不自动开展V6或新搜索。
+`carbon_difference_controls_20260915`：T7的CDC/混合APDC各三训练seed对照，6/6训练、完整checkpoint回传和独立复核完成。CDC/APDC Val MAE分别0.572978±0.008116°和0.582451±0.012409°；CDC均值略优，APDC仅1/3配对seed改善。旧`carbon_angle_controls_20260909`四格已完成，只引用T7-ToT seed42作历史基线，不把历史单seed差值称为三seed基线改进。新旧输出独立。目的、配置及完整命令见`CARBON_DIFFERENCE_RUNBOOK.md`，最终决策见`EXPERIMENT_LOG.md`，报告在新组`final_review/experiment_report.md`；不自动开展V6或新搜索。
 
 新自动化实验系统支持 `experiment_group`，用于把不同研究问题的实验分开保存和汇总。
 

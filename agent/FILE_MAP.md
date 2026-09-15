@@ -8,6 +8,7 @@
 - `scripts/run_carbon_difference_queue.py`, `check_carbon_difference.py`, `summarize_carbon_difference.py`: sequential resumable queue, two new-model batch checks, validation-only seed aggregation and light package.
 - `tests/test_difference_convolution.py`, `test_difference_protocol.py`, `test_difference_queue.py`: targeted tests only; no full old-protocol regression.
 - `outputs/carbon_difference_controls_20260915/`: generated manifest/resolved configs/summaries/package; checkpoints remain under the same group in `outputs/experiments/`, not committed.
+- The same result group now includes `analysis_review/` (independent prediction, checkpoint and SHA verification), `final_review/experiment_report.md` (controller conclusions), and `carbon_difference_final_review.zip` (light delivery). Six runs and complete return are verified; original returned artifacts remain unchanged.
 
 ## Carbon Controls Deployment (2026-09-09)
 
