@@ -2,6 +2,8 @@
 
 ## T7稳定性观测（2026-09-16）
 
+后续碳离子实验选模/早停原则为Val Acc最大、实际角度MAE最小、Macro-F1最大、更早epoch；新配置必须显式覆盖历史公共配置的MAE优先，不回写历史产物。S42已完成并独立核验，原汇总stop_reason默认值造成的文字标签错误已在新summarizer修复（原CSV不覆盖），共47项本地定向测试。完整结果/限制见runbook及Astra交付包。
+
 `training.stability_diagnostics.enabled`默认关闭；启用时`trainer`接收可选StepAudit，读取scaled梯度并还原L2范数，借optimizer post-step hook记录真实更新，不unscale/clipping或修改梯度。runner保存逐epoch模型state_dict、BN摘要及验证指标。旧配置不改变更新逻辑。`scripts/diagnose_carbon_stability.py`用旧R42副本比较FP32/AMP与train-only BN统计重估，未训练且test不迭代；`run_carbon_stability.py`在主控诊断批准后只运行一个lr1e-4 seed42，锁防重复，半成品不自动恢复。新配置覆盖选模为Acc→MAE→F1，旧carbon公共配置仍MAE优先。详情见`CARBON_STABILITY_RUNBOOK.md`。
 
 ## 碳离子差分队列新增接口（2026-09-16）

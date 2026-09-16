@@ -2,7 +2,7 @@
 
 ## 状态与关键决策
 
-状态：本地45项定向测试及独立复核通过（另12项专项测试与9个模拟场景通过）；服务器只读预检通过，待Git部署后开始诊断。尚未诊断/新训练。
+状态：诊断、唯一S42训练、自动汇总、完整回传、Tesla独立分析均已完成。运行代码8bd2c3c；服务器/本地部署前45项测试与独立代码复核通过，交付时修正一处汇总文字标签后本地47项测试通过。诊断北京时间2026-09-16 07:03:32至07:04:00；训练流程07:23:23至07:56:31，均exit0。101/101文件、27个checkpoint的双端大小/SHA一致（1,406,274,838bytes）；初诊原件及分析39文件保持不变。未重跑、未test、未关闭服务器。
 实验员 Laplace 是唯一服务器执行者；主控本地修改、审核、Git同步，分析员在回传后独立复核。工作区 `D:/Project/.deploy-worktrees/Timepix-carbon-39951`，分支 `codex/carbon-stability-55870`；不动主工作区其他任务。
 
 1. 用户批准先诊断旧 R42，再对普通卷积减小学习率作小规模对照。
@@ -25,6 +25,8 @@
 
 ## S42 固定配置
 
+诊断经Tesla独立复算通过：旧best的AMP完整复现历史88.1321%；FP32为87.5343%。旧last原BN的AMP/FP32为66.9541%/64.7785%；模型副本train-only BN重估后为90.1607%/84.4081%，两精度1794/10204预测不一致，其中518条两精度top2 logit差均>1，不能全部解释为近tie/最终存储舍入。best重估反而变差（AMP75.6174%）。该现象不能简化成“BN校准解决问题”，必须保留精度与BN双重敏感性；不修改正式权重或新训练AMP设置。详细独立报告在本地`outputs/carbon_stability_20260916/analysis_initial_diag/report.md`。
+
 `configs/experiments/carbon_t7_stability_lr1e4_seed42.yaml` 继承原carbon公共配置，但不改公共文件。
 
 Carbon_T7，111 MeV/u碳离子、100μm Si、Timepix；历史目录`Proton_C`不改变粒子身份。七类10/20/30/45/50/60/70°，90°垂直。原帧分组split.seed42不变，train/val/test=82162/10204/10572。
@@ -37,7 +39,24 @@ ToT 50×50、stem2/1/0、resnet18_no_maxpool、无手工特征、无新裁剪/�
 
 不自动恢复或删除半成品，不自动重跑；进程锁由子进程继承，防止重复启动。完整完成项精确匹配配置才允许跳过。单run失败由实验员反馈主控。
 
-部署前审查修复：配置schema增加严格的诊断开关；诊断目录原子占用；训练配置在锁内以独占方式新建；汇总核验批准配置与实际metadata/唯一run一致；每epoch batch编号连续完整且总数吻合metadata；汇总再次计算历史源文件SHA。45项本地定向测试通过，真实CUDA诊断尚待执行。
+部署前审查修复：配置schema增加严格的诊断开关；诊断目录原子占用；训练配置在锁内以独占方式新建；汇总核验批准配置与实际metadata/唯一run一致；每epoch batch编号连续完整且总数吻合metadata；汇总再次计算历史源文件SHA。45项本地/服务器测试及真实CUDA运行均通过。
+
+## 已完成结果与限制
+
+| 正式结果 | lr | best/stop | Val Acc | Val MAE / ° | Val Macro-F1 | P90 / ° |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| R42历史MAE选模 | 3e-4 | 3/11 | 88.1321% | 1.115739 | 0.913131 | 5 |
+| S42新Acc选模 | 1e-4 | 25/25 | 93.2771% | 0.634065 | 0.951184 | 0 |
+
+S42 Val Balanced Acc=95.1391%、Weighted-F1=0.932747。正式Acc-first选epoch25，未触发patience8；MAE-first回溯也选25，但patience改善历史不同，不能据此抹去原则更改。后续碳离子新配置应显式采用Acc-first，历史公共配置留存MAE用于复现。
+
+完整64,200batch中实际64,171更新，29次跳步均对应非有限梯度和scale减半，与last的66个Adam状态step一致。每千batch为0.451713；旧14次更新差额为0.495610/千batch，缺逐batch证据，不能全部称为已观测非有限梯度。新旧相邻epoch Acc下降≥10pp分别1/24、3/10次，新S42的5→6由89.9647%降至69.9530%（-20.0118pp），仍有明显突降，不能称稳定性已解决。
+
+45↔50互混222→142、60↔70互混839→458；60°recall +20.8039pp，但70°recall -1.8106pp，70→60错误176→226。最终仍有686条错误，P90=0不是零错误。无test、n=1、无同期复现，且LR与选模规则同时改变，不作LR单因素因果或跨seed稳定性声明。新best尚未补做FP32/AMP对照，不能断言数值敏感性消失。
+
+已修正非阻断汇总标签：原`validation_comparison.csv`的S42 stop_reason沿用read_run默认`historical reuse`，实际metadata为`early_stopped=false/max_epochs=25`。原CSV/zip保留不覆盖，`analysis_final/metrics_comparison.csv`及报告给出正确派生标签；summarizer后续代码已修复并新增两个回归测试，不重训、不重生成原结果。
+
+本地独立报告：`outputs/carbon_stability_20260916/analysis_final/report_zh.md`；初诊完整复核：`analysis_initial_diag/report.md`。中文Astra交付说明及压缩包位于同组`astra_delivery_20260916/`和`astra_carbon_stability_20260916.zip`，原始服务器轻量包另保留。
 
 ## 完整服务器命令
 

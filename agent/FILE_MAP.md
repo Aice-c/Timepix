@@ -9,6 +9,7 @@
 - `scripts/diagnose_carbon_stability.py`, `run_carbon_stability.py`, `summarize_carbon_stability.py`: staged diagnostic/controller review/train workflow and Astra rule-change handoff.
 - `tests/test_stability_diagnostics.py`: small CPU behavior tests; no local detector-data training.
 - `outputs/carbon_stability_20260916/` and `outputs/experiments/carbon_stability_20260916/`: new artifacts only, not committed; old R42/CDC/APDC unchanged.
+- Both stages completed: `analysis_initial_diag/report.md`, `analysis_final/report_zh.md`, independent hash/metric/step ledgers, and `astra_delivery_20260916/` / `astra_carbon_stability_20260916.zip`. Original server exports retained; derived table corrects the S42 stop_reason label only.
 
 ## Carbon Difference Controls (2026-09-16)
 

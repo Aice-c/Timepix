@@ -1,8 +1,10 @@
 # Timepix 配置与命令索引
 
-## 碳离子T7稳定性（2026-09-16，本地适配，待诊断后训练）
+## 碳离子T7稳定性（2026-09-16，诊断/训练/完整回传/独立复核已完成）
 
 唯一新配置`carbon_t7_stability_lr1e4_seed42.yaml`：普通卷积lr1e-4、seed42；用户取消同期3e-4复现，并明确恢复**Val Acc→Val MAE→Val Macro-F1→更早epoch**。旧R42和CDC/APDC保持历史MAE口径，不改公共配置。先只读旧checkpoint诊断，经主控审核再训练；详细命令见`agent/CARBON_STABILITY_RUNBOOK.md`。
+
+S42已完成25/25，best25、无早停，Val Acc93.2771%/MAE0.634065°/Macro-F10.951184。101文件与27checkpoint回传及SHA复核完成。仍有一次20.0118pp骤降，不能声称稳定性解决。后续新碳离子配置显式使用Acc-first；下列为已执行命令记录，不需要重跑。原始summary停止原因文字标签保留，派生分析已纠正，详见runbook。
 
 ```bash
 cd /root/autodl-tmp/Timepix

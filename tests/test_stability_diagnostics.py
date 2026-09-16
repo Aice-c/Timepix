@@ -179,3 +179,25 @@ def test_step_inventory_rejects_missing_duplicate_or_unexpected_batches():
                      {1: [1, 2], 2: [1, 2], 3: [1]}]:
         with pytest.raises(ValueError, match='batch'):
             verify_step_inventory(observed, [1, 2], 2, 4)
+
+
+@pytest.mark.parametrize('early,reason', [(False, 'max_epochs'), (True, 'early_stopping')])
+def test_summary_does_not_label_fresh_run_as_historical(tmp_path, monkeypatch, early, reason):
+    import scripts.summarize_carbon_stability as s
+    (tmp_path / 'diagnostic').mkdir()
+    (tmp_path / 'training_status.json').write_text(json.dumps(dict(status='complete', run_dir='unused')))
+    (tmp_path / 'diagnostic/verification.json').write_text(json.dumps(dict(source_sha256={})))
+    current = dict(stop_reason='historical reuse')
+    def read(item, *args):
+        return (current if item['id'] == 'S42' else {}, {}, dict(metrics=dict(early_stopped=early)), [])
+    class StopAfterAnnotation(Exception):
+        pass
+    def stop(path):
+        raise StopAfterAnnotation
+    monkeypatch.setattr(s, 'OUTPUT', tmp_path)
+    monkeypatch.setattr(s, 'verify_historical_sources', lambda checks: True)
+    monkeypatch.setattr(s, 'read_run', read)
+    monkeypatch.setattr(s, 'local_run', stop)
+    with pytest.raises(StopAfterAnnotation):
+        s.summarize()
+    assert current['stop_reason'] == reason

@@ -58,6 +58,7 @@ def summarize():
     old_unchanged = verify_historical_sources(diagnostic['source_sha256'])
     baseline, _, _, keys = read_run(dict(id='R42', method='R', seed=42, status='historical', run_dir=str(BASELINE)))
     current, metrics, meta, _ = read_run(dict(id='S42', method='S', seed=42, status='complete', run_dir=status['run_dir']), keys)
+    current['stop_reason'] = 'early_stopping' if meta['metrics']['early_stopped'] else 'max_epochs'
     run = local_run(status['run_dir'])
     approved = load_experiment_config(CONFIG)
     approved['dataset']['root'] = meta['dataset']['root']
